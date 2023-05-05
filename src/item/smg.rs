@@ -122,7 +122,9 @@ pub fn fire(
         for child in children.iter() {
             commands.get_or_spawn(*child).insert(*target);
         }
-        item.cooldown += time.delta_seconds();
+        if item.cooldown < item.fire_rate {
+            item.cooldown += time.delta_seconds();
+        }
 
         if active.0 {
             if item.cooldown >= item.fire_rate {
@@ -131,13 +133,14 @@ pub fn fire(
                     shots_began.send_batch(children.iter().map(|e| ShotsBegan(*e)));
                 }
 
+                // need to use loops to account for frame lag
+                // (might need to fire multiple at once if it spiked)
                 while item.cooldown >= item.fire_rate {
                     item.cooldown -= item.fire_rate;
                     shot_events.send_batch(children.iter().map(|e| ShotEvent(*e)));
                 }
             }
         } else {
-            item.cooldown = item.cooldown.min(item.fire_rate);
             if item.firing {
                 item.firing = false;
                 shots_ended.send_batch(children.iter().map(|e| ShotsEnded(*e)));

@@ -10,8 +10,8 @@ pub mod smg;
 use std::marker::PhantomData;
 
 use bevy::{
-    ecs::query::ReadOnlyWorldQuery, pbr::CubemapVisibleEntities, prelude::*,
-    render::primitives::CubemapFrusta,
+    app::PluginGroupBuilder, ecs::query::ReadOnlyWorldQuery, pbr::CubemapVisibleEntities,
+    prelude::*, render::primitives::CubemapFrusta,
 };
 use bevy_asset_loader::{asset_collection::AssetCollection, prelude::LoadingStateAppExt};
 use bevy_rapier3d::prelude::*;
@@ -23,15 +23,24 @@ use crate::{
 
 use self::smg::SMGPlugin;
 
-pub struct WeaponsPlugin;
+pub struct ItemCommonPlugin;
 
-impl Plugin for WeaponsPlugin {
+impl Plugin for ItemCommonPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<MuzzleFlashEvent>()
             .add_collection_to_loading_state::<_, Sfx>(AssetLoadState::Loading)
             .add_collection_to_loading_state::<_, ProjectileAssets>(AssetLoadState::Loading)
-            .add_plugin(SMGPlugin)
             .add_systems((fade_muzzle_flashes, ignite_muzzle_flashes).chain());
+    }
+}
+
+pub struct ItemPlugins;
+
+impl PluginGroup for ItemPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add(ItemCommonPlugin)
+            .add(SMGPlugin)
     }
 }
 

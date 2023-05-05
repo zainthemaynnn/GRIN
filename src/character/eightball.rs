@@ -1,6 +1,6 @@
 use crate::{
     humanoid::{HumanoidAssets, HumanoidBuilder},
-    weapon::smg::SMG,
+    item::smg::SMG,
 };
 
 use super::{AvatarAssets, AvatarSimulationBundle, Character, CharacterSpawnEvent};

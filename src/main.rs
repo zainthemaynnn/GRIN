@@ -2,9 +2,9 @@ mod asset;
 mod character;
 mod collisions;
 mod humanoid;
+mod item;
 mod render;
 mod util;
-mod weapon;
 
 use std::{env, io};
 
@@ -18,8 +18,8 @@ use bevy_rapier3d::prelude::*;
 use character::CharacterPlugin;
 use humanoid::HumanoidPlugin;
 use image::io::Reader as ImageReader;
+use item::ItemPlugins;
 use render::{sketched::SketchMaterial, RenderFXPlugins};
-use weapon::WeaponsPlugin;
 
 use crate::asset::{AssetLoadState, DynamicAssetPlugin};
 
@@ -62,7 +62,7 @@ fn main() -> Result<(), io::Error> {
         .add_plugins(RenderFXPlugins)
         .add_plugin(HanabiPlugin)
         .add_plugin(HumanoidPlugin)
-        .add_plugin(WeaponsPlugin)
+        .add_plugins(ItemPlugins)
         .add_plugin(CharacterPlugin)
         .add_system(load_scene.in_schedule(OnEnter(AssetLoadState::Success)))
         .add_system(bevy::window::close_on_esc);

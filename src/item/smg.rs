@@ -52,9 +52,9 @@ impl Plugin for SMGPlugin {
     }
 }
 
-/// To add a firing target, insert a `weapon::Target` component.
+/// To add a firing target, insert a `item::Target` component.
 ///
-/// To fire, insert the `weapon::Active(true)` component.
+/// To fire, insert the `item::Active(true)` component.
 #[derive(Component)]
 pub struct SMG {
     firing: bool,

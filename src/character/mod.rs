@@ -9,8 +9,8 @@ use crate::humanoid::{DominantHand, Hand, HandOffsets, Head, HumanoidAssets, Hum
 use crate::render::sketched::SketchMaterial;
 
 use crate::collisions::CollisionGroupExt;
+use crate::item::Item;
 use crate::render::RenderLayer;
-use crate::weapon::Item;
 use bevy::prelude::*;
 use bevy::render::camera::Viewport;
 use bevy::render::view::RenderLayers;

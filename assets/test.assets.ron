@@ -1,0 +1,71 @@
+#![enable(implicit_some)]
+CustomDynamicAssetCollection({
+     "mesh.mbody": File (
+          path: "meshes/mbody.glb#Mesh0/Primitive0",
+     ),
+     "mesh.fbody": File (
+          path: "meshes/fbody.glb#Mesh0/Primitive0",
+     ),
+     "mesh.head": File (
+          path: "meshes/mbody.glb#Mesh1/Primitive0",
+     ),
+     "mesh.hand": File (
+          path: "meshes/hand.glb#Mesh0/Primitive0",
+     ),
+     "mesh.pizza_shades": File (
+          path: "meshes/pizza_shades.glb#Mesh0/Primitive0",
+     ),
+     "mesh.gun": UVSphereMesh ( // TODO: make like, an actual gun
+          radius: 0.15,
+     ),
+     "mesh.bullet_5cm": UVSphereMesh ( // TODO: switch to icospheres
+          radius: 0.05,
+     ),
+     "mesh.bullet_8cm": UVSphereMesh (
+          radius: 0.08,
+     ),
+     "mesh.bullet_10cm": UVSphereMesh (
+          radius: 0.10,
+     ),
+     "tex.skin": File (
+          path: "textures/generated/skin.png",
+     ),
+     "tex.dissolve": File (
+          path: "textures/noise.png",
+     ),
+     "mat.body_gray": StandardMaterial (
+          base_color: (0.5, 0.5, 0.5, 1.0),
+     ),
+     "mat.skin": StandardMaterial (
+          base_color_texture: "textures/generated/skin.png",
+     ),
+     "mat.shades": StandardMaterial (
+          base_color: (0.0, 0.0, 0.0, 1.0),
+          perceptual_roughness: 0.2,
+          reflectance: 1.0,
+     ),
+     "mat.bullet": StandardMaterial (
+          base_color: (0.0, 0.0, 0.0, 0.0),
+          emissive: (1.0, 0.65, 0.0, 0.0),
+     ),
+     "mat.gun": StandardMaterial (
+          base_color: (0.0, 0.0, 0.0, 0.0),
+     ),
+     "mat.smirk": StandardMaterial (
+          base_color_texture: "textures/generated/smirk.png",
+          layers: 2,
+     ),
+     "mat.meh": StandardMaterial (
+          base_color_texture: "textures/generated/meh.png",
+          layers: 2,
+     ),
+     "sfx.uzi": File (
+          path: "audio/uzi-1800-rpm.ogg"
+     ),
+     "shader.pbr_bindings": File (
+          path: "shaders/pbr_bindings.wgsl"
+     ),
+     "shader.pbr_types": File (
+          path: "shaders/pbr_types.wgsl"
+     ),
+})

@@ -87,10 +87,11 @@ impl<I: GenericImage> TextureArrayBuilder<I> {
 /// // [3] = [eyes/0, mouth/2]
 /// ```
 macro_rules! texture_array {
-    [$indices:expr, $( $path:literal ),*] => {
+    [$indices:expr, $( $path:literal ),* $(,)?] => {
         {
+            use crate::util::texture::{TextureArrayBuilder, TextureBuilder};
             use std::path::Path;
-            use image::ImageBuffer;
+            use image::{imageops, ImageBuffer};
 
             let mut raw_textures: Vec<[ImageBuffer<_, _>; $indices]> = Vec::new();
             $(
@@ -129,7 +130,7 @@ macro_rules! texture_array {
                 }
                 tex_array_builder.push(tex_builder.build());
             }
-            tex_array_builder.build()
+            imageops::flip_horizontal(&tex_array_builder.build())
         }
     };
 }

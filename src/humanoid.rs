@@ -30,8 +30,12 @@ pub struct HumanoidAssets {
 }
 
 /// Root object for standard player character.
-#[derive(Component, Default)]
-pub struct Humanoid;
+#[derive(Component)]
+pub struct Humanoid {
+    pub head: Entity,
+    pub lhand: Entity,
+    pub rhand: Entity,
+}
 
 /// Optional head for standard player character.
 #[derive(Component, Default)]
@@ -93,11 +97,11 @@ pub struct HumanoidBundle<M: Material> {
     pub computed_visibility: ComputedVisibility,
 }
 
-impl<M: Material> Default for HumanoidBundle<M> {
-    fn default() -> Self {
+impl<M: Material> From<Humanoid> for HumanoidBundle<M> {
+    fn from(humanoid: Humanoid) -> Self {
         Self {
+            humanoid,
             rigid_body: RigidBody::KinematicPositionBased,
-            humanoid: Humanoid::default(),
             controller: KinematicCharacterController::default(),
             velocity: Velocity::default(),
             transform: Transform::default(),
@@ -213,7 +217,11 @@ impl<'a> HumanoidBuilder<'a> {
             .spawn(HandBundle::<SketchMaterial>::from(HandOffsets::right()))
             .id();
         let body = commands
-            .spawn(HumanoidBundle::<SketchMaterial>::default())
+            .spawn(HumanoidBundle::<SketchMaterial>::from(Humanoid {
+                head,
+                lhand,
+                rhand,
+            }))
             .push_children(&[head, lhand, rhand])
             .id();
 

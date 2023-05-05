@@ -16,11 +16,9 @@ use bevy::{
 use bevy_hanabi::HanabiPlugin;
 use bevy_rapier3d::prelude::*;
 use character::CharacterPlugin;
-use humanoid::*;
+use humanoid::HumanoidPlugin;
 use image::io::Reader as ImageReader;
-use render::sketched::{
-    GlobalMeshOutline, OutlineBundle, OutlineVolume, SketchEffectPlugin, SketchMaterial,
-};
+use render::{sketched::SketchMaterial, RenderFXPlugins};
 use weapon::WeaponsPlugin;
 
 use crate::asset::{AssetLoadState, DynamicAssetPlugin};
@@ -61,28 +59,8 @@ fn main() -> Result<(), io::Error> {
         .add_plugin(DynamicAssetPlugin)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugin(FrameTimeDiagnosticsPlugin)
+        .add_plugins(RenderFXPlugins)
         .add_plugin(HanabiPlugin)
-        .add_plugin(SketchEffectPlugin {
-            outline: GlobalMeshOutline {
-                standard: OutlineBundle {
-                    outline: OutlineVolume {
-                        colour: Color::BLACK,
-                        width: 8.0,
-                        visible: true,
-                    },
-                    ..Default::default()
-                },
-                mini: OutlineBundle {
-                    outline: OutlineVolume {
-                        colour: Color::BLACK,
-                        width: 4.0,
-                        visible: true,
-                    },
-                    ..Default::default()
-                },
-            },
-            autofill_sketch_effect: true,
-        })
         .add_plugin(HumanoidPlugin)
         .add_plugin(WeaponsPlugin)
         .add_plugin(CharacterPlugin)

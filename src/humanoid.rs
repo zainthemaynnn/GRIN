@@ -35,6 +35,16 @@ pub struct Humanoid {
     pub head: Entity,
     pub lhand: Entity,
     pub rhand: Entity,
+    pub dominant_hand_type: HumanoidHandType,
+}
+
+impl Humanoid {
+    pub fn dominant_hand(&self) -> Entity {
+        match &self.dominant_hand_type {
+            HumanoidHandType::Left => self.lhand,
+            HumanoidHandType::Right => self.rhand,
+        }
+    }
 }
 
 /// Optional head for standard player character.
@@ -221,6 +231,7 @@ impl<'a> HumanoidBuilder<'a> {
                 head,
                 lhand,
                 rhand,
+                dominant_hand_type: HumanoidHandType::Right,
             }))
             .push_children(&[head, lhand, rhand])
             .id();

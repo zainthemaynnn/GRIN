@@ -32,9 +32,9 @@ pub fn spawn(
     mut weapon_events: EventWriter<ItemSpawnEvent>,
 ) {
     for _ in events.iter() {
+        let mut humanoid = HumanoidBuilder::new_player(&mut commands, &hum_assets, &meshes);
         let shades = commands
             .spawn((
-                EightBall::default(),
                 MaterialMeshBundle {
                     mesh: assets.pizza_shades.clone(),
                     material: assets.matte_shades.clone(),
@@ -44,13 +44,15 @@ pub fn spawn(
                 AvatarSimulationBundle::default(),
             ))
             .id();
-        let mut humanoid = HumanoidBuilder::new_player(&mut commands, &hum_assets, &meshes);
         commands
             .get_or_spawn(humanoid.head)
             .push_children(&[shades]);
+        commands
+            .get_or_spawn(humanoid.body)
+            .insert(EightBall::default());
         humanoid
             .with_face(assets.face_smirk.clone())
             .build(&mut commands);
-        weapon_events.send(ItemSpawnEvent::new(humanoid.dominant_entity()));
+        weapon_events.send(ItemSpawnEvent::new(humanoid.body));
     }
 }

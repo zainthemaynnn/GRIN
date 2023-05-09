@@ -1,10 +1,11 @@
 use crate::{
-    asset::AssetLoadState, character::Player, render::sketched::NoOutline, util::vectors::Vec3Ext,
+    asset::AssetLoadState, render::sketched::NoOutline, util::vectors::Vec3Ext, humanoid::Humanoid,
 };
 
 use super::{
-    activate_on_lmb, insert_local_mouse_target, Bullet, Item, ItemSpawnEvent, Muzzle, MuzzleBundle,
-    MuzzleFlashEvent, ProjectileAssets, ProjectileBundle, Sfx, WeaponBundle,
+    activate_on_lmb, insert_local_mouse_target, Bullet, Item, ItemEquipEvent, ItemPlugin,
+    ItemSpawnEvent, Muzzle, MuzzleBundle, MuzzleFlashEvent, ProjectileAssets, ProjectileBundle,
+    Sfx, WeaponBundle,
 };
 pub use super::{Active, Target};
 use bevy::prelude::*;
@@ -23,10 +24,10 @@ pub enum SMGSystemSet {
 
 impl Plugin for SMGPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<ItemSpawnEvent<SMG>>()
-            .add_event::<ShotEvent>()
+        app.add_event::<ShotEvent>()
             .add_event::<ShotsBegan>()
             .add_event::<ShotsEnded>()
+            .add_plugin(ItemPlugin::<SMG>::default())
             .configure_sets(
                 (
                     SMGSystemSet::Deploy.run_if(in_state(AssetLoadState::Success)),
@@ -74,18 +75,25 @@ impl Default for SMG {
 
 impl Item for SMG {
     type SpawnEvent = ItemSpawnEvent<SMG>;
+    type EquipEvent = ItemEquipEvent<SMG>;
 }
 
 pub fn spawn(
     mut commands: Commands,
     assets: Res<ProjectileAssets>,
-    mut events: EventReader<<SMG as Item>::SpawnEvent>,
+    mut spawn_events: EventReader<ItemSpawnEvent<SMG>>,
+    mut equip_events: EventWriter<ItemEquipEvent<SMG>>,
+    humanoid_query: Query<&Humanoid>,
 ) {
-    for event in events.iter() {
-        commands
+    for ItemSpawnEvent { parent_entity, .. } in spawn_events.iter() {
+        let Ok(humanoid) = humanoid_query.get(*parent_entity) else {
+            println!("Only `Humanoid`s are supported.");
+            continue;
+        };
+
+        let item_entity = commands
             .spawn((
                 SMG::default(),
-                Player,
                 WeaponBundle {
                     material_mesh: MaterialMeshBundle {
                         mesh: assets.gun.clone(),
@@ -102,7 +110,10 @@ pub fn spawn(
                     ..Default::default()
                 });
             })
-            .set_parent(event.parent_entity);
+            .set_parent(humanoid.dominant_hand())
+            .id();
+
+        equip_events.send(ItemEquipEvent::<SMG>::new(*parent_entity, item_entity));
     }
 }
 

@@ -9,7 +9,7 @@ use crate::humanoid::{DominantHand, Hand, HandOffsets, Head, HumanoidAssets, Hum
 use crate::render::sketched::SketchMaterial;
 
 use crate::collisions::CollisionGroupExt;
-use crate::item::Item;
+use crate::item::{Item, Equipped};
 use crate::render::RenderLayer;
 use bevy::prelude::*;
 use bevy::render::camera::Viewport;
@@ -25,21 +25,25 @@ pub struct CharacterPlugin;
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<AvatarLoadState>()
-        .add_plugin(PlayerCameraPlugin)
-        .add_plugin(EightBallPlugin)
+            .add_plugin(PlayerCameraPlugin)
+            .add_plugin(EightBallPlugin)
             .add_collection_to_loading_state::<_, AvatarAssets>(AssetLoadState::Loading)
             .add_systems(
                 (
                     <EightBall as Character>::spawn,
                     eightball::spawn,
                     apply_system_buffers,
-                    |mut next_state: ResMut<NextState<AvatarLoadState>>| next_state.set(AvatarLoadState::Loaded),
+                    |mut next_state: ResMut<NextState<AvatarLoadState>>| {
+                        next_state.set(AvatarLoadState::Loaded)
+                    },
                 )
                     .chain()
                     .in_schedule(OnEnter(AssetLoadState::Success)),
             )
             .add_systems((insert_status_viewport,).in_schedule(OnEnter(AvatarLoadState::Loaded)))
-            .add_systems((mouse_in, char_update).in_set(OnUpdate(AvatarLoadState::Loaded)));
+            .add_systems(
+                (mouse_in, char_update).in_set(OnUpdate(AvatarLoadState::Loaded)),
+            );
     }
 }
 
@@ -93,6 +97,7 @@ impl<'a> HumanoidBuilder<'a> {
                 PlayerCharacter,
                 RigidBody::KinematicPositionBased,
                 KinematicCharacterController::default(),
+                Equipped::default(),
             ))
             .with_children(|parent| {
                 parent.spawn((

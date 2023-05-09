@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 
 use bevy::{
     app::PluginGroupBuilder, pbr::CubemapVisibleEntities,
-    prelude::*, render::primitives::CubemapFrusta,
+    prelude::*, render::primitives::CubemapFrusta, utils::HashSet,
 };
 use bevy_asset_loader::{asset_collection::AssetCollection, prelude::LoadingStateAppExt};
 use bevy_rapier3d::prelude::*;
@@ -31,6 +31,26 @@ impl Plugin for ItemCommonPlugin {
             .add_collection_to_loading_state::<_, Sfx>(AssetLoadState::Loading)
             .add_collection_to_loading_state::<_, ProjectileAssets>(AssetLoadState::Loading)
             .add_systems((fade_muzzle_flashes, ignite_muzzle_flashes).chain());
+    }
+}
+
+pub struct ItemPlugin<I: Send + Sync + 'static> {
+    phantom_data: PhantomData<I>,
+}
+
+impl<I: Send + Sync + 'static> Default for ItemPlugin<I> {
+    fn default() -> Self {
+        Self {
+            phantom_data: PhantomData::default(),
+        }
+    }
+}
+
+impl<I: Send + Sync + 'static> Plugin for ItemPlugin<I> {
+    fn build(&self, app: &mut App) {
+        app.add_event::<ItemSpawnEvent<I>>()
+            .add_event::<ItemEquipEvent<I>>()
+            .add_system(equip_items::<I>);
     }
 }
 
@@ -75,7 +95,6 @@ struct ProjectileBundle {
     sensor: Sensor,
     active_events: ActiveEvents,
     gravity: GravityScale,
-    // let's not outline these. looks silly.
 }
 
 impl Default for ProjectileBundle {
@@ -114,6 +133,22 @@ impl<M> ItemSpawnEvent<M> {
     }
 }
 
+pub struct ItemEquipEvent<M> {
+    pub parent_entity: Entity,
+    pub item_entity: Entity,
+    pub phantom_data: PhantomData<M>,
+}
+
+impl<M> ItemEquipEvent<M> {
+    pub fn new(parent_entity: Entity, item_entity: Entity) -> Self {
+        Self {
+            parent_entity,
+            item_entity,
+            phantom_data: PhantomData::default(),
+        }
+    }
+}
+
 /// Commonly used for AI or weapon targetting.
 #[derive(Component, Debug, Copy, Clone)]
 pub struct Target {
@@ -144,7 +179,9 @@ pub struct Active(pub bool);
 
 pub trait Item: Component + Sized {
     // Sending this event should spawn the item.
-    type SpawnEvent;
+    type SpawnEvent: Event;
+    // Sending this event should equip the item.
+    type EquipEvent: Event;
 }
 
 #[derive(Component, Default)]
@@ -165,7 +202,7 @@ impl Default for MuzzleFlash {
         Self {
             color: Color::ORANGE,
             intensity: 800.0,
-            fade_time: 0.2,
+            fade_time: 0.1,
         }
     }
 }
@@ -216,6 +253,39 @@ fn ignite_muzzle_flashes(
         };
         point_light.color = flash.color;
         point_light.intensity = flash.intensity;
+    }
+}
+
+/// Keeps references to currently bound items.
+#[derive(Component, Default)]
+pub struct Equipped(pub HashSet<Entity>);
+
+/// This system updates the `Equipped` component when sending `ItemEquippedEvent`s.
+/// 
+/// Additionally, if the parent entity has the `Player` component,
+/// it is propagated to the item.
+pub fn equip_items<M: Send + Sync + 'static>(
+    mut commands: Commands,
+    mut events: EventReader<ItemEquipEvent<M>>,
+    player_query: Query<(), With<Player>>,
+    mut equipped_query: Query<&mut Equipped>,
+) {
+    for ItemEquipEvent {
+        parent_entity,
+        item_entity,
+        ..
+    } in events.iter()
+    {
+        match equipped_query.get_mut(*parent_entity) {
+            // can't destructure `Mut` >:( >:(
+            Ok(mut equipped) => {
+                equipped.0.insert(*item_entity);
+                if player_query.get(*parent_entity).is_ok() {
+                    commands.get_or_spawn(*item_entity).insert(Player);
+                }
+            }
+            Err(_) => println!("Equipped item to entity without `Equipped`."),
+        }
     }
 }
 

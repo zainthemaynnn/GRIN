@@ -1,6 +1,6 @@
 use crate::{
     humanoid::{HumanoidAssets, HumanoidBuilder},
-    item::smg::SMG,
+    item::{smg::SMG, Item},
 };
 
 use super::{AvatarAssets, AvatarSimulationBundle, Character, CharacterSpawnEvent};
@@ -21,12 +21,15 @@ impl Character for EightBall {
     type StartItem = SMG;
 }
 
+type ItemSpawnEvent = <<EightBall as Character>::StartItem as Item>::SpawnEvent;
+
 pub fn spawn(
     mut commands: Commands,
     hum_assets: Res<HumanoidAssets>,
     meshes: Res<Assets<Mesh>>,
     assets: Res<AvatarAssets>,
     mut events: EventReader<CharacterSpawnEvent<EightBall>>,
+    mut weapon_events: EventWriter<ItemSpawnEvent>,
 ) {
     for _ in events.iter() {
         let shades = commands
@@ -48,5 +51,6 @@ pub fn spawn(
         humanoid
             .with_face(assets.face_smirk.clone())
             .build(&mut commands);
+        weapon_events.send(ItemSpawnEvent::new(humanoid.rhand));
     }
 }

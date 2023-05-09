@@ -72,12 +72,14 @@ impl Default for SMG {
     }
 }
 
-impl Item for SMG {}
+impl Item for SMG {
+    type SpawnEvent = ItemSpawnEvent<SMG>;
+}
 
 pub fn spawn(
     mut commands: Commands,
     assets: Res<ProjectileAssets>,
-    mut events: EventReader<ItemSpawnEvent<SMG>>,
+    mut events: EventReader<<SMG as Item>::SpawnEvent>,
 ) {
     for event in events.iter() {
         commands

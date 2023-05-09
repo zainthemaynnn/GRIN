@@ -10,7 +10,7 @@ pub mod smg;
 use std::marker::PhantomData;
 
 use bevy::{
-    app::PluginGroupBuilder, ecs::query::ReadOnlyWorldQuery, pbr::CubemapVisibleEntities,
+    app::PluginGroupBuilder, pbr::CubemapVisibleEntities,
     prelude::*, render::primitives::CubemapFrusta,
 };
 use bevy_asset_loader::{asset_collection::AssetCollection, prelude::LoadingStateAppExt};
@@ -105,6 +105,16 @@ pub struct ItemSpawnEvent<M> {
     pub phantom_data: PhantomData<M>,
 }
 
+impl<M> ItemSpawnEvent<M> {
+    pub fn new(parent_entity: Entity) -> Self {
+        Self {
+            parent_entity,
+            phantom_data: PhantomData::default(),
+        }
+    }
+}
+
+/// Commonly used for AI or weapon targetting.
 #[derive(Component, Debug, Copy, Clone)]
 pub struct Target {
     pub transform: Transform,
@@ -133,19 +143,8 @@ impl Target {
 pub struct Active(pub bool);
 
 pub trait Item: Component + Sized {
-    /// A system that by default, sends an `ItemSpawnEvent<Item>` for other systems to handle.
-    /// Use the type parameter to query instances to parent this to.
-    fn spawn<F: ReadOnlyWorldQuery>(
-        mut events: EventWriter<ItemSpawnEvent<Self>>,
-        query: Query<Entity, F>,
-    ) {
-        for parent_entity in query.iter() {
-            events.send(ItemSpawnEvent {
-                parent_entity,
-                phantom_data: PhantomData::default(),
-            });
-        }
-    }
+    // Sending this event should spawn the item.
+    type SpawnEvent;
 }
 
 #[derive(Component, Default)]

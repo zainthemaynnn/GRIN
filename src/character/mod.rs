@@ -33,8 +33,6 @@ impl Plugin for CharacterPlugin {
                     <EightBall as Character>::spawn,
                     eightball::spawn,
                     apply_system_buffers,
-                    <EightBall as Character>::StartItem::spawn::<(With<Player>, With<DominantHand>)>,
-                    apply_system_buffers,
                     |mut next_state: ResMut<NextState<AvatarLoadState>>| next_state.set(AvatarLoadState::Loaded),
                 )
                     .chain()

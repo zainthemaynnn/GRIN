@@ -51,6 +51,6 @@ pub fn spawn(
         humanoid
             .with_face(assets.face_smirk.clone())
             .build(&mut commands);
-        weapon_events.send(ItemSpawnEvent::new(humanoid.rhand));
+        weapon_events.send(ItemSpawnEvent::new(humanoid.dominant_entity()));
     }
 }

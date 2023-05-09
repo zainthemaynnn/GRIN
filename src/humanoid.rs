@@ -319,11 +319,15 @@ impl<'a> HumanoidBuilder<'a> {
             collider!(self.meshes, &mesh_HANDle),
         ));
 
-        let dominant = match &self.dominant {
+        commands.get_or_spawn(self.dominant_entity()).insert(DominantHand);
+    }
+
+    /// Returns the dominant hand for this humanoid.
+    pub fn dominant_entity(&self) -> Entity {
+        match &self.dominant {
             HumanoidHandType::Left => self.lhand,
             HumanoidHandType::Right => self.rhand,
-        };
-        commands.get_or_spawn(dominant).insert(DominantHand);
+        }
     }
 }
 

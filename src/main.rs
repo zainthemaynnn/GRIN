@@ -1,3 +1,4 @@
+mod ai;
 mod asset;
 mod character;
 mod collisions;
@@ -8,6 +9,7 @@ mod util;
 
 use std::{env, io};
 
+use ai::{dummy::Dummy, AIPlugins};
 use asset::FallbackImage;
 use bevy::{
     diagnostic::FrameTimeDiagnosticsPlugin, prelude::*, render::render_resource::Extent3d,
@@ -64,7 +66,8 @@ fn main() -> Result<(), io::Error> {
         .add_plugin(HumanoidPlugin)
         .add_plugins(ItemPlugins)
         .add_plugin(CharacterPlugin)
-        .add_system(load_scene.in_schedule(OnEnter(AssetLoadState::Success)))
+        .add_plugins(AIPlugins)
+        .add_systems((load_scene, Dummy::spawn).in_schedule(OnEnter(AssetLoadState::Success)))
         // ensure that all humanoids exist before potentially adding items directly to them
         .add_system(
             apply_system_buffers

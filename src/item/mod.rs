@@ -10,18 +10,27 @@ pub mod smg;
 use std::marker::PhantomData;
 
 use bevy::{
-    app::PluginGroupBuilder, pbr::CubemapVisibleEntities,
-    prelude::*, render::primitives::CubemapFrusta, utils::HashSet,
+    app::PluginGroupBuilder, pbr::CubemapVisibleEntities, prelude::*,
+    render::primitives::CubemapFrusta, utils::HashSet,
 };
 use bevy_asset_loader::{asset_collection::AssetCollection, prelude::LoadingStateAppExt};
 use bevy_rapier3d::prelude::*;
 
 use crate::{
-    asset::AssetLoadState, character::camera::LookInfo, character::Player,
-    collisions::CollisionGroupExt, render::sketched::SketchMaterial,
+    asset::AssetLoadState,
+    character::camera::LookInfo,
+    character::Player,
+    collisions::CollisionGroupExt,
+    humanoid::{DominantHand, Hand, HandOffsets},
+    render::sketched::SketchMaterial,
 };
 
 use self::smg::SMGPlugin;
+
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub enum ItemSet {
+    Spawn,
+}
 
 pub struct ItemCommonPlugin;
 
@@ -30,6 +39,7 @@ impl Plugin for ItemCommonPlugin {
         app.add_event::<MuzzleFlashEvent>()
             .add_collection_to_loading_state::<_, Sfx>(AssetLoadState::Loading)
             .add_collection_to_loading_state::<_, ProjectileAssets>(AssetLoadState::Loading)
+            .configure_set(ItemSet::Spawn.run_if(in_state(AssetLoadState::Success)))
             .add_systems((fade_muzzle_flashes, ignite_muzzle_flashes).chain());
     }
 }
@@ -174,9 +184,6 @@ impl Target {
     }
 }
 
-#[derive(Component, Debug, Copy, Clone, Default)]
-pub struct Active(pub bool);
-
 pub trait Item: Component + Sized {
     // Sending this event should spawn the item.
     type SpawnEvent: Event;
@@ -202,7 +209,7 @@ impl Default for MuzzleFlash {
         Self {
             color: Color::ORANGE,
             intensity: 800.0,
-            fade_time: 0.1,
+            fade_time: 0.08,
         }
     }
 }
@@ -229,8 +236,6 @@ struct MuzzleBundle {
 struct WeaponBundle {
     weapon: Weapon,
     material_mesh: MaterialMeshBundle<SketchMaterial>,
-    target: Target,
-    active: Active,
 }
 
 pub struct MuzzleFlashEvent(pub Entity);
@@ -261,7 +266,7 @@ fn ignite_muzzle_flashes(
 pub struct Equipped(pub HashSet<Entity>);
 
 /// This system updates the `Equipped` component when sending `ItemEquippedEvent`s.
-/// 
+///
 /// Additionally, if the parent entity has the `Player` component,
 /// it is propagated to the item.
 pub fn equip_items<M: Send + Sync + 'static>(
@@ -291,7 +296,7 @@ pub fn equip_items<M: Send + Sync + 'static>(
 
 /// On `(With<Player>, With<T>)`,
 /// sets the `Target` component to the user's mouse position.
-pub fn insert_local_mouse_target<T: Component>(
+pub fn set_local_mouse_target<T: Component>(
     mut item_query: Query<(&mut Target, &GlobalTransform), (With<Player>, With<T>)>,
     look_info: Res<LookInfo>,
 ) {
@@ -301,22 +306,76 @@ pub fn insert_local_mouse_target<T: Component>(
 }
 
 /// On `(With<Player>, With<T>)`,
-/// - If LMB is pressed, sets the `Active(true)` component.
-/// - If LMB is not pressed, sets the `Active(false)` component.
-pub fn activate_on_lmb<T: Component>(
-    mut query: Query<&mut Active, (With<Player>, With<T>)>,
+/// - If `mouse_button` is pressed, sets `C::from(true)`.
+/// - If `mouse_button` is not pressed, sets `C::from(false)`.
+pub fn set_on_mouse_button<T: Component, C: Component + From<bool>>(
+    mouse_button: MouseButton,
+    mut query: Query<&mut C, (With<Player>, With<T>)>,
     mouse_buttons: Res<Input<MouseButton>>,
 ) {
-    if mouse_buttons.pressed(MouseButton::Left) {
-        for mut active in query.iter_mut() {
-            *active = Active(true);
+    if mouse_buttons.pressed(mouse_button) {
+        for mut cmpt in query.iter_mut() {
+            *cmpt = C::from(true);
         }
     } else {
-        for mut active in query.iter_mut() {
-            *active = Active(false);
+        for mut cmpt in query.iter_mut() {
+            *cmpt = C::from(false);
         }
     }
 }
 
-#[derive(Resource)]
-struct Bag {}
+/// On `(With<Player>, With<T>)`,
+/// - If LMB is pressed, sets `C::from(true)`.
+/// - If LMB is not pressed, sets `C::from(false)`.
+pub fn set_on_lmb<T: Component, C: Component + From<bool>>(
+    query: Query<&mut C, (With<Player>, With<T>)>,
+    mouse_buttons: Res<Input<MouseButton>>,
+) {
+    set_on_mouse_button(MouseButton::Left, query, mouse_buttons);
+}
+
+/// On `(With<Player>, With<T>)`,
+/// - If RMB is pressed, sets `C::from(true)`.
+/// - If RMB is not pressed, sets `C::from(false)`.
+pub fn set_on_rmb<T: Component, C: Component + From<bool>>(
+    query: Query<&mut C, (With<Player>, With<T>)>,
+    mouse_buttons: Res<Input<MouseButton>>,
+) {
+    set_on_mouse_button(MouseButton::Right, query, mouse_buttons);
+}
+
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Default)]
+pub struct Active(pub bool);
+
+impl From<bool> for Active {
+    fn from(value: bool) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Default)]
+pub struct Aiming(pub bool);
+
+impl From<bool> for Aiming {
+    fn from(value: bool) -> Self {
+        Self(value)
+    }
+}
+
+pub fn aim_single<T: Component>(
+    item_query: Query<(&Parent, &Aiming), (With<T>, Changed<Aiming>)>,
+    mut hands_query: Query<(&mut Hand, &HandOffsets), With<DominantHand>>,
+) {
+    for (parent, Aiming(aiming)) in item_query.iter() {
+        let Ok((mut hand, offsets)) = hands_query.get_mut(parent.get()) else {
+            println!("`aim_single` requires the item to be parented to a (`humanoid::Hand, humanoid::HandOffsets`).");
+            return;
+        };
+
+        if *aiming {
+            hand.offset = offsets.aim_single;
+        } else {
+            hand.offset = offsets.rest;
+        }
+    }
+}

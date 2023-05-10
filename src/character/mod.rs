@@ -5,11 +5,11 @@ use std::array::IntoIter;
 use std::marker::PhantomData;
 
 use crate::asset::AssetLoadState;
-use crate::humanoid::{DominantHand, Hand, HandOffsets, Head, HumanoidAssets, HumanoidBuilder};
+use crate::humanoid::{Head, HumanoidAssets, HumanoidBuilder};
 use crate::render::sketched::SketchMaterial;
 
 use crate::collisions::CollisionGroupExt;
-use crate::item::{Item, Equipped};
+use crate::item::{Equipped, Item};
 use crate::render::RenderLayer;
 use bevy::prelude::*;
 use bevy::render::camera::Viewport;
@@ -22,28 +22,40 @@ use self::eightball::{EightBall, EightBallPlugin};
 
 pub struct CharacterPlugin;
 
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub enum CharacterSet {
+    Spawn,
+}
+
+fn set_avatar_load_state(state: AvatarLoadState) -> impl Fn(ResMut<NextState<AvatarLoadState>>) {
+    move |mut next_state| {
+        next_state.set(state);
+    }
+}
+
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<AvatarLoadState>()
             .add_plugin(PlayerCameraPlugin)
             .add_plugin(EightBallPlugin)
             .add_collection_to_loading_state::<_, AvatarAssets>(AssetLoadState::Loading)
+            .configure_set(CharacterSet::Spawn.run_if(in_state(AssetLoadState::Success)))
+            .add_system(
+                <EightBall as Character>::spawn
+                    .before(CharacterSet::Spawn)
+                    .in_schedule(OnEnter(AssetLoadState::Success)),
+            )
             .add_systems(
                 (
-                    <EightBall as Character>::spawn,
-                    eightball::spawn,
                     apply_system_buffers,
-                    |mut next_state: ResMut<NextState<AvatarLoadState>>| {
-                        next_state.set(AvatarLoadState::Loaded)
-                    },
+                    set_avatar_load_state(AvatarLoadState::Loaded),
                 )
                     .chain()
+                    .after(CharacterSet::Spawn)
                     .in_schedule(OnEnter(AssetLoadState::Success)),
             )
             .add_systems((insert_status_viewport,).in_schedule(OnEnter(AvatarLoadState::Loaded)))
-            .add_systems(
-                (mouse_in, char_update).in_set(OnUpdate(AvatarLoadState::Loaded)),
-            );
+            .add_system(char_update.in_set(OnUpdate(AvatarLoadState::Loaded)));
     }
 }
 
@@ -51,14 +63,20 @@ pub struct CharacterSpawnEvent<C: Character> {
     phantom_data: PhantomData<C>,
 }
 
+impl<C: Character> Default for CharacterSpawnEvent<C> {
+    fn default() -> Self {
+        CharacterSpawnEvent {
+            phantom_data: PhantomData::default(),
+        }
+    }
+}
+
 pub trait Character: Component + Sized {
     type StartItem: Item;
 
     /// A system that by default, sends a `CharacterSpawnEvent<Character>` for other systems to handle.
     fn spawn(mut events: EventWriter<CharacterSpawnEvent<Self>>) {
-        events.send(CharacterSpawnEvent {
-            phantom_data: PhantomData::default(),
-        });
+        events.send_default();
     }
 }
 
@@ -181,19 +199,6 @@ fn insert_status_viewport(
         .insert(ViewportCamera)
         .insert(RenderLayers::layer(RenderLayer::AVATAR as u8))
         .set_parent(body.single());
-}
-
-fn mouse_in(
-    mouse_buttons: Res<Input<MouseButton>>,
-    mut hands: Query<(&mut Hand, &HandOffsets), (With<Player>, With<DominantHand>)>,
-) {
-    for (mut hand, offsets) in hands.iter_mut() {
-        if mouse_buttons.pressed(MouseButton::Right) {
-            hand.offset = offsets.aim_single;
-        } else {
-            hand.offset = offsets.rest;
-        }
-    }
 }
 
 fn char_update(

@@ -1,11 +1,11 @@
 use crate::{
-    asset::AssetLoadState, render::sketched::NoOutline, util::vectors::Vec3Ext, humanoid::Humanoid,
+    asset::AssetLoadState, humanoid::Humanoid, render::sketched::NoOutline, util::vectors::Vec3Ext,
 };
 
 use super::{
-    activate_on_lmb, insert_local_mouse_target, Bullet, Item, ItemEquipEvent, ItemPlugin,
-    ItemSpawnEvent, Muzzle, MuzzleBundle, MuzzleFlashEvent, ProjectileAssets, ProjectileBundle,
-    Sfx, WeaponBundle,
+    aim_single, set_local_mouse_target, set_on_lmb, set_on_rmb, Aiming, Bullet, Item,
+    ItemEquipEvent, ItemPlugin, ItemSet, ItemSpawnEvent, Muzzle, MuzzleBundle, MuzzleFlashEvent,
+    ProjectileAssets, ProjectileBundle, Sfx, WeaponBundle,
 };
 pub use super::{Active, Target};
 use bevy::prelude::*;
@@ -16,7 +16,6 @@ pub struct SMGPlugin;
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum SMGSystemSet {
-    Deploy,
     Input,
     Fire,
     Effects,
@@ -30,25 +29,25 @@ impl Plugin for SMGPlugin {
             .add_plugin(ItemPlugin::<SMG>::default())
             .configure_sets(
                 (
-                    SMGSystemSet::Deploy.run_if(in_state(AssetLoadState::Success)),
                     SMGSystemSet::Input.run_if(in_state(AssetLoadState::Success)),
                     SMGSystemSet::Fire.run_if(in_state(AssetLoadState::Success)),
                     SMGSystemSet::Effects.run_if(in_state(AssetLoadState::Success)),
                 )
                     .chain(),
             )
-            .add_system(spawn.in_set(SMGSystemSet::Deploy))
+            .add_system(spawn.in_set(ItemSet::Spawn))
             .add_systems(
                 (
-                    insert_local_mouse_target::<SMG>,
-                    activate_on_lmb::<SMG>,
+                    set_local_mouse_target::<SMG>,
+                    set_on_lmb::<SMG, Active>,
+                    set_on_rmb::<SMG, Aiming>,
                     apply_system_buffers,
                     fire,
                 )
                     .chain()
                     .in_set(SMGSystemSet::Input),
             )
-            .add_system(spawn_bullet.in_set(SMGSystemSet::Fire))
+            .add_systems((spawn_bullet, aim_single::<SMG>).in_set(SMGSystemSet::Fire))
             .add_systems((send_muzzle_flash, play_sfx).in_set(SMGSystemSet::Effects));
     }
 }
@@ -87,13 +86,16 @@ pub fn spawn(
 ) {
     for ItemSpawnEvent { parent_entity, .. } in spawn_events.iter() {
         let Ok(humanoid) = humanoid_query.get(*parent_entity) else {
-            println!("Only `Humanoid`s are supported.");
+            println!("The parent entity did not have a `Humanoid`. Only `Humanoid`s are supported for `SMG`.");
             continue;
         };
 
         let item_entity = commands
             .spawn((
                 SMG::default(),
+                Target::default(),
+                Active::default(),
+                Aiming::default(),
                 WeaponBundle {
                     material_mesh: MaterialMeshBundle {
                         mesh: assets.gun.clone(),

@@ -1,16 +1,22 @@
 use crate::{
+    asset::AssetLoadState,
     humanoid::{HumanoidAssets, HumanoidBuilder},
     item::{smg::SMG, Item},
 };
 
-use super::{AvatarAssets, AvatarSimulationBundle, Character, CharacterSpawnEvent};
+use super::{AvatarAssets, AvatarSimulationBundle, Character, CharacterSet, CharacterSpawnEvent};
 use bevy::prelude::*;
 
 pub struct EightBallPlugin;
 
 impl Plugin for EightBallPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<CharacterSpawnEvent<EightBall>>();
+        app.add_event::<CharacterSpawnEvent<EightBall>>()
+            .add_system(
+                spawn
+                    .in_set(CharacterSet::Spawn)
+                    .in_schedule(OnEnter(AssetLoadState::Success)),
+            );
     }
 }
 

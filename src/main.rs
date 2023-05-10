@@ -15,10 +15,10 @@ use bevy::{
 };
 use bevy_hanabi::HanabiPlugin;
 use bevy_rapier3d::prelude::*;
-use character::CharacterPlugin;
+use character::{Character, CharacterPlugin, CharacterSet};
 use humanoid::HumanoidPlugin;
 use image::io::Reader as ImageReader;
-use item::ItemPlugins;
+use item::{ItemPlugins, ItemSet};
 use render::{sketched::SketchMaterial, RenderFXPlugins};
 
 use crate::asset::{AssetLoadState, DynamicAssetPlugin};
@@ -65,6 +65,12 @@ fn main() -> Result<(), io::Error> {
         .add_plugins(ItemPlugins)
         .add_plugin(CharacterPlugin)
         .add_system(load_scene.in_schedule(OnEnter(AssetLoadState::Success)))
+        // ensure that all humanoids exist before potentially adding items directly to them
+        .add_system(
+            apply_system_buffers
+                .after(CharacterSet::Spawn)
+                .before(ItemSet::Spawn),
+        )
         .add_system(bevy::window::close_on_esc);
 
     app.run();

@@ -330,7 +330,9 @@ impl<'a> HumanoidBuilder<'a> {
             collider!(self.meshes, &mesh_HANDle),
         ));
 
-        commands.get_or_spawn(self.dominant_entity()).insert(DominantHand);
+        commands
+            .get_or_spawn(self.dominant_entity())
+            .insert(DominantHand);
     }
 
     /// Returns the dominant hand for this humanoid.

@@ -2,6 +2,7 @@ mod ai;
 mod asset;
 mod character;
 mod collisions;
+mod damage;
 mod humanoid;
 mod item;
 mod render;
@@ -18,6 +19,7 @@ use bevy::{
 use bevy_hanabi::HanabiPlugin;
 use bevy_rapier3d::prelude::*;
 use character::{Character, CharacterPlugin, CharacterSet};
+use damage::DamagePlugin;
 use humanoid::HumanoidPlugin;
 use image::io::Reader as ImageReader;
 use item::{ItemPlugins, ItemSet};
@@ -67,6 +69,7 @@ fn main() -> Result<(), io::Error> {
         .add_plugins(ItemPlugins)
         .add_plugin(CharacterPlugin)
         .add_plugins(AIPlugins)
+        .add_plugin(DamagePlugin)
         .add_systems((load_scene, Dummy::spawn).in_schedule(OnEnter(AssetLoadState::Success)))
         // ensure that all humanoids exist before potentially adding items directly to them
         .add_system(

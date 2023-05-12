@@ -1,27 +1,17 @@
-use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 pub trait CollisionGroupExt {
-    const AVATAR: Group;
+    const PLAYER: Group;
     const PLAYER_PROJECTILE: Group;
+    const ENEMY: Group;
+    const ENEMY_PROJECTILE: Group;
 }
 
 impl CollisionGroupExt for Group {
-    const AVATAR: Group = Self::GROUP_1;
+    const PLAYER: Group = Self::GROUP_1;
     const PLAYER_PROJECTILE: Group = Self::GROUP_2;
-}
-
-pub fn display_events(
-    mut collision_events: EventReader<CollisionEvent>,
-    mut contact_force_events: EventReader<ContactForceEvent>,
-) {
-    for collision_event in collision_events.iter() {
-        println!("Received collision event: {:?}", collision_event);
-    }
-
-    for contact_force_event in contact_force_events.iter() {
-        println!("Received contact force event: {:?}", contact_force_event);
-    }
+    const ENEMY: Group = Self::GROUP_3;
+    const ENEMY_PROJECTILE: Group = Self::GROUP_4;
 }
 
 /// Generates a collider from a mesh handle and mesh collection with its `ComputedColliderShape`.

@@ -155,8 +155,8 @@ impl Default for AvatarSimulationBundle {
                 RenderLayer::AVATAR as u8,
             ]),
             collision_groups: CollisionGroups::new(
-                Group::AVATAR,
-                Group::all().difference(Group::AVATAR),
+                Group::PLAYER,
+                Group::all().difference(Group::PLAYER),
             ),
             player: Player::default(),
         }

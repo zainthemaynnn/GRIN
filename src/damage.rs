@@ -1,4 +1,7 @@
 use bevy::{prelude::*, utils::HashMap};
+use bevy_rapier3d::prelude::*;
+
+use crate::{render::sketched::SketchMaterial, util::query::distinguish_by_query};
 
 /// Health and damage calculations.
 pub struct DamagePlugin;
@@ -7,6 +10,7 @@ impl Plugin for DamagePlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets((DamageSet::Resist, DamageSet::Clear).chain())
             .add_systems((
+                push_contact_damage.in_set(DamageSet::Insert),
                 apply_resist.in_set(DamageSet::Resist),
                 apply_damage_buffers.in_set(DamageSet::Clear),
             ));
@@ -15,6 +19,8 @@ impl Plugin for DamagePlugin {
 
 #[derive(SystemSet, Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub enum DamageSet {
+    /// `DamageBuffer`s are empty in this stage.
+    Insert,
     /// `Resist` is applied in this stage.
     Resist,
     /// `DamageBuffer`s are cleared in this stage.
@@ -24,7 +30,7 @@ pub enum DamageSet {
 /// Health. Is there anything more I can say?
 ///
 /// Can't fall below zero.
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Health(pub f32);
 
 impl Default for Health {
@@ -33,32 +39,34 @@ impl Default for Health {
     }
 }
 
-/// Assigns resistances for `DamageVariant`s.
+/// Assigns resistances against `DamageVariant`s.
 ///
 /// Scales linearly from no resist at `0.0` to full resist at `1.0`. All values default to `0.0`.
-#[derive(Component, Default)]
+#[derive(Component, Debug, Default)]
 pub struct Resist(HashMap<DamageVariant, f32>);
 
-#[derive(Bundle)]
+#[derive(Bundle, Default)]
 pub struct HealthBundle {
     pub health: Health,
     pub resist: Resist,
+    pub damage_buffer: DamageBuffer,
 }
 
-/// Damage type.
-#[derive(Component, Hash, Eq, PartialEq)]
+/// Damage variant.
+#[derive(Component, Hash, Eq, PartialEq, Copy, Clone, Debug, Default)]
 pub enum DamageVariant {
+    #[default]
     Ballistic,
 }
 
 /// Damage.
 ///
 /// `source` refers to the `Entity` that dealt the damage.
-#[derive(Component)]
+#[derive(Component, Copy, Clone, Debug, Default)]
 pub struct Damage {
     pub ty: DamageVariant,
     pub value: f32,
-    pub source: Entity,
+    pub source: Option<Entity>,
 }
 
 /// Applies damage to adjacent health components. Clears every frame.
@@ -84,6 +92,64 @@ pub fn apply_damage_buffers(mut query: Query<(&mut Health, &mut DamageBuffer)>) 
     }
 }
 
+/// Items colliding with this entity will have damage propagated to it.
+#[derive(Component, Default)]
+pub struct ContactDamage;
+
+pub fn push_contact_damage(
+    mut commands: Commands,
+    mut collision_events: EventReader<CollisionEvent>,
+    damage_query: Query<&Damage, With<ContactDamage>>,
+    mut hit_query: Query<&mut DamageBuffer>,
+) {
+    for collision_event in collision_events.iter() {
+        let CollisionEvent::Started(entity_0, entity_1, ..) = collision_event else {
+            continue;
+        };
+        let Ok((e_damage, e_hit)) = distinguish_by_query(&damage_query, *entity_0, *entity_1) else {
+            continue;
+        };
+
+        commands.get_or_spawn(e_damage).despawn();
+        let damage = damage_query.get(e_damage).unwrap();
+        let Ok(mut damage_buf) = hit_query.get_mut(e_hit) else {
+            continue;
+        };
+        damage_buf.0.push(*damage);
+    }
+}
+#[derive(Bundle)]
+pub struct ProjectileBundle {
+    pub body: RigidBody,
+    pub material_mesh: MaterialMeshBundle<SketchMaterial>,
+    pub collider: Collider,
+    pub collision_groups: CollisionGroups,
+    pub velocity: Velocity,
+    pub sensor: Sensor,
+    pub active_events: ActiveEvents,
+    pub gravity: GravityScale,
+    pub damage: Damage,
+    pub contact_damage: ContactDamage,
+}
+
+impl Default for ProjectileBundle {
+    fn default() -> Self {
+        Self {
+            #[rustfmt::skip]
+            active_events: ActiveEvents::COLLISION_EVENTS,
+            gravity: GravityScale(0.0),
+            collision_groups: CollisionGroups::default(),
+            body: RigidBody::default(),
+            material_mesh: MaterialMeshBundle::default(),
+            collider: Collider::default(),
+            velocity: Velocity::default(),
+            sensor: Sensor::default(),
+            damage: Damage::default(),
+            contact_damage: ContactDamage::default(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -93,7 +159,6 @@ mod tests {
         let mut app = App::new();
         app.add_system(apply_damage_buffers);
 
-        let damage_src = app.world.spawn_empty().id();
         let damage_dst = app
             .world
             .spawn((
@@ -102,12 +167,12 @@ mod tests {
                     Damage {
                         ty: DamageVariant::Ballistic,
                         value: 60.0,
-                        source: damage_src,
+                        source: None,
                     },
                     Damage {
                         ty: DamageVariant::Ballistic,
                         value: 20.0,
-                        source: damage_src,
+                        source: None,
                     },
                 ]),
             ))
@@ -136,7 +201,7 @@ mod tests {
             .push(Damage {
                 ty: DamageVariant::Ballistic,
                 value: 999.0,
-                source: damage_src,
+                source: None,
             });
 
         app.update();
@@ -153,7 +218,6 @@ mod tests {
         let mut app = App::new();
         app.add_systems((apply_resist, apply_damage_buffers).chain());
 
-        let damage_src = app.world.spawn_empty().id();
         let damage_dst = app
             .world
             .spawn((
@@ -162,7 +226,7 @@ mod tests {
                 DamageBuffer(vec![Damage {
                     ty: DamageVariant::Ballistic,
                     value: 100.0,
-                    source: damage_src,
+                    source: None,
                 }]),
             ))
             .id();

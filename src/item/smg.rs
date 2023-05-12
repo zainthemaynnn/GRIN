@@ -1,11 +1,16 @@
 use crate::{
-    asset::AssetLoadState, humanoid::Humanoid, render::sketched::NoOutline, util::vectors::Vec3Ext,
+    asset::AssetLoadState,
+    collisions::CollisionGroupExt,
+    damage::{Damage, DamageVariant, ProjectileBundle},
+    humanoid::Humanoid,
+    render::sketched::NoOutline,
+    util::vectors::Vec3Ext,
 };
 
 use super::{
-    aim_single, set_local_mouse_target, set_on_lmb, set_on_rmb, Aiming, Bullet, Item,
-    ItemEquipEvent, ItemPlugin, ItemSet, ItemSpawnEvent, Muzzle, MuzzleBundle, MuzzleFlashEvent,
-    ProjectileAssets, ProjectileBundle, Sfx, WeaponBundle,
+    aim_single, set_local_mouse_target, set_on_lmb, set_on_rmb, Aiming, Item, ItemEquipEvent,
+    ItemPlugin, ItemSet, ItemSpawnEvent, Muzzle, MuzzleBundle, MuzzleFlashEvent, ProjectileAssets,
+    Sfx, WeaponBundle,
 };
 pub use super::{Active, Target};
 use bevy::prelude::*;
@@ -189,9 +194,16 @@ pub fn spawn_bullet(
             0.0,
         ));
         commands.spawn((
-            Bullet,
-            NoOutline,
             ProjectileBundle {
+                damage: Damage {
+                    ty: DamageVariant::Ballistic,
+                    value: 5.0,
+                    source: None,
+                },
+                collision_groups: CollisionGroups::new(
+                    Group::PLAYER_PROJECTILE,
+                    Group::all() - Group::PLAYER - Group::PLAYER_PROJECTILE,
+                ),
                 material_mesh: MaterialMeshBundle {
                     mesh: projectile_assets.bullet_5cm.clone(),
                     material: projectile_assets.bullet_material.clone(),
@@ -202,6 +214,10 @@ pub fn spawn_bullet(
                 velocity: Velocity::linear(bullet_transform.forward() * 100.0),
                 ..Default::default()
             },
+            // you know you're new to making games
+            // when you spend an hour realizing this isn't enabled already
+            Ccd::enabled(),
+            NoOutline,
         ));
     }
 }

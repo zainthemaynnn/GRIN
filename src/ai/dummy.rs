@@ -1,8 +1,11 @@
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::{CollisionGroups, GravityScale, Group};
 
 use crate::{
     asset::AssetLoadState,
     character::{Character, CharacterSet, CharacterSpawnEvent, PlayerCharacter},
+    collisions::CollisionGroupExt,
+    damage::{Health, HealthBundle},
     humanoid::{HumanoidAssets, HumanoidBuilder},
     item::{smg::SMG, Active, Aiming, Equipped, Item, Target},
 };
@@ -61,6 +64,10 @@ pub fn spawn<'w, 's>(
             Dummy::default(),
             Target::default(),
             Equipped::default(),
+            HealthBundle {
+                health: Health(100.0),
+                ..Default::default()
+            },
             MovementBundle {
                 path_behavior: PathBehavior::Strafe {
                     radial_velocity: 0.0,
@@ -68,6 +75,11 @@ pub fn spawn<'w, 's>(
                 },
                 target: MoveTarget::default(),
             },
+            CollisionGroups::new(
+                Group::ENEMY,
+                Group::all() - Group::ENEMY - Group::ENEMY_PROJECTILE,
+            ),
+            GravityScale(1.0),
         ));
         humanoid
             .with_transform(Transform::from_xyz(10.0, 0.0, 0.0))

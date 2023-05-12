@@ -14,13 +14,11 @@ use bevy::{
     render::primitives::CubemapFrusta, utils::HashSet,
 };
 use bevy_asset_loader::{asset_collection::AssetCollection, prelude::LoadingStateAppExt};
-use bevy_rapier3d::prelude::*;
 
 use crate::{
     asset::AssetLoadState,
     character::camera::LookInfo,
     character::Player,
-    collisions::CollisionGroupExt,
     humanoid::{DominantHand, Hand, HandOffsets},
     render::sketched::SketchMaterial,
 };
@@ -90,43 +88,6 @@ pub struct ProjectileAssets {
 pub struct Sfx {
     #[asset(key = "sfx.uzi")]
     uzi: Handle<AudioSource>,
-}
-
-#[derive(Component)]
-struct Bullet;
-
-#[derive(Bundle)]
-struct ProjectileBundle {
-    body: RigidBody,
-    material_mesh: MaterialMeshBundle<SketchMaterial>,
-    collider: Collider,
-    velocity: Velocity,
-    collision_groups: CollisionGroups,
-    sensor: Sensor,
-    active_events: ActiveEvents,
-    gravity: GravityScale,
-}
-
-impl Default for ProjectileBundle {
-    fn default() -> Self {
-        Self {
-            #[rustfmt::skip]
-            collision_groups: CollisionGroups::new(
-                Group::PLAYER_PROJECTILE,
-                Group::all().difference(
-                    Group::PLAYER_PROJECTILE
-                        .union(Group::AVATAR)
-                ),
-            ),
-            gravity: GravityScale(0.0),
-            body: RigidBody::default(),
-            material_mesh: MaterialMeshBundle::default(),
-            collider: Collider::default(),
-            velocity: Velocity::default(),
-            sensor: Sensor,
-            active_events: ActiveEvents::COLLISION_EVENTS,
-        }
-    }
 }
 
 pub struct ItemSpawnEvent<M> {

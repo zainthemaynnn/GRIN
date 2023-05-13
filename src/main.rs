@@ -6,6 +6,7 @@ mod damage;
 mod humanoid;
 mod item;
 mod render;
+mod sound;
 mod util;
 
 use std::{env, io};
@@ -24,6 +25,7 @@ use humanoid::HumanoidPlugin;
 use image::io::Reader as ImageReader;
 use item::{ItemPlugins, ItemSet};
 use render::{sketched::SketchMaterial, RenderFXPlugins};
+use sound::SoundPlugin;
 
 use crate::asset::{AssetLoadState, DynamicAssetPlugin};
 
@@ -70,6 +72,7 @@ fn main() -> Result<(), io::Error> {
         .add_plugin(CharacterPlugin)
         .add_plugins(AIPlugins)
         .add_plugin(DamagePlugin)
+        .add_plugin(SoundPlugin)
         .add_systems((load_scene, Dummy::spawn).in_schedule(OnEnter(AssetLoadState::Success)))
         // ensure that all humanoids exist before potentially adding items directly to them
         .add_system(

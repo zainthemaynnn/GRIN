@@ -28,7 +28,7 @@ pub fn set_closest_target<T: Component, E: Component>(
             if distance < new_target.distance {
                 new_target = Target {
                     // TODO?: could this height just be a constant 1.50?
-                    transform: Transform::from_translation(
+                    transform: dst_transform.compute_transform().with_translation(
                         dst_transform.transform_point(Vec3::new(0.0, 1.50, 0.0)),
                     ),
                     distance,

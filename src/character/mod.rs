@@ -7,6 +7,7 @@ use std::marker::PhantomData;
 use crate::asset::AssetLoadState;
 use crate::humanoid::{Head, HumanoidAssets, HumanoidBuilder};
 use crate::render::sketched::SketchMaterial;
+use crate::sound::Ears;
 
 use crate::collisions::CollisionGroupExt;
 use crate::item::{Equipped, Item};
@@ -101,7 +102,10 @@ impl<'a> HumanoidBuilder<'a> {
         let humanoid = Self::new(commands, assets, meshes);
         commands
             .get_or_spawn(humanoid.head)
-            .insert(AvatarSimulationBundle::default());
+            .insert((
+                Ears(0.5),
+                AvatarSimulationBundle::default(),
+            ));
         commands
             .get_or_spawn(humanoid.lhand)
             .insert(AvatarSimulationBundle::default());

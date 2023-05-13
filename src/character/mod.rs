@@ -5,6 +5,7 @@ use std::array::IntoIter;
 use std::marker::PhantomData;
 
 use crate::asset::AssetLoadState;
+use crate::damage::{Health, HealthBundle};
 use crate::humanoid::{Head, HumanoidAssets, HumanoidBuilder};
 use crate::render::sketched::SketchMaterial;
 use crate::sound::Ears;
@@ -115,6 +116,10 @@ impl<'a> HumanoidBuilder<'a> {
         commands
             .get_or_spawn(humanoid.body)
             .insert((
+                HealthBundle {
+                    health: Health(100.0),
+                    ..Default::default()
+                },
                 AvatarSimulationBundle::default(),
                 PlayerCharacter,
                 RigidBody::KinematicPositionBased,
@@ -141,7 +146,7 @@ pub struct PlayerCharacter;
 #[derive(Component, Default)]
 pub struct PlayerHead;
 
-#[derive(Component, Default)]
+#[derive(Component, Copy, Clone, Default)]
 pub struct Player;
 
 #[derive(Bundle)]

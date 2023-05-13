@@ -1,6 +1,7 @@
 use crate::{
     asset::AssetLoadState,
-    collisions::CollisionGroupExt,
+    character::Player,
+    collisions::{CollisionGroupExt, CollisionGroupsExt},
     damage::{Damage, DamageVariant, ProjectileBundle},
     humanoid::Humanoid,
     render::sketched::NoOutline,
@@ -133,15 +134,19 @@ pub struct ShotsEnded(Entity);
 
 pub fn fire(
     mut commands: Commands,
-    mut weapon_query: Query<(&mut SMG, &Target, &Active, &Children)>,
+    mut weapon_query: Query<(&mut SMG, &Target, &Active, Option<&Player>, &Children)>,
     mut shot_events: EventWriter<ShotEvent>,
     mut shots_began: EventWriter<ShotsBegan>,
     mut shots_ended: EventWriter<ShotsEnded>,
     time: Res<Time>,
 ) {
-    for (mut item, target, active, children) in weapon_query.iter_mut() {
+    for (mut item, target, active, player, children) in weapon_query.iter_mut() {
         for child in children.iter() {
-            commands.get_or_spawn(*child).insert(*target);
+            let mut e = commands.get_or_spawn(*child);
+            e.insert(*target);
+            if let Some(player) = player {
+                e.insert(*player);
+            }
         }
         if item.cooldown < item.fire_rate {
             item.cooldown += time.delta_seconds();
@@ -172,19 +177,23 @@ pub fn fire(
 
 pub fn spawn_bullet(
     mut commands: Commands,
-    muzzle_query: Query<(&GlobalTransform, &Target), With<Muzzle>>,
+    muzzle_query: Query<(&GlobalTransform, &Target, Option<&Player>), With<Muzzle>>,
     mut shot_events: EventReader<ShotEvent>,
     projectile_assets: Res<ProjectileAssets>,
 ) {
     let distr = Uniform::new_inclusive(-5.0_f32.to_radians(), 5.0_f32.to_radians());
 
     for ShotEvent(entity) in shot_events.iter() {
-        let Ok((g_transform, target)) = muzzle_query.get(*entity) else {
+        let Ok((g_transform, target, plr)) = muzzle_query.get(*entity) else {
             return;
         };
 
         let origin = g_transform.translation();
         let target = target.transform.translation;
+        let group = match plr {
+            Some(_) => Group::PLAYER_PROJECTILE,
+            None => Group::ENEMY_PROJECTILE,
+        };
 
         let fwd = (target - origin).normalize();
         let mut bullet_transform = Transform::from_translation(origin).looking_to(fwd, fwd.perp());
@@ -201,10 +210,7 @@ pub fn spawn_bullet(
                     value: 5.0,
                     source: None,
                 },
-                collision_groups: CollisionGroups::new(
-                    Group::PLAYER_PROJECTILE,
-                    Group::all() - Group::PLAYER - Group::PLAYER_PROJECTILE,
-                ),
+                collision_groups: CollisionGroups::from_group_default(group),
                 material_mesh: MaterialMeshBundle {
                     mesh: projectile_assets.bullet_5cm.clone(),
                     material: projectile_assets.bullet_material.clone(),

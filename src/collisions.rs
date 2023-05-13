@@ -14,6 +14,29 @@ impl CollisionGroupExt for Group {
     const ENEMY_PROJECTILE: Group = Self::GROUP_4;
 }
 
+pub trait CollisionGroupsExt {
+    fn from_group_default(group: Group) -> Self;
+}
+
+impl CollisionGroupsExt for CollisionGroups {
+    /// Creates `CollisionGroups` with "default" collision group filters from a `Group`.
+    fn from_group_default(group: Group) -> Self {
+        match group {
+            Group::PLAYER => CollisionGroups::new(Group::PLAYER, Group::all() - Group::PLAYER),
+            Group::ENEMY => CollisionGroups::new(Group::ENEMY, Group::all() - Group::ENEMY),
+            Group::PLAYER_PROJECTILE => CollisionGroups::new(
+                Group::PLAYER_PROJECTILE,
+                Group::all() - Group::PLAYER - Group::PLAYER_PROJECTILE,
+            ),
+            Group::ENEMY_PROJECTILE => CollisionGroups::new(
+                Group::ENEMY_PROJECTILE,
+                Group::all() - Group::ENEMY - Group::ENEMY_PROJECTILE,
+            ),
+            _ => CollisionGroups::default(),
+        }
+    }
+}
+
 /// Generates a collider from a mesh handle and mesh collection with its `ComputedColliderShape`.
 ///
 /// Created because `Collider::from_bevy_mesh` requires `Mesh` but `MaterialMeshBundle` just requires `Handle<Mesh>`,

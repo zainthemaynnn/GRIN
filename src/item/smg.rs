@@ -4,6 +4,7 @@ use crate::{
     damage::{Damage, DamageVariant, ProjectileBundle},
     humanoid::Humanoid,
     render::sketched::NoOutline,
+    sound::{InitLocalizedSound, LocalizedSound},
     util::vectors::Vec3Ext,
 };
 
@@ -231,29 +232,32 @@ pub fn send_muzzle_flash(
         .for_each(|ShotEvent(e)| muzzle_flash_events.send(MuzzleFlashEvent(*e)));
 }
 
-// TODO: streamline
 pub fn play_sfx(
+    mut commands: Commands,
     sfx: Res<Sfx>,
-    audio: Res<Audio>,
-    mut audio_query: Query<&mut Handle<AudioSink>>,
-    audio_sinks: Res<Assets<AudioSink>>,
+    audio_query: Query<&mut LocalizedSound>,
+    audio_sinks: Res<Assets<SpatialAudioSink>>,
     mut shots_began: EventReader<ShotsBegan>,
     mut shots_ended: EventReader<ShotsEnded>,
 ) {
     for ShotsBegan(entity) in shots_began.iter() {
-        let Ok(mut audio_sink_handle) = audio_query.get_mut(*entity) else {
-            return;
-        };
-        *audio_sink_handle = audio_sinks
-            .get_handle(audio.play_with_settings(sfx.uzi.clone(), PlaybackSettings::LOOP));
+        if let Ok(sound) = audio_query.get(*entity) {
+            if let Some(sound_sink) = audio_sinks.get(&sound.0) {
+                sound_sink.stop();
+            }
+        }
+
+        commands
+            .get_or_spawn(*entity)
+            .insert(InitLocalizedSound(sfx.uzi.clone(), PlaybackSettings::LOOP));
     }
 
     for ShotsEnded(entity) in shots_ended.iter() {
-        let Ok(audio_sink_handle) = audio_query.get(*entity) else {
+        let Ok(sound) = audio_query.get(*entity) else {
             return;
         };
-        if let Some(sfx) = audio_sinks.get(&audio_sink_handle) {
-            sfx.stop();
+        if let Some(sound_sink) = audio_sinks.get(&sound.0) {
+            sound_sink.stop();
         }
     }
 }

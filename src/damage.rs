@@ -9,11 +9,15 @@ pub struct DamagePlugin;
 impl Plugin for DamagePlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets((DamageSet::Resist, DamageSet::Clear).chain())
-            .add_systems((
-                push_contact_damage.in_set(DamageSet::Insert),
-                apply_resist.in_set(DamageSet::Resist),
-                apply_damage_buffers.in_set(DamageSet::Clear),
-            ));
+            .add_systems(
+                (
+                    push_contact_damage.in_set(DamageSet::Insert),
+                    propagate_damage_buffers,
+                    apply_resist.in_set(DamageSet::Resist),
+                    apply_damage_buffers.in_set(DamageSet::Clear),
+                )
+                    .chain(),
+            );
     }
 }
 
@@ -69,7 +73,9 @@ pub struct Damage {
     pub source: Option<Entity>,
 }
 
-/// Applies damage to adjacent health components. Clears every frame.
+/// Applies damage to adjacent `Health` components. Clears every frame.
+///
+/// If there is no adjacent `Health` component, applies to the first ancestor containing one.
 #[derive(Component, Default)]
 pub struct DamageBuffer(pub Vec<Damage>);
 
@@ -83,11 +89,43 @@ pub fn apply_resist(mut query: Query<(&mut DamageBuffer, &Resist)>) {
     }
 }
 
+/// Recursively empties `DamageBuffer`s for entities without a `Health` component
+/// and appends them to the `DamageBuffer` of the first ancestor with a `Health` component.
+pub fn propagate_damage_buffers(
+    mut query: Query<(&mut DamageBuffer, &Children), With<Health>>,
+    mut buffer_query: Query<&mut DamageBuffer, Without<Health>>,
+    child_query: Query<&Children, (With<DamageBuffer>, Without<Health>)>,
+) {
+    for (mut buffer, children) in query.iter_mut() {
+        for child in children.iter() {
+            propagate_damage_buffers_child(&mut buffer, *child, &mut buffer_query, &child_query);
+        }
+    }
+}
+
+fn propagate_damage_buffers_child(
+    buffer: &mut DamageBuffer,
+    child: Entity,
+    buffer_query: &mut Query<&mut DamageBuffer, Without<Health>>,
+    child_query: &Query<&Children, (With<DamageBuffer>, Without<Health>)>,
+) {
+    if let Ok(mut child_buffer) = buffer_query.get_mut(child) {
+        buffer.0.append(&mut child_buffer.0);
+
+        if let Ok(children) = child_query.get(child) {
+            for child in children.iter() {
+                propagate_damage_buffers_child(buffer, *child, buffer_query, child_query);
+            }
+        }
+    }
+}
+
 /// Applies damage values from `DamageBuffer`.
 pub fn apply_damage_buffers(mut query: Query<(&mut Health, &mut DamageBuffer)>) {
     for (mut health, mut damage_buf) in query.iter_mut() {
         for damage in damage_buf.0.drain(0..) {
             health.0 = (health.0 - damage.value).max(0.0);
+            dbg!(health.0);
         }
     }
 }
@@ -237,6 +275,34 @@ mod tests {
             app.world.get::<Health>(damage_dst).unwrap().0,
             50.0,
             "Inaccurate resist calculation.",
+        );
+    }
+
+    #[test]
+    fn propagation_test() {
+        let mut app = App::new();
+        app.add_system(propagate_damage_buffers);
+
+        let child = app.world.spawn(DamageBuffer(vec![Damage::default()])).id();
+
+        let damage_dst = app
+            .world
+            .spawn((Health(100.0), DamageBuffer(vec![])))
+            .add_child(child)
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            app.world.get::<DamageBuffer>(damage_dst).unwrap().0.len(),
+            1,
+            "`Damage` was not propagated",
+        );
+
+        assert_eq!(
+            app.world.get::<DamageBuffer>(child).unwrap().0.len(),
+            0,
+            "Child `DamageBuffer` was not cleared.",
         );
     }
 }

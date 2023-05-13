@@ -5,7 +5,7 @@ use crate::{
     asset::AssetLoadState,
     character::{Character, CharacterSet, CharacterSpawnEvent, PlayerCharacter},
     collisions::CollisionGroupExt,
-    damage::{Health, HealthBundle},
+    damage::{Health, HealthBundle, DamageBuffer},
     humanoid::{HumanoidAssets, HumanoidBuilder},
     item::{smg::SMG, Active, Aiming, Equipped, Item, Target},
 };
@@ -81,6 +81,7 @@ pub fn spawn<'w, 's>(
             ),
             GravityScale(1.0),
         ));
+        commands.get_or_spawn(humanoid.head).insert(DamageBuffer::default());
         humanoid
             .with_transform(Transform::from_xyz(10.0, 0.0, 0.0))
             .build(&mut commands);

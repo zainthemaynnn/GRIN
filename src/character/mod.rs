@@ -5,7 +5,7 @@ use std::array::IntoIter;
 use std::marker::PhantomData;
 
 use crate::asset::AssetLoadState;
-use crate::damage::{Health, HealthBundle};
+use crate::damage::{Health, HealthBundle, DamageBuffer};
 use crate::humanoid::{Head, HumanoidAssets, HumanoidBuilder};
 use crate::render::sketched::SketchMaterial;
 use crate::sound::Ears;
@@ -105,6 +105,7 @@ impl<'a> HumanoidBuilder<'a> {
             .get_or_spawn(humanoid.head)
             .insert((
                 Ears(0.5),
+                DamageBuffer::default(),
                 AvatarSimulationBundle::default(),
             ));
         commands

@@ -60,7 +60,7 @@ impl<T: Component + Clone> Plugin for RewindComponentPlugin<T> {
 /// Be careful using this too often or for extended periods of time.
 /// At the moment entities only store about 10 seconds worth of history,
 /// and history isn't recorded during rewinding.
-/// If this buffer of 10 seconds without rest is depleted then it will fall back to `Rewind.OutOfHistory`.
+/// If this buffer of 10 seconds without rest is depleted then it will fall back to `Rewind.out_of_history`.
 #[derive(Component, Debug)]
 pub struct Rewind {
     pub frames: u32,
@@ -365,7 +365,9 @@ pub fn rewind<T: Component + Clone>(
 
         // finished
         if rewind.frames == 0 {
-            commands.get_or_spawn(entity).remove::<Rewind>();
+            if let Some(mut e) = commands.get_entity(entity) {
+                e.remove::<Rewind>();
+            }
             // return the existing component to component storage
             // this could be the same one removed during rewind initalization,
             // or a new one that it rewound to

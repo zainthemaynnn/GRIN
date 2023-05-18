@@ -9,16 +9,26 @@ use bevy::{prelude::*, utils::HashMap};
 
 pub const FIXED_TIMESTEP_SECS: f32 = 1.0 / 24.0;
 
+/// Dependency for `RewindComponentPlugin`.
+#[derive(Default)]
+pub struct RewindPlugin;
+
+impl Plugin for RewindPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Frame>()
+            .add_systems((update_frame_index, update_rewind_frames).in_base_set(CoreSet::First));
+    }
+}
+
 /// Adding this plugin allows the component `T` to be modified by `Rewind`.
 #[derive(Default)]
-pub struct RewindPlugin<T: Component + Clone> {
+pub struct RewindComponentPlugin<T: Component + Clone> {
     phantom_data: PhantomData<T>,
 }
 
-impl<T: Component + Clone> Plugin for RewindPlugin<T> {
+impl<T: Component + Clone> Plugin for RewindComponentPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Frame>()
-            .init_resource::<EntityHistories<T>>()
+        app.init_resource::<EntityHistories<T>>()
             .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP_SECS))
             .add_systems(
                 (
@@ -26,12 +36,12 @@ impl<T: Component + Clone> Plugin for RewindPlugin<T> {
                     retire_frame::<T>,
                     save_frame::<T>,
                     initialize_rewinds::<T>,
-                    rewind::<T>,
+                    rewind::<T>.after(update_rewind_frames),
                     apply_system_buffers,
                     clear_unused_histories::<T>,
-                    update_frame_index,
                 )
                     .chain()
+                    .before(update_frame_index)
                     .in_base_set(CoreSet::First), //.in_schedule(CoreSchedule::FixedUpdate),
             );
     }
@@ -51,9 +61,9 @@ impl<T: Component + Clone> Plugin for RewindPlugin<T> {
 /// At the moment entities only store about 10 seconds worth of history,
 /// and history isn't recorded during rewinding.
 /// If this buffer of 10 seconds without rest is depleted then it will fall back to `Rewind.OutOfHistory`.
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Rewind {
-    pub frames: usize,
+    pub frames: u32,
     pub fps: u32,
     pub out_of_history: OutOfHistory,
 }
@@ -80,6 +90,7 @@ pub enum OutOfHistory {
     Despawn,
 }
 
+/// How many frames of the game have ran.
 #[derive(Resource, Default, Debug)]
 pub struct Frame(pub usize);
 
@@ -157,6 +168,7 @@ pub enum Timestamp {
     Nonexistent(usize),
 }
 
+/// Forgets the oldest frame in a `History` if it's out of memory space.
 pub fn retire_frame<T: Component>(mut timestamps: ResMut<EntityHistories<T>>) {
     for mut history in timestamps
         .0
@@ -283,24 +295,29 @@ pub fn initialize_rewinds<T: Component>(
     }
 }
 
+/// Sets `fps` to the number of frames to render in this stage, which may change if `fps` > `frames`.
+///
+/// Sets `frames` to the number of frames left after this tick is finished.
+pub fn update_rewind_frames(mut query: Query<&mut Rewind>) {
+    for mut rewind in query.iter_mut() {
+        rewind.fps = rewind.fps.min(rewind.frames);
+        rewind.frames -= rewind.fps;
+    }
+}
+
+/// Rewinds components.
 pub fn rewind<T: Component + Clone>(
     mut commands: Commands,
-    mut query: Query<(Entity, &mut Rewind)>,
+    query: Query<(Entity, &Rewind)>,
     t_query: Query<&T, With<Rewind>>,
     mut histories: ResMut<EntityHistories<T>>,
 ) {
-    for (entity, mut rewind) in query.iter_mut() {
+    for (entity, rewind) in query.iter() {
         let history = histories.0.get_mut(&entity).unwrap();
 
         // process each frame per `fps`
         // could probably skip the intermediate frames but eh
         for _ in 0..rewind.fps {
-            if rewind.frames == 0 {
-                break;
-            }
-
-            rewind.frames -= 1;
-
             match history.frames.pop_back() {
                 // go back to the previous frame
                 Some(frame) => match frame {
@@ -376,7 +393,8 @@ mod tests {
     #[test]
     fn history() {
         let mut app = App::new();
-        app.add_plugin(RewindPlugin::<MockComponent>::default());
+        app.add_plugin(RewindPlugin);
+        app.add_plugin(RewindComponentPlugin::<MockComponent>::default());
         app.insert_resource(FixedTime::new_from_secs(0.0));
 
         let e = app.world.spawn(MockComponent::default()).id();
@@ -430,7 +448,8 @@ mod tests {
     #[test]
     fn history_forget() {
         let mut app = App::new();
-        app.add_plugin(RewindPlugin::<MockComponent>::default());
+        app.add_plugin(RewindPlugin);
+        app.add_plugin(RewindComponentPlugin::<MockComponent>::default());
         app.insert_resource(FixedTime::new_from_secs(0.0));
         app.add_system(
             mutate_component
@@ -475,7 +494,8 @@ mod tests {
     #[test]
     fn history_cleanup() {
         let mut app = App::new();
-        app.add_plugin(RewindPlugin::<MockComponent>::default());
+        app.add_plugin(RewindPlugin);
+        app.add_plugin(RewindComponentPlugin::<MockComponent>::default());
         app.insert_resource(FixedTime::new_from_secs(0.0));
 
         let e = app.world.spawn(MockComponent::default()).id();
@@ -520,7 +540,8 @@ mod tests {
     #[test]
     fn rewind() {
         let mut app = App::new();
-        app.add_plugin(RewindPlugin::<MockComponent>::default());
+        app.add_plugin(RewindPlugin);
+        app.add_plugin(RewindComponentPlugin::<MockComponent>::default());
         app.insert_resource(FixedTime::new_from_secs(0.0));
 
         let e = app.world.spawn(MockComponent::default()).id();
@@ -585,7 +606,8 @@ mod tests {
     #[test]
     fn out_of_history() {
         let mut app = App::new();
-        app.add_plugin(RewindPlugin::<MockComponent>::default());
+        app.add_plugin(RewindPlugin);
+        app.add_plugin(RewindComponentPlugin::<MockComponent>::default());
         app.insert_resource(FixedTime::new_from_secs(0.0));
 
         let e = app.world.spawn(MockComponent::default()).id();

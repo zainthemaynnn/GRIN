@@ -7,43 +7,75 @@ use std::{collections::vec_deque::VecDeque, marker::PhantomData};
 
 use bevy::{prelude::*, utils::HashMap};
 
-pub const FIXED_TIMESTEP_SECS: f32 = 1.0 / 24.0;
+pub const FIXED_TIMESTEP_SECS: f32 = 1.0 / 60.0;
 
 /// Dependency for `RewindComponentPlugin`.
-#[derive(Default)]
-pub struct RewindPlugin;
+pub struct RewindPlugin {
+    // this needs to be toggleable because the stupid unit tests don't work with fixed timesteps...
+    pub fixed_timestep: bool,
+}
+
+impl Default for RewindPlugin {
+    fn default() -> Self {
+        Self {
+            fixed_timestep: true,
+        }
+    }
+}
 
 impl Plugin for RewindPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Frame>()
-            .add_systems((update_frame_index, update_rewind_frames).in_base_set(CoreSet::First));
+            .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP_SECS))
+            .add_systems(
+                (update_frame_index, update_rewind_frames)
+                    .in_base_set(CoreSet::First)
+                    .in_schedule(if self.fixed_timestep {
+                        CoreSchedule::FixedUpdate
+                    } else {
+                        CoreSchedule::Main
+                    }),
+            );
     }
 }
 
 /// Adding this plugin allows the component `T` to be modified by `Rewind`.
-#[derive(Default)]
 pub struct RewindComponentPlugin<T: Component + Clone> {
+    pub fixed_timestep: bool,
     phantom_data: PhantomData<T>,
+}
+
+impl<T: Component + Clone> Default for RewindComponentPlugin<T> {
+    fn default() -> Self {
+        Self {
+            fixed_timestep: true,
+            phantom_data: PhantomData::default(),
+        }
+    }
 }
 
 impl<T: Component + Clone> Plugin for RewindComponentPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.init_resource::<EntityHistories<T>>()
-            .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP_SECS))
-            .add_systems(
-                (
-                    add_new_histories::<T>,
-                    retire_frame::<T>,
-                    save_frame::<T>,
-                    initialize_rewinds::<T>,
-                    rewind::<T>.after(update_rewind_frames),
-                    apply_system_buffers,
-                    clear_unused_histories::<T>,
-                )
-                    .chain()
-                    .before(update_frame_index)
-                    .in_base_set(CoreSet::First), //.in_schedule(CoreSchedule::FixedUpdate),
-            );
+        assert!(app.is_plugin_added::<RewindPlugin>());
+        app.init_resource::<EntityHistories<T>>().add_systems(
+            (
+                add_new_histories::<T>,
+                retire_frame::<T>,
+                save_frame::<T>,
+                initialize_rewinds::<T>,
+                rewind::<T>.after(update_rewind_frames),
+                apply_system_buffers,
+                clear_unused_histories::<T>,
+            )
+                .chain()
+                .before(update_frame_index)
+                .in_base_set(CoreSet::First)
+                .in_schedule(if self.fixed_timestep {
+                    CoreSchedule::FixedUpdate
+                } else {
+                    CoreSchedule::Main
+                }),
+        );
     }
 }
 
@@ -392,12 +424,29 @@ mod tests {
         }
     }
 
+    fn mock_app() -> App {
+        let mut app = App::new();
+        app.add_plugin(RewindPlugin {
+            fixed_timestep: false,
+        })
+        .add_plugin(RewindComponentPlugin::<MockComponent> {
+            fixed_timestep: false,
+            ..Default::default()
+        });
+        app
+    }
+
+    fn add_mutations(app: &mut App) {
+        app.add_system(
+            mutate_component
+                .before(add_new_histories::<MockComponent>)
+                .in_base_set(CoreSet::First),
+        );
+    }
+
     #[test]
     fn history() {
-        let mut app = App::new();
-        app.add_plugin(RewindPlugin);
-        app.add_plugin(RewindComponentPlugin::<MockComponent>::default());
-        app.insert_resource(FixedTime::new_from_secs(0.0));
+        let mut app = mock_app();
 
         let e = app.world.spawn(MockComponent::default()).id();
 
@@ -416,11 +465,7 @@ mod tests {
         let history = histories.0.get(&e).unwrap();
         assert_eq!(*history.frames.back().unwrap(), Timestamp::Existent(0));
 
-        app.add_system(
-            mutate_component
-                .before(add_new_histories::<MockComponent>)
-                .in_base_set(CoreSet::First),
-        );
+        add_mutations(&mut app);
 
         app.update();
 
@@ -449,15 +494,8 @@ mod tests {
 
     #[test]
     fn history_forget() {
-        let mut app = App::new();
-        app.add_plugin(RewindPlugin);
-        app.add_plugin(RewindComponentPlugin::<MockComponent>::default());
-        app.insert_resource(FixedTime::new_from_secs(0.0));
-        app.add_system(
-            mutate_component
-                .before(add_new_histories::<MockComponent>)
-                .in_base_set(CoreSet::First),
-        );
+        let mut app = mock_app();
+        add_mutations(&mut app);
 
         let e = app.world.spawn(MockComponent::default()).id();
 
@@ -495,10 +533,7 @@ mod tests {
 
     #[test]
     fn history_cleanup() {
-        let mut app = App::new();
-        app.add_plugin(RewindPlugin);
-        app.add_plugin(RewindComponentPlugin::<MockComponent>::default());
-        app.insert_resource(FixedTime::new_from_secs(0.0));
+        let mut app = mock_app();
 
         let e = app.world.spawn(MockComponent::default()).id();
 
@@ -541,10 +576,7 @@ mod tests {
 
     #[test]
     fn rewind() {
-        let mut app = App::new();
-        app.add_plugin(RewindPlugin);
-        app.add_plugin(RewindComponentPlugin::<MockComponent>::default());
-        app.insert_resource(FixedTime::new_from_secs(0.0));
+        let mut app = mock_app();
 
         let e = app.world.spawn(MockComponent::default()).id();
         app.update();
@@ -553,11 +585,7 @@ mod tests {
         app.world.entity_mut(e).insert(MockComponent::default());
         app.update();
         app.update();
-        app.add_system(
-            mutate_component
-                .before(add_new_histories::<MockComponent>)
-                .in_base_set(CoreSet::First),
-        );
+        add_mutations(&mut app);
         app.update();
         // expected final state:
         // `components.len() == 3`
@@ -607,10 +635,7 @@ mod tests {
 
     #[test]
     fn out_of_history() {
-        let mut app = App::new();
-        app.add_plugin(RewindPlugin);
-        app.add_plugin(RewindComponentPlugin::<MockComponent>::default());
-        app.insert_resource(FixedTime::new_from_secs(0.0));
+        let mut app = mock_app();
 
         let e = app.world.spawn(MockComponent::default()).id();
 

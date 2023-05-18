@@ -7,6 +7,7 @@ mod humanoid;
 mod item;
 mod render;
 mod sound;
+mod time;
 mod util;
 
 use std::{env, io};

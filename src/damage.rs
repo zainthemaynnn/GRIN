@@ -193,7 +193,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn damage_test() {
+    fn damage() {
         let mut app = App::new();
         app.add_system(apply_damage_buffers);
 
@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[test]
-    fn resist_test() {
+    fn resist() {
         let mut app = App::new();
         app.add_systems((apply_resist, apply_damage_buffers).chain());
 
@@ -279,7 +279,7 @@ mod tests {
     }
 
     #[test]
-    fn propagation_test() {
+    fn propagation() {
         let mut app = App::new();
         app.add_system(propagate_damage_buffers);
 

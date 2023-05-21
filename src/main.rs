@@ -15,7 +15,10 @@ use std::{env, io};
 use ai::{dummy::Dummy, AIPlugins};
 use asset::FallbackImage;
 use bevy::{
-    diagnostic::FrameTimeDiagnosticsPlugin, prelude::*, render::render_resource::Extent3d,
+    diagnostic::LogDiagnosticsPlugin,
+    log::{Level, LogPlugin},
+    prelude::*,
+    render::render_resource::Extent3d,
     window::CursorGrabMode,
 };
 use bevy_hanabi::HanabiPlugin;
@@ -33,39 +36,53 @@ use crate::asset::{AssetLoadState, DynamicAssetPlugin};
 fn main() -> Result<(), io::Error> {
     let mut app = App::new();
 
-    if cfg!(debug_assertions) {
-        if env::var("GENERATE_ASSETS").is_ok() {
-            texture_array![1usize, "skin"]
-                .save("assets/textures/generated/skin.png")
-                .unwrap();
-            texture_array![2usize, "skin", "eyes", "grin"]
-                .save("assets/textures/generated/grin.png")
-                .unwrap();
-            texture_array![2usize, "skin", "smirk"]
-                .save("assets/textures/generated/smirk.png")
-                .unwrap();
-            texture_array![2usize, "skin", "eyes", "meh"]
-                .save("assets/textures/generated/meh.png")
-                .unwrap();
-            texture_array![2usize, "skin", "eyes", "grizz"]
-                .save("assets/textures/generated/grizz.png")
-                .unwrap();
-            texture_array![2usize, "skin", "eyes", "smile"]
-                .save("assets/textures/generated/smile.png")
-                .unwrap();
-        }
+    #[cfg(debug_assertions)]
+    if env::var("GENERATE_ASSETS").is_ok() {
+        texture_array![1usize, "skin"]
+            .save("assets/textures/generated/skin.png")
+            .unwrap();
+        texture_array![2usize, "skin", "eyes", "grin"]
+            .save("assets/textures/generated/grin.png")
+            .unwrap();
+        texture_array![2usize, "skin", "smirk"]
+            .save("assets/textures/generated/smirk.png")
+            .unwrap();
+        texture_array![2usize, "skin", "eyes", "meh"]
+            .save("assets/textures/generated/meh.png")
+            .unwrap();
+        texture_array![2usize, "skin", "eyes", "grizz"]
+            .save("assets/textures/generated/grizz.png")
+            .unwrap();
+        texture_array![2usize, "skin", "eyes", "smile"]
+            .save("assets/textures/generated/smile.png")
+            .unwrap();
     }
 
-    app.add_plugins(DefaultPlugins.set(AssetPlugin {
+    let default_plugins = DefaultPlugins.set(AssetPlugin {
         watch_for_changes: true,
         ..Default::default()
-    }));
+    });
 
+    #[cfg(debug_assertions)]
+    let default_plugins = default_plugins.set(LogPlugin {
+        level: Level::INFO,
+        filter: "info,wgpu_core=warn,wgpu_hal=warn,grin=info".into(),
+    });
+
+    #[cfg(not(debug_assertions))]
+    let default_plugins = default_plugins.set(LogPlugin {
+        level: Level::DEBUG,
+        filter: "info,wgpu_core=warn,wgpu_hal=warn,grin=debug".into(),
+    });
+
+    app.add_plugins(default_plugins);
+
+    #[cfg(debug_assertions)]
     app.init_resource::<Msaa>()
         .init_resource::<AmbientLight>()
         .add_plugin(DynamicAssetPlugin)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin)
+        .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugins(RenderFXPlugins)
         .add_plugin(HanabiPlugin)
         .add_plugin(HumanoidPlugin)

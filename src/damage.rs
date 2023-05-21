@@ -148,7 +148,9 @@ pub fn push_contact_damage(
             continue;
         };
 
-        commands.get_or_spawn(e_damage).despawn();
+        if let Some(mut e) = commands.get_entity(e_damage) {
+            e.despawn();
+        }
         let damage = damage_query.get(e_damage).unwrap();
         let Ok(mut damage_buf) = hit_query.get_mut(e_hit) else {
             continue;

@@ -59,13 +59,12 @@ impl<T: Component + Clone> Plugin for RewindComponentPlugin<T> {
         assert!(app.is_plugin_added::<RewindPlugin>());
         app.init_resource::<EntityHistories<T>>().add_systems(
             (
+                clear_unused_histories::<T>,
                 add_new_histories::<T>,
                 retire_frame::<T>,
                 save_frame::<T>,
                 initialize_rewinds::<T>,
                 rewind::<T>.after(update_rewind_frames),
-                apply_system_buffers,
-                clear_unused_histories::<T>,
             )
                 .chain()
                 .before(update_frame_index)
@@ -261,12 +260,8 @@ pub fn save_frame<T: Component + Clone>(
                     }
                     false => {
                         // use whatever frame index is recorded in the previous frame
-                        match *history
-                            .frames
-                            .back()
-                            .expect("Component appears unmodified but frame history is empty.")
-                        {
-                            Timestamp::Existent(f) => Timestamp::Existent(f),
+                        match history.frames.back().unwrap() {
+                            Timestamp::Existent(f) => Timestamp::Existent(*f),
                             Timestamp::Nonexistent(..) => {
                                 panic!(
                                     "Component appears unmodified but nonexistent in previous frame.",
@@ -277,19 +272,14 @@ pub fn save_frame<T: Component + Clone>(
                 }
             }
             // does not exist
-            Err(..) => match *history
-                .frames
-                .back()
-                .expect("Component appears nonexistent but frame history is empty.")
-            {
+            Err(..) => match history.frames.back().unwrap() {
                 Timestamp::Existent(..) => Timestamp::Nonexistent(frame_time.0),
-                Timestamp::Nonexistent(f) => Timestamp::Nonexistent(f),
+                Timestamp::Nonexistent(f) => Timestamp::Nonexistent(*f),
             },
         };
 
         let (Timestamp::Existent(f) | Timestamp::Nonexistent(f)) = timestamp;
         history.rendered_frame = f;
-
         history.frames.push_back(timestamp);
     }
 }
@@ -340,13 +330,15 @@ pub fn update_rewind_frames(mut query: Query<&mut Rewind>) {
 /// Rewinds components.
 pub fn rewind<T: Component + Clone>(
     mut commands: Commands,
+    frame_time: Res<Frame>,
     query: Query<(Entity, &Rewind)>,
     t_query: Query<&T, With<Rewind>>,
     mut histories: ResMut<EntityHistories<T>>,
 ) {
     for (entity, rewind) in query.iter() {
         let history = histories.0.get_mut(&entity).unwrap();
-
+        // need to track this in a variable instead of query since buffers aren't updated within system
+        let mut despawned = false;
         // process each frame per `fps`
         // could probably skip the intermediate frames but eh
         for _ in 0..rewind.fps {
@@ -356,7 +348,7 @@ pub fn rewind<T: Component + Clone>(
                     // component was deleted in the next frame
                     // recreate it
                     Timestamp::Existent(frame) if frame != history.rendered_frame => {
-                        commands.get_or_spawn(entity).insert(
+                        commands.entity(entity).insert(
                             history
                                 .components
                                 .pop_back()
@@ -367,7 +359,7 @@ pub fn rewind<T: Component + Clone>(
                     // component was created in the next frame
                     // delete it
                     Timestamp::Nonexistent(frame) if frame != history.rendered_frame => {
-                        commands.get_or_spawn(entity).remove::<T>();
+                        commands.entity(entity).remove::<T>();
                         history.rendered_frame = frame;
                     }
                     _ => (),
@@ -379,16 +371,17 @@ pub fn rewind<T: Component + Clone>(
                 None => {
                     // if it leaked and data was lost, it's a problem
                     if history.storage_state == HistoryStorageState::Leaking {
-                        println!("`History` ran out of frames!");
+                        warn!("`History` ran out of frames!");
                     }
 
                     match rewind.out_of_history {
                         OutOfHistory::Pause => (),
                         OutOfHistory::Resume => {
-                            commands.get_or_spawn(entity).remove::<Rewind>();
+                            commands.entity(entity).remove::<Rewind>();
                         }
                         OutOfHistory::Despawn => {
-                            commands.get_or_spawn(entity).despawn();
+                            commands.entity(entity).despawn();
+                            despawned = true;
                         }
                     }
                 }
@@ -403,8 +396,16 @@ pub fn rewind<T: Component + Clone>(
             // return the existing component to component storage
             // this could be the same one removed during rewind initalization,
             // or a new one that it rewound to
-            if let Ok(t) = t_query.get(entity) {
-                history.components.push_back(t.clone());
+            if !despawned {
+                if let Ok(t) = t_query.get(entity) {
+                    history.components.push_back(t.clone());
+                    // make sure at least one frame exists to accompany this component
+                    // otherwise we get errors
+                    if history.frames.is_empty() {
+                        history.frames.push_back(Timestamp::Existent(frame_time.0));
+                        history.rendered_frame = frame_time.0;
+                    }
+                }
             }
         }
     }

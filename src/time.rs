@@ -59,12 +59,12 @@ impl<T: Component + Clone> Plugin for RewindComponentPlugin<T> {
         assert!(app.is_plugin_added::<RewindPlugin>());
         app.init_resource::<EntityHistories<T>>().add_systems(
             (
-                clear_unused_histories::<T>,
                 add_new_histories::<T>,
                 retire_frame::<T>,
                 save_frame::<T>,
                 initialize_rewinds::<T>,
                 rewind::<T>.after(update_rewind_frames),
+                clear_unused_histories::<T>,
             )
                 .chain()
                 .before(update_frame_index)
@@ -666,6 +666,7 @@ mod tests {
             out_of_history: OutOfHistory::Despawn,
         });
 
+        app.update();
         app.update();
 
         assert!(app.world.get_entity(e).is_none());

@@ -1945,6 +1945,7 @@ dependencies = [
 name = "grin"
 version = "0.2.2"
 dependencies = [
+ "approx",
  "bevy",
  "bevy_asset_loader",
  "bevy_common_assets",
@@ -1956,6 +1957,7 @@ dependencies = [
  "bitflags 2.1.0",
  "env_logger",
  "image",
+ "itertools",
  "iyes_progress",
  "log",
  "rand",
@@ -2151,6 +2153,15 @@ dependencies = [
  "io-lifetimes",
  "rustix",
  "windows-sys 0.42.0",
+]
+
+[[package]]
+name = "itertools"
+version = "0.10.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
 ]
 
 [[package]]

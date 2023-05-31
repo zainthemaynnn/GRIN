@@ -3,6 +3,7 @@ mod asset;
 mod character;
 mod collisions;
 mod damage;
+mod dialogue;
 mod humanoid;
 mod item;
 mod render;
@@ -26,6 +27,7 @@ use bevy_rapier3d::prelude::*;
 use character::{Character, CharacterPlugin, CharacterSet};
 use damage::DamagePlugin;
 use humanoid::HumanoidPlugin;
+use dialogue::DialoguePlugin;
 use image::io::Reader as ImageReader;
 use item::{ItemPlugins, ItemSet};
 use render::{sketched::SketchMaterial, RenderFXPlugins};
@@ -92,6 +94,7 @@ fn main() -> Result<(), io::Error> {
         .add_plugin(DamagePlugin)
         .add_plugin(SoundPlugin)
         .add_systems((load_scene, Dummy::spawn).in_schedule(OnEnter(AssetLoadState::Success)))
+        .add_plugin(DialoguePlugin)
         // ensure that all humanoids exist before potentially adding items directly to them
         .add_system(
             apply_system_buffers

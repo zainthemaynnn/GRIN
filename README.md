@@ -7,6 +7,7 @@ A third person shooter.
 - Morph targets: Needed for character animations.
 - Extensible `StandardMaterial`: Reduces boilerplate.
 - Ability to disable transform propagation: Propagation is nice but it makes physics tricky.
+- Text wrapping with percent layout: Self-explanatory.
 
 ## Platform support
 At the moment every single material texture is represented by a texture array.

@@ -60,12 +60,18 @@ CustomDynamicAssetCollection({
           layers: 2,
      ),
      "sfx.uzi": File (
-          path: "audio/uzi-1800-rpm.ogg"
+          path: "audio/uzi-1800-rpm.ogg",
+     ),
+     "sfx.dialogue.eightball": File (
+          path: "audio/eightball-blip.ogg",
      ),
      "shader.pbr_bindings": File (
-          path: "shaders/pbr_bindings.wgsl"
+          path: "shaders/pbr_bindings.wgsl",
      ),
      "shader.pbr_types": File (
-          path: "shaders/pbr_types.wgsl"
+          path: "shaders/pbr_types.wgsl",
+     ),
+     "font.fira-sans": File (
+          path: "fonts/FiraSans-Regular.ttf",
      ),
 })

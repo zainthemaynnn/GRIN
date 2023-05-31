@@ -25,6 +25,7 @@ serde = { version = "1.0", features = ["derive"] }
 bitfield = "0.14"
 itertools = "0.10"
 approx = "0.5"
+html_parser = "0.7"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

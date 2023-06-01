@@ -14,7 +14,10 @@ use crate::collisions::CollisionGroupExt;
 use crate::item::{Equipped, Item};
 use crate::render::RenderLayer;
 use bevy::prelude::*;
-use bevy::render::camera::Viewport;
+use bevy::render::camera::{Viewport, RenderTarget};
+use bevy::render::render_resource::{
+    Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+};
 use bevy::render::view::RenderLayers;
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
@@ -173,31 +176,45 @@ impl Default for AvatarSimulationBundle {
     }
 }
 
-#[derive(Component)]
-struct ViewportCamera;
-
 fn insert_status_viewport(
     mut commands: Commands,
-    windows: Query<&Window>,
+    mut images: ResMut<Assets<Image>>,
     body: Query<Entity, With<PlayerCharacter>>,
     head: Query<&Transform, (With<Head>, With<Player>)>,
 ) {
-    let window = windows.single();
     let head = head.single();
+
+    let size = Extent3d {
+        width: 240,
+        height: 240,
+        depth_or_array_layers: 1,
+    };
+    let mut target = Image {
+        texture_descriptor: TextureDescriptor {
+            label: None,
+            size,
+            dimension: TextureDimension::D2,
+            format: TextureFormat::Bgra8UnormSrgb,
+            mip_level_count: 1,
+            sample_count: 1,
+            usage: TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_DST
+                | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        },
+        ..Default::default()
+    };
+    target.resize(size);
+
+    let target_handle = images.add(target);
+
     commands
         .spawn(Camera3dBundle {
             transform: Transform::from_translation(head.translation + Vec3::new(0.0, 0.0, -2.0))
                 .looking_to(Vec3::Z, Vec3::Y),
             camera: Camera {
-                viewport: Some(Viewport {
-                    physical_position: UVec2 {
-                        x: 0,
-                        y: window.physical_height() - 240,
-                    },
-                    physical_size: UVec2 { x: 240, y: 240 },
-                    ..Default::default()
-                }),
-                order: 1,
+                order: -1,
+                target: RenderTarget::Image(target_handle.clone()),
                 ..Default::default()
             },
             camera_3d: Camera3d {
@@ -206,9 +223,23 @@ fn insert_status_viewport(
             },
             ..Default::default()
         })
-        .insert(ViewportCamera)
         .insert(RenderLayers::layer(RenderLayer::AVATAR as u8))
         .set_parent(body.single());
+
+    commands.spawn(ImageBundle {
+        image: target_handle.clone().into(),
+        style: Style {
+            position_type: PositionType::Absolute,
+            size: Size::all(Val::Px(240.0)),
+            position: UiRect {
+                bottom: Val::Percent(0.0),
+                left: Val::Percent(0.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        ..Default::default()
+    });
 }
 
 fn char_update(

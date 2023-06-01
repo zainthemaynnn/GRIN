@@ -12,6 +12,12 @@ CustomDynamicAssetCollection({
      "mesh.hand": File (
           path: "meshes/hand.glb#Mesh0/Primitive0",
      ),
+     "mesh.mbody_shatter": File (
+          path: "meshes/mbody_shatter.glb",
+     ),
+     "mesh.head_shatter": File (
+          path: "meshes/head_shatter.glb",
+     ),
      "mesh.pizza_shades": File (
           path: "meshes/pizza_shades.glb#Mesh0/Primitive0",
      ),
@@ -73,5 +79,53 @@ CustomDynamicAssetCollection({
      ),
      "font.fira-sans": File (
           path: "fonts/FiraSans-Regular.ttf",
+     ),
+     "image.grin-icon-0": File (
+          path: "image/grin-icon-0.png",
+     ),
+     "image.grin-icon-1": File (
+          path: "image/grin-icon-1.png",
+     ),
+     "image.grin-combo-0": File (
+          path: "image/grin-combo-0.png",
+     ),
+     "image.grin-combo-1": File (
+          path: "image/grin-combo-1.png",
+     ),
+     "image.grizz-icon-0": File (
+          path: "image/grizz-icon-0.png",
+     ),
+     "image.grizz-icon-1": File (
+          path: "image/grizz-icon-1.png",
+     ),
+     "image.grizz-combo-0": File (
+          path: "image/grizz-combo-0.png",
+     ),
+     "image.grizz-combo-1": File (
+          path: "image/grizz-combo-1.png",
+     ),
+     "image.meh-icon-0": File (
+          path: "image/meh-icon-0.png",
+     ),
+     "image.meh-icon-1": File (
+          path: "image/meh-icon-1.png",
+     ),
+     "image.meh-combo-0": File (
+          path: "image/meh-combo-0.png",
+     ),
+     "image.meh-combo-1": File (
+          path: "image/meh-combo-1.png",
+     ),
+     "image.smirk-icon-0": File (
+          path: "image/smirk-icon-0.png",
+     ),
+     "image.smirk-icon-1": File (
+          path: "image/smirk-icon-1.png",
+     ),
+     "image.smirk-combo-0": File (
+          path: "image/smirk-combo-0.png",
+     ),
+     "image.smirk-combo-1": File (
+          path: "image/smirk-combo-1.png",
      ),
 })

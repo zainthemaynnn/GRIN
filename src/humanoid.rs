@@ -1,8 +1,16 @@
-use bevy::prelude::*;
+use bevy::{gltf::Gltf, prelude::*};
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
+use rand::{distributions::Uniform, Rng};
 
-use crate::{asset::AssetLoadState, collider, render::sketched::SketchMaterial};
+use crate::{
+    asset::AssetLoadState,
+    collider,
+    collisions::{CollisionGroupExt, CollisionGroupsExt},
+    damage::Dead,
+    render::sketched::SketchMaterial,
+    time::{CommandsExt, SetTimeParent},
+};
 
 pub const HUMANOID_HEIGHT: f32 = 2.625;
 
@@ -11,7 +19,13 @@ pub struct HumanoidPlugin;
 impl Plugin for HumanoidPlugin {
     fn build(&self, app: &mut App) {
         app.add_collection_to_loading_state::<_, HumanoidAssets>(AssetLoadState::Loading)
-            .add_system(hand_update);
+            .add_systems((hand_update, dash, jump).before(PhysicsSet::StepSimulation))
+            .add_systems((
+                shatter_on_death.run_if(in_state(AssetLoadState::Success)),
+                // since scenes render in preupdate this'll actually have to wait a frame
+                // so ordering doesn't really matter
+                init_shattered_fragments.run_if(in_state(AssetLoadState::Success)),
+            ));
     }
 }
 
@@ -366,6 +380,145 @@ fn hand_update(
                         + transform.right() * hand.velocity_influence.x);
             let t = 5.0 * time.delta_seconds();
             transform.translation = pos0 + (pos1 - pos0) * t;
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct Shatter {
+    pub material: Handle<SketchMaterial>,
+    pub inherited_velocity: Vec3,
+    pub speed: Uniform<f32>,
+}
+
+/// For any `Humanoid` with `Dead`, this will
+/// - Shatter `Humanoid` and `Humanoid.head` into fragments.
+/// - Drop any other descendants with colliders on the ground.
+/// - Remove the `Handle<Mesh>`, `Handle<Material>` and `Collider`
+/// from the humanoid and all descendants.
+///
+/// Any meshes/colliders created by this systems are copies.
+/// It doesn't despawn the original entities.
+pub fn shatter_on_death(
+    mut commands: Commands,
+    assets: Res<HumanoidAssets>,
+    gltf: Res<Assets<Gltf>>,
+    humanoid_query: Query<(Entity, &Humanoid, &Velocity), (With<Dead>, With<Handle<Mesh>>)>,
+    shatter_query: Query<(&GlobalTransform, &Handle<SketchMaterial>)>,
+    child_query: Query<(&GlobalTransform, &Handle<SketchMaterial>, &Collider)>,
+    children_query: Query<&Children>,
+) {
+    for (entity, humanoid, velocity) in humanoid_query.iter() {
+        // cause the head to explode and the body to crumble
+        // there's a little bit of speed on the body
+        // so that it doesn't just fall straight down
+        for (e_fragment, gltf_handle, speed) in [
+            (
+                entity,
+                &assets.mbody_shatter,
+                Uniform::new_inclusive(0.0, 2.0),
+            ),
+            (
+                humanoid.head,
+                &assets.head_shatter,
+                Uniform::new_inclusive(64.0, 86.0),
+            ),
+        ] {
+            let (g_transform, material) = shatter_query.get(e_fragment).unwrap();
+            commands
+                .spawn((
+                    Shatter {
+                        material: material.clone(),
+                        inherited_velocity: velocity.linvel,
+                        speed,
+                    },
+                    SceneBundle {
+                        // AVERAGE RUST PROGRAM
+                        scene: gltf
+                            .get(&gltf_handle)
+                            .unwrap()
+                            .default_scene
+                            .as_ref()
+                            .unwrap()
+                            .clone(),
+                        transform: g_transform.compute_transform(),
+                        ..Default::default()
+                    },
+                ))
+                .set_time_parent(entity);
+
+            commands
+                .entity(entity)
+                .remove::<(Handle<Mesh>, Handle<SketchMaterial>, Collider)>();
+        }
+
+        // for everything else (hands, accessories), create debris copies in global space
+        for entity in children_query.iter_descendants(entity) {
+            if entity == humanoid.head {
+                continue;
+            }
+
+            if let Ok((g_transform, material, collider)) = child_query.get(entity) {
+                commands
+                    .spawn((
+                        material.clone(),
+                        g_transform.compute_transform(),
+                        collider.clone(),
+                        CollisionGroups::from_group_default(Group::DEBRIS),
+                        velocity.clone(),
+                    ))
+                    .set_time_parent(entity);
+            };
+
+            commands
+                .entity(entity)
+                .remove::<(Handle<Mesh>, Handle<SketchMaterial>, Collider)>();
+        }
+    }
+}
+
+pub fn init_shattered_fragments(
+    mut commands: Commands,
+    query: Query<(Entity, &Shatter, &Children)>,
+    children_query: Query<&Children>,
+    transform_query: Query<&GlobalTransform>,
+    mesh_query: Query<(Entity, &Handle<Mesh>)>,
+    meshes: Res<Assets<Mesh>>,
+) {
+    // this looks more complicated than it should be
+    // cause `Velocity` is always in global space
+    for (
+        entity,
+        Shatter {
+            material,
+            inherited_velocity,
+            speed,
+        },
+        scene_children,
+    ) in query.iter()
+    {
+        commands.entity(entity).remove::<Shatter>();
+        let entity0 = *scene_children.first().unwrap();
+        let g_transform0 = transform_query.get(entity0).unwrap();
+        for child in children_query.get(entity0).unwrap() {
+            let g_transform1 = transform_query.get(*child).unwrap();
+            let (entity1, mesh) = mesh_query
+                .get(*children_query.get(*child).unwrap().first().unwrap())
+                .unwrap();
+            commands.entity(entity1).insert((
+                material.clone(),
+                RigidBody::Dynamic,
+                CollisionGroups::from_group_default(Group::DEBRIS),
+                // TODO?: can I optimize these fragment colliders and still make them look good?
+                collider!(meshes, mesh),
+                // fly outwards from parent translation
+                Velocity {
+                    linvel: *inherited_velocity
+                        + (g_transform1.translation() - g_transform0.translation()).normalize()
+                            * rand::thread_rng().sample(speed),
+                    ..Default::default()
+                },
+            ));
         }
     }
 }

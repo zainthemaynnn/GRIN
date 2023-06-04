@@ -43,7 +43,9 @@ impl CollisionGroupsExt for CollisionGroups {
 /// and because getting a `T` from `Assets<T>` is already a mouthful.
 #[macro_export]
 macro_rules! generic_collider {
-    ( $meshes:expr, $mesh_handle:expr, $shape:expr ) => {
+    ( $meshes:expr, $mesh_handle:expr, $shape:expr ) => {{
+        use bevy_rapier3d::prelude::Collider;
+
         Collider::from_bevy_mesh(
             $meshes
                 .get($mesh_handle)
@@ -51,25 +53,29 @@ macro_rules! generic_collider {
             $shape,
         )
         .expect("Failed to generate mesh collider.")
-    };
+    }};
 }
 
 /// Generates a trimesh collider from a mesh handle and mesh collection.
 #[macro_export]
 macro_rules! collider {
-    ( $meshes:expr, $mesh_handle:expr ) => {
+    ( $meshes:expr, $mesh_handle:expr ) => {{
+        use bevy_rapier3d::prelude::ComputedColliderShape;
+
         crate::generic_collider!($meshes, $mesh_handle, &ComputedColliderShape::TriMesh)
-    };
+    }};
 }
 
 /// Generates a convex collider from a mesh handle and mesh collection using VHACD parameters.
 #[macro_export]
 macro_rules! convex_collider {
-    ( $meshes:expr, $mesh_handle:expr, $vhacd:expr ) => {
+    ( $meshes:expr, $mesh_handle:expr, $vhacd:expr ) => {{
+        use bevy_rapier3d::prelude::ComputedColliderShape;
+
         crate::generic_collider!(
             $meshes,
             $mesh_handle,
             &ComputedColliderShape::ConvexDecomposition($vhacd)
         )
-    };
+    }};
 }

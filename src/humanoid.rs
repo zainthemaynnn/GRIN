@@ -354,7 +354,10 @@ fn hand_update(
     for (mut transform, hand, parent) in hands.iter_mut() {
         if let Ok(velocity) = body.get(parent.get()) {
             let pos0 = transform.translation;
-            let pos1 = hand.offset - velocity.linvel * hand.velocity_influence;
+            let pos1 = hand.offset
+                - velocity.linvel
+                    * (transform.forward() * hand.velocity_influence.z
+                        + transform.right() * hand.velocity_influence.x);
             let t = 5.0 * time.delta_seconds();
             transform.translation = pos0 + (pos1 - pos0) * t;
         }

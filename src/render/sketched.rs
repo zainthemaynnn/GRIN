@@ -45,7 +45,8 @@ impl Plugin for SketchEffectPlugin {
         );
 
         let autofill_enabled = self.autofill_sketch_effect;
-        app.add_plugin(OutlinePlugin)
+        app.add_asset::<SketchUiImage>()
+            .add_plugin(OutlinePlugin)
             .add_plugin(AutoGenerateOutlineNormalsPlugin)
             .add_plugin(MaterialPlugin::<SketchMaterial>::default())
             .insert_resource(self.outline.clone())

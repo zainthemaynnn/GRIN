@@ -80,52 +80,28 @@ CustomDynamicAssetCollection({
      "font.fira-sans": File (
           path: "fonts/FiraSans-Regular.ttf",
      ),
-     "image.grin-icon-0": File (
-          path: "image/grin-icon-0.png",
+     "image.grin-icon": SketchUiImage (
+          images: ["images/grin-icon-0.png", "images/grin-icon-1.png"],
      ),
-     "image.grin-icon-1": File (
-          path: "image/grin-icon-1.png",
+     "image.grin-combo": SketchUiImage (
+          images: ["images/grin-combo-0.png", "images/grin-combo-1.png"],
      ),
-     "image.grin-combo-0": File (
-          path: "image/grin-combo-0.png",
+     "image.grizz-icon": SketchUiImage (
+          images: ["images/grizz-icon-0.png", "images/grizz-icon-1.png"],
      ),
-     "image.grin-combo-1": File (
-          path: "image/grin-combo-1.png",
+     "image.grizz-combo": SketchUiImage (
+          images: ["images/grizz-combo-0.png", "images/grizz-combo-1.png"],
      ),
-     "image.grizz-icon-0": File (
-          path: "image/grizz-icon-0.png",
+     "image.meh-icon": SketchUiImage (
+          images: ["images/meh-icon-0.png", "images/meh-icon-1.png"],
      ),
-     "image.grizz-icon-1": File (
-          path: "image/grizz-icon-1.png",
+     "image.meh-combo": SketchUiImage (
+          images: ["images/meh-combo-0.png", "images/meh-combo-1.png"],
      ),
-     "image.grizz-combo-0": File (
-          path: "image/grizz-combo-0.png",
+     "image.smirk-icon": SketchUiImage (
+          images: ["images/smirk-icon-0.png", "images/smirk-icon-1.png"],
      ),
-     "image.grizz-combo-1": File (
-          path: "image/grizz-combo-1.png",
-     ),
-     "image.meh-icon-0": File (
-          path: "image/meh-icon-0.png",
-     ),
-     "image.meh-icon-1": File (
-          path: "image/meh-icon-1.png",
-     ),
-     "image.meh-combo-0": File (
-          path: "image/meh-combo-0.png",
-     ),
-     "image.meh-combo-1": File (
-          path: "image/meh-combo-1.png",
-     ),
-     "image.smirk-icon-0": File (
-          path: "image/smirk-icon-0.png",
-     ),
-     "image.smirk-icon-1": File (
-          path: "image/smirk-icon-1.png",
-     ),
-     "image.smirk-combo-0": File (
-          path: "image/smirk-combo-0.png",
-     ),
-     "image.smirk-combo-1": File (
-          path: "image/smirk-combo-1.png",
+     "image.smirk-combo": SketchUiImage (
+          images: ["images/smirk-combo-0.png", "images/smirk-combo-1.png"],
      ),
 })

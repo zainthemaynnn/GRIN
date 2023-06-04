@@ -8,10 +8,11 @@ use bevy::{
 };
 use bevy_asset_loader::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
+use itertools::Itertools;
 use iyes_progress::prelude::*;
 use serde::Deserialize;
 
-use crate::render::sketched::SketchMaterial;
+use crate::render::sketched::{SketchMaterial, SketchUiImage};
 
 pub struct DynamicAssetPlugin;
 
@@ -77,13 +78,16 @@ pub enum CustomDynamicAsset {
         radius: f32,
     },
     // NOTE: will fill in the rest if I ever need to... feeling lazy
-    StandardMaterial {
+    SketchMaterial {
         base_color: Option<[f32; 4]>,
         base_color_texture: Option<String>,
         perceptual_roughness: Option<f32>,
         reflectance: Option<f32>,
         emissive: Option<[f32; 4]>,
         layers: Option<u32>,
+    },
+    SketchUiImage {
+        images: Vec<String>,
     },
 }
 
@@ -99,6 +103,10 @@ impl DynamicAsset for CustomDynamicAsset {
                 .map_or_else(Default::default, |path| {
                     vec![asset_server.load_untyped(path)]
                 }),
+            Self::SketchUiImage { images } => images
+                .iter()
+                .map(|path| asset_server.load_untyped(path))
+                .collect_vec(),
         }
     }
 
@@ -107,6 +115,7 @@ impl DynamicAsset for CustomDynamicAsset {
         let asset_server = world_cell
             .get_resource::<AssetServer>()
             .expect("Failed to get AssetServer.");
+        
         match self {
             Self::File { path } => Ok(DynamicAssetType::Single(asset_server.load_untyped(path))),
             Self::UVSphereMesh { radius } => {
@@ -183,6 +192,19 @@ impl DynamicAsset for CustomDynamicAsset {
                             emissive: emissive
                                 .map_or(mat_default.emissive, |channels| Color::from(channels)),
                             ..Default::default()
+                        })
+                        .into(),
+                ))
+            }
+            Self::SketchUiImage { images } => {
+                let mut assets = world_cell.resource_mut::<Assets<SketchUiImage>>();
+                Ok(DynamicAssetType::Single(
+                    assets
+                        .add(SketchUiImage {
+                            images: images
+                                .iter()
+                                .map(|path| asset_server.load(path))
+                                .collect_vec(),
                         })
                         .into(),
                 ))

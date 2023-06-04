@@ -1,55 +1,77 @@
-//! Only supports ASCII right now. Didn't think that far ahead. Whoops.
+//! !!! SPAGHETTI WARNING !!!
+//!
+//! This module manages what you think it does.
+//! Also it only supports ASCII right now. Didn't think that far ahead. Whoops.
 //!
 //! Did I mention I hate UI?
 
-use bevy::{prelude::*, ui::FocusPolicy, utils::HashSet};
-use bevy_asset_loader::prelude::{AssetCollection, LoadingStateAppExt};
+pub mod asset_gen;
+
+use bevy::{
+    prelude::*,
+    reflect::TypeUuid,
+    ui::FocusPolicy,
+    utils::{HashMap, HashSet},
+};
+use bevy_asset_loader::prelude::*;
+use bevy_common_assets::ron::RonAssetPlugin;
 use itertools::Itertools;
 
-use crate::{asset::AssetLoadState, character::AvatarLoadState, util::keys::{InputExt, KeyCodeExt}};
+use crate::{
+    asset::AssetLoadState,
+    render::sketched::SketchUiImage,
+    util::keys::{InputExt, KeyCodeExt},
+};
 
-use self::generation::parse_dialogue;
+use self::asset_gen::{DefaultTextStyle, DialogueAssetLoadState};
 
-pub mod generation;
-
-#[derive(Resource, AssetCollection)]
-pub struct DialogueAssets {
-    #[asset(key = "font.fira-sans")]
-    pub fira_sans: Handle<Font>,
-    #[asset(key = "sfx.dialogue.eightball")]
-    pub eightball_blip: Handle<AudioSource>,
-}
+/// Maps `Dialogue` string ID's (defined in assets file) to `Dialogue` handles.
+// the strings are like, handles... for handles.
+// this is because dialogue blocks do not have file paths so you can't really refer to them with a handle.
+// a bit of extra internal work but doesn't affect the interface for this module so meh.
+#[derive(Resource, Default)]
+pub struct DialogueMap(pub HashMap<String, Handle<Dialogue>>);
 
 pub struct DialoguePlugin;
 
 impl Plugin for DialoguePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<StopChars>()
-            .init_resource_after_loading_state::<_, DefaultTextStyle>(AssetLoadState::Loading)
+        app.init_resource::<DefaultTextStyle>()
+            .init_resource::<StopChars>()
+            .add_state::<DialogueAssetLoadState>()
+            .add_asset::<Dialogue>()
+            .add_collection_to_loading_state::<_, asset_gen::DialogueAssets>(
+                AssetLoadState::Loading,
+            )
+            .add_plugin(RonAssetPlugin::<asset_gen::DialogueMap>::new(&[
+                "dialogue.ron",
+            ]))
             .add_event::<DialogueEvent>()
-            .add_collection_to_loading_state::<_, DialogueAssets>(AssetLoadState::Loading)
+            .add_event::<SelectedDialogueOptionEvent>()
             .add_startup_system(init_dialogue_box)
             .add_systems(
-                (prepare_dialogue_block, speak_dialogue, continue_dialogue)
+                (
+                    prepare_dialogue_block,
+                    speak_dialogue,
+                    continue_dialogue,
+                    apply_system_buffers,
+                    select_dialogue_options,
+                    display_dialogue_options,
+                    apply_system_buffers,
+                    highlight_selected_dialogue,
+                )
                     .chain()
-                    .in_set(OnUpdate(AssetLoadState::Success)),
+                    .in_set(OnUpdate(DialogueAssetLoadState::Success)),
             )
-            .add_system(test_dialogue.in_schedule(OnEnter(AvatarLoadState::Loaded)));
+            .add_system(asset_gen::add_dialogue_assets.in_set(OnUpdate(AssetLoadState::Success)));
     }
 }
 
-#[derive(Resource)]
-pub struct DefaultTextStyle(pub TextStyle);
-
-impl FromWorld for DefaultTextStyle {
-    fn from_world(world: &mut World) -> Self {
-        let assets = world.resource::<DialogueAssets>();
-        Self(TextStyle {
-            font: assets.fira_sans.clone(),
-            font_size: 24.0,
-            color: Color::WHITE,
-        })
-    }
+#[derive(SystemSet, Debug, Hash, Eq, PartialEq, Copy, Clone)]
+pub enum DialogueSet {
+    Dialogue,
+    DialogueSelect,
+    DialogueShow,
 }
 
 /// Procedurally iterates the characters in a block of dialogue.
@@ -98,6 +120,9 @@ pub struct DialogueText;
 #[derive(Component)]
 pub struct DialogueSelector;
 
+#[derive(Component)]
+pub struct IconContainer;
+
 pub fn init_dialogue_box(mut commands: Commands) {
     // mfw I spend multiple days figuring out why html/css is giving me different layouts ;)))
     // https://github.com/bevyengine/bevy/issues/1490
@@ -124,9 +149,9 @@ pub fn init_dialogue_box(mut commands: Commands) {
                     gap: Size::width(Val::Px(8.0)),
                     ..Default::default()
                 },
-                background_color: BackgroundColor(Color::rgba(0.0, 0.0, 0.0, 0.5)),
+                background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
                 focus_policy: FocusPolicy::Block,
-                z_index: ZIndex::Global(1),
+                z_index: ZIndex::Global(1000),
                 ..Default::default()
             },
         ))
@@ -139,21 +164,20 @@ pub fn init_dialogue_box(mut commands: Commands) {
                         size: Size::height(Val::Percent(100.0)),
                         ..Default::default()
                     },
-                    background_color: BackgroundColor(Color::RED),
                     ..Default::default()
                 },
             ));
             parent
-                .spawn((NodeBundle {
+                .spawn(NodeBundle {
                     style: Style {
                         flex_grow: 1.0,
                         flex_basis: Val::Px(0.0),
                         padding: UiRect::all(Val::Px(16.0)),
                         ..Default::default()
                     },
-                    background_color: BackgroundColor(Color::PURPLE),
+                    background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
                     ..Default::default()
-                },))
+                })
                 .with_children(|parent| {
                     parent.spawn((
                         DialogueText,
@@ -176,23 +200,24 @@ pub fn init_dialogue_box(mut commands: Commands) {
                         flex_direction: FlexDirection::Column,
                         ..Default::default()
                     },
-                    background_color: BackgroundColor(Color::GREEN),
+                    background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
                     ..Default::default()
                 },
             ));
         });
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, TypeUuid)]
+#[uuid = "25fec548-b7dd-4664-be6c-ced090b2787f"]
 pub struct Dialogue {
-    pub text: String,
+    pub text: Text,
     pub blip: Handle<AudioSource>,
-    pub cps: Option<f32>,
-    pub stop_delay: Option<f32>,
+    pub cps: f32,
+    pub stop_delay: f32,
     pub next: DialogueNext,
 }
 
-#[derive(Default)]
+#[derive(Component, Default, Clone)]
 pub enum DialogueNext {
     /// Another block of text.
     Continue(String),
@@ -203,26 +228,33 @@ pub enum DialogueNext {
 }
 
 pub enum DialogueEvent {
-    Say(Dialogue),
+    Say(Handle<Dialogue>),
     Finish,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct DialogueOptions {
     pub selected: usize,
     pub options: Vec<DialogueOption>,
 }
 
+impl DialogueOptions {
+    pub fn new(options: impl IntoIterator<Item = DialogueOption>) -> Self {
+        Self {
+            options: options.into_iter().collect_vec(),
+            selected: 0,
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct DialogueOption {
     /// The icon when selecting this option.
-    ///
-    /// TODO?: I might need to make a standalone sketch effect for UI images
-    /// as I did for `SketchMaterial`. for now this'll do.
-    pub icon: Option<Vec<Handle<Image>>>,
+    pub icon: Option<Handle<SketchUiImage>>,
     /// Text for this option.
-    pub text: String,
+    pub text: Text,
     /// Dialogue after selecting this option.
-    pub dialogue: Dialogue,
+    pub dialogue: String,
 }
 
 #[derive(Component)]
@@ -230,37 +262,38 @@ pub struct DialogueOptionIcon;
 
 pub fn prepare_dialogue_block(
     mut commands: Commands,
-    text_style: Res<DefaultTextStyle>,
-    text_query: Query<Entity, With<DialogueText>>,
+    dialogue_assets: Res<Assets<Dialogue>>,
+    mut text_query: Query<(Entity, &mut Text), With<DialogueText>>,
     mut window_query: Query<&mut Style, With<DialogueWindow>>,
     mut events: EventReader<DialogueEvent>,
-    assets: Res<DialogueAssets>,
 ) {
+    let (e_text, mut text) = text_query.single_mut();
     for event in events.iter() {
+        text.sections.clear();
         match event {
-            DialogueEvent::Say(Dialogue {
-                text,
-                blip,
-                cps,
-                stop_delay,
-                next,
-            }) => {
-                let e_text = text_query.single();
-                commands.entity(e_text).insert(TextMotor {
-                    cps: cps.unwrap_or(15.0),
-                    stop_delay: stop_delay.unwrap_or(0.4),
-                    sections: Box::new(
-                        parse_dialogue(text.as_str(), &text_style.0.clone())
-                            .sections
-                            .into_iter(),
-                    ),
-                    // will be filled on the first iteration
-                    chars: Box::new(std::iter::empty()),
-                    blip: blip.clone(),
-                    acc: 0.0,
-                    latest_char: '\n', // placeholder
-                    skip: false,
-                });
+            DialogueEvent::Say(h_dialogue) => {
+                let Dialogue {
+                    text,
+                    blip,
+                    cps,
+                    stop_delay,
+                    next,
+                } = dialogue_assets.get(h_dialogue).unwrap().clone();
+
+                commands.entity(e_text).insert((
+                    TextMotor {
+                        cps,
+                        stop_delay,
+                        sections: Box::new(text.sections.into_iter()),
+                        // will be filled on the first iteration
+                        chars: Box::new(std::iter::empty()),
+                        blip: blip.clone(),
+                        acc: 0.0,
+                        latest_char: '\n', // placeholder
+                        skip: false,
+                    },
+                    next,
+                ));
             }
             DialogueEvent::Finish => {
                 let mut style = window_query.single_mut();
@@ -330,7 +363,6 @@ pub fn speak_dialogue(
 
 pub fn display_dialogue_options(
     mut commands: Commands,
-    text_style: Res<DefaultTextStyle>,
     options_query: Query<(Entity, &DialogueOptions), Without<Children>>,
 ) {
     let Ok((e_options, options)) = options_query.get_single() else {
@@ -338,12 +370,7 @@ pub fn display_dialogue_options(
     };
 
     commands.entity(e_options).with_children(|parent| {
-        for DialogueOption {
-            icon,
-            text,
-            dialogue,
-        } in options.options.iter()
-        {
+        for DialogueOption { text, .. } in options.options.iter() {
             parent
                 .spawn(NodeBundle {
                     style: Style {
@@ -351,25 +378,23 @@ pub fn display_dialogue_options(
                         padding: UiRect::all(Val::Px(4.0)),
                         ..Default::default()
                     },
-                    background_color: BackgroundColor(Color::FUCHSIA),
                     ..Default::default()
                 })
                 .with_children(|parent| {
-                    let mut icon_container = parent.spawn(NodeBundle {
-                        style: Style {
-                            size: Size::all(Val::Px(40.0)),
+                    parent.spawn((
+                        IconContainer,
+                        NodeBundle {
+                            style: Style {
+                                size: Size::height(Val::Px(64.0)),
+                                aspect_ratio: Some(1.5),
+                                ..Default::default()
+                            },
                             ..Default::default()
                         },
-                        ..Default::default()
-                    });
-
-                    if let Some(icon) = icon {
-                        icon_container.insert((DialogueOptionIcon, UiImage::new(icon[0].clone())));
-                    }
+                    ));
 
                     parent.spawn(TextBundle {
-                        text: parse_dialogue(text, &text_style.0.clone()),
-                        background_color: BackgroundColor(Color::AQUAMARINE),
+                        text: text.clone(),
                         ..Default::default()
                     });
                 });
@@ -377,57 +402,137 @@ pub fn display_dialogue_options(
     });
 }
 
+pub struct SelectedDialogueOptionEvent {
+    pub option: DialogueOption,
+    pub selected: usize,
+    pub deselected: Option<usize>,
+}
+
 pub fn select_dialogue_options(
     input: Res<Input<KeyCode>>,
     audio: Res<Audio>,
-    mut options_query: Query<(Entity, &mut DialogueOptions)>,
+    dialogue_map: Res<DialogueMap>,
+    dialogue_assets: Res<Assets<Dialogue>>,
+    mut options_query: Query<&mut DialogueOptions, With<DialogueSelector>>,
+    mut events: EventWriter<SelectedDialogueOptionEvent>,
 ) {
-    let Ok((entity, mut options)) = options_query.get_single_mut() else {
+    let Ok(mut options) = options_query.get_single_mut() else {
         return;
     };
 
     let mut changed = false;
+    let pre_selected = options.selected;
 
-    if input.any_pressed(KeyCode::ANY_UP) {
-        options.selected = (options.selected - 1).max(0);
+    if input.any_pressed(KeyCode::ANY_UP) && options.selected > 0 {
+        options.selected -= 1;
         changed = true;
-    } else if input.any_pressed(KeyCode::ANY_DOWN) {
-        options.selected = (options.selected + 1).min(options.options.len());
+    } else if input.any_pressed(KeyCode::ANY_DOWN) && options.selected < options.options.len() - 1 {
+        options.selected += 1;
         changed = true;
     }
 
-    if let Some(index) = input.pressed_number() {
+    if let Some(index) = input.just_released_number().map(|i| i - 1) {
         if index < options.options.len() {
             options.selected = index;
             changed = true;
         }
     }
 
+    let option = &options.options[options.selected];
     if changed {
-        audio.play(options.options[options.selected].dialogue.blip.clone());
+        let handle = &dialogue_map.0[&option.dialogue].clone();
+        let dialogue = dialogue_assets.get(handle).unwrap();
+        audio.play(dialogue.blip.clone());
+    }
+
+    if options.selected != pre_selected {
+        events.send(SelectedDialogueOptionEvent {
+            option: option.clone(),
+            selected: options.selected,
+            deselected: Some(pre_selected),
+        });
     }
 }
 
-pub fn continue_dialogue(
-    input: Res<Input<KeyCode>>,
-    text_query: Query<Entity, With<DialogueText>>,
-    mut motor_query: Query<&mut TextMotor, With<DialogueText>>,
-    mut events: EventWriter<DialogueEvent>,
+pub fn highlight_selected_dialogue(
+    mut commands: Commands,
+    selector_query: Query<&Children, With<DialogueSelector>>,
+    children_query: Query<&Children, Without<DialogueSelector>>,
+    icon_query: Query<(), With<IconContainer>>,
+    mut events: EventReader<SelectedDialogueOptionEvent>,
 ) {
-    if input.just_released(KeyCode::Return) {
-        let e_text = text_query.single();
-        if let Ok(mut motor) = motor_query.get_mut(e_text) {
-            motor.skip = true;
-        } else {
-            events.send(DialogueEvent::Finish);
+    for SelectedDialogueOptionEvent {
+        option,
+        selected,
+        deselected,
+    } in events.iter()
+    {
+        let selector_children = selector_query.single();
+        let selected = selector_children[*selected];
+        let deselected = deselected.map(|i| selector_children[i]);
+
+        if let Some(deselected) = deselected {
+            for child in children_query.get(deselected).unwrap().iter() {
+                if icon_query.get(*child).is_ok() {
+                    commands
+                        .entity(*child)
+                        .remove::<(UiImage, Handle<SketchUiImage>, BackgroundColor)>();
+                }
+            }
+        }
+
+        for child in children_query.get(selected).unwrap().iter() {
+            if let Some(icon) = &option.icon {
+                if icon_query.get(*child).is_ok() {
+                    commands.entity(*child).insert(icon.clone());
+                }
+            }
         }
     }
 }
 
-pub fn test_dialogue(mut events: EventWriter<DialogueEvent>, assets: Res<DialogueAssets>) {
-    events.send(DialogueEvent::Say(Dialogue {
-        text: "Hey there buddy.".to_owned(),
-        blip: assets.eightball_blip.clone(),
-        ..Default::default()
-    }));
+// yucky. this is a yucky system.
+pub fn continue_dialogue(
+    mut commands: Commands,
+    input: Res<Input<KeyCode>>,
+    dialogue_map: Res<DialogueMap>,
+    text_query: Query<(Entity, &DialogueNext), With<DialogueText>>,
+    mut motor_query: Query<&mut TextMotor, With<DialogueText>>,
+    selector_query: Query<Entity, With<DialogueSelector>>,
+    opts_query: Query<&DialogueOptions, With<DialogueSelector>>,
+    mut events: EventWriter<DialogueEvent>,
+    mut opt_events: EventWriter<SelectedDialogueOptionEvent>,
+) {
+    if input.just_released(KeyCode::Return) {
+        let (e_text, next) = text_query.single();
+        let e_select = selector_query.single();
+        if let Ok(mut motor) = motor_query.get_mut(e_text) {
+            motor.skip = true;
+        } else if let Ok(opts) = opts_query.get(e_select) {
+            let handle = dialogue_map.0[&opts.options[opts.selected].dialogue].clone();
+            events.send(DialogueEvent::Say(handle));
+            commands
+                .entity(e_select)
+                .remove::<DialogueOptions>()
+                .despawn_descendants();
+        } else {
+            match next {
+                DialogueNext::Continue(dialogue) => {
+                    let handle = dialogue_map.0[dialogue].clone();
+                    events.send(DialogueEvent::Say(handle));
+                }
+                DialogueNext::Respond(opts) => {
+                    commands.entity(e_select).insert(opts.clone());
+                    opt_events.send(SelectedDialogueOptionEvent {
+                        option: opts.options[0].clone(),
+                        selected: 0,
+                        deselected: None,
+                    });
+                }
+                DialogueNext::Finish => events.send(DialogueEvent::Finish),
+            }
+        }
+    }
 }
+
+// TODO: unit test this thing. maybe. someday.

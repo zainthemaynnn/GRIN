@@ -27,7 +27,7 @@ use bevy_rapier3d::prelude::*;
 use character::{Character, CharacterPlugin, CharacterSet};
 use damage::DamagePlugin;
 use humanoid::HumanoidPlugin;
-use dialogue::DialoguePlugin;
+use dialogue::{DialoguePlugin, DialogueEvent, DialogueMap, asset_gen::DialogueAssetLoadState};
 use image::io::Reader as ImageReader;
 use item::{ItemPlugins, ItemSet};
 use render::{sketched::SketchMaterial, RenderFXPlugins};
@@ -98,6 +98,8 @@ fn main() -> Result<(), io::Error> {
         .add_plugin(DialoguePlugin)
         .add_plugin(RewindPlugin::default())
         .add_plugin(RewindComponentPlugin::<Transform>::default())
+        .add_system(load_scene.in_schedule(OnEnter(AssetLoadState::Success)))
+        .add_system(test_dialogue.in_schedule(OnEnter(DialogueAssetLoadState::Success)))
         // ensure that all humanoids exist before potentially adding items directly to them
         .add_system(
             apply_system_buffers
@@ -153,4 +155,8 @@ fn load_scene(
         },
         Collider::from_bevy_mesh(&plane, &ComputedColliderShape::TriMesh).unwrap(),
     ));
+}
+
+fn test_dialogue(mut events: EventWriter<DialogueEvent>, dialogue_map: Res<DialogueMap>) {
+    events.send(DialogueEvent::Say(dialogue_map.0["test_1"].clone()));
 }

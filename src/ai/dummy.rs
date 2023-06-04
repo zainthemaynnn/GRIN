@@ -75,13 +75,13 @@ pub fn spawn<'w, 's>(
                 },
                 target: MoveTarget::default(),
             },
-            CollisionGroups::new(
-                Group::ENEMY,
-                Group::all() - Group::ENEMY - Group::ENEMY_PROJECTILE,
-            ),
+            CollisionGroups::from_group_default(Group::ENEMY),
             GravityScale(1.0),
         ));
-        commands.get_or_spawn(humanoid.head).insert(DamageBuffer::default());
+        commands.get_or_spawn(humanoid.head).insert((
+            DamageBuffer::default(),
+            CollisionGroups::from_group_default(Group::ENEMY),
+        ));
         humanoid
             .with_transform(Transform::from_xyz(10.0, 0.0, 0.0))
             .build(&mut commands);

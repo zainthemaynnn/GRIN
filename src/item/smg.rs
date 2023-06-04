@@ -5,14 +5,14 @@ use crate::{
     damage::{Damage, DamageVariant, ProjectileBundle},
     humanoid::Humanoid,
     render::sketched::NoOutline,
-    sound::{InitLocalizedSound, LocalizedSound},
     util::vectors::Vec3Ext,
 };
 
 use super::{
-    aim_single, set_local_mouse_target, set_on_lmb, set_on_rmb, Aiming, Item, ItemEquipEvent,
-    ItemPlugin, ItemSet, ItemSpawnEvent, Muzzle, MuzzleBundle, MuzzleFlashEvent, ProjectileAssets,
-    Sfx, WeaponBundle,
+    aim_single,
+    firing::{self, AutoFireBundle, FireRate, FiringPlugin, FiringType, ItemSfx, ShotFired},
+    set_local_mouse_target, set_on_lmb, set_on_rmb, Accuracy, Aiming, Item, ItemEquipEvent,
+    ItemPlugin, ItemSet, ItemSpawnEvent, Muzzle, MuzzleBundle, ProjectileAssets, Sfx, WeaponBundle,
 };
 pub use super::{Active, Target};
 use bevy::prelude::*;
@@ -30,14 +30,16 @@ pub enum SMGSystemSet {
 
 impl Plugin for SMGPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<ShotEvent>()
-            .add_event::<ShotsBegan>()
-            .add_event::<ShotsEnded>()
-            .add_plugin(ItemPlugin::<SMG>::default())
+        app.add_plugin(ItemPlugin::<SMG>::default())
+            .add_plugin(FiringPlugin::<SMG>::from(FiringType::Automatic))
             .configure_sets(
                 (
-                    SMGSystemSet::Input.run_if(in_state(AssetLoadState::Success)),
-                    SMGSystemSet::Fire.run_if(in_state(AssetLoadState::Success)),
+                    SMGSystemSet::Input
+                        .run_if(in_state(AssetLoadState::Success))
+                        .before(firing::auto_fire::<SMG>),
+                    SMGSystemSet::Fire
+                        .run_if(in_state(AssetLoadState::Success))
+                        .after(firing::auto_fire::<SMG>),
                     SMGSystemSet::Effects.run_if(in_state(AssetLoadState::Success)),
                 )
                     .chain(),
@@ -48,36 +50,19 @@ impl Plugin for SMGPlugin {
                     set_local_mouse_target::<SMG>,
                     set_on_lmb::<SMG, Active>,
                     set_on_rmb::<SMG, Aiming>,
-                    apply_system_buffers,
-                    fire,
                 )
                     .chain()
                     .in_set(SMGSystemSet::Input),
             )
-            .add_systems((spawn_bullet, aim_single::<SMG>).in_set(SMGSystemSet::Fire))
-            .add_systems((send_muzzle_flash, play_sfx).in_set(SMGSystemSet::Effects));
+            .add_systems((spawn_bullet, aim_single::<SMG>).in_set(SMGSystemSet::Fire));
     }
 }
 
 /// To add a firing target, insert a `item::Target` component.
 ///
-/// To fire, insert the `item::Active(true)` component.
-#[derive(Component)]
-pub struct SMG {
-    firing: bool,
-    fire_rate: f32,
-    cooldown: f32,
-}
-
-impl Default for SMG {
-    fn default() -> Self {
-        Self {
-            firing: false,
-            fire_rate: 0.1,
-            cooldown: 0.0,
-        }
-    }
-}
+/// To fire, set the `item::Active(true)` component.
+#[derive(Component, Default)]
+pub struct SMG;
 
 impl Item for SMG {
     type SpawnEvent = ItemSpawnEvent<SMG>;
@@ -87,9 +72,10 @@ impl Item for SMG {
 pub fn spawn(
     mut commands: Commands,
     assets: Res<ProjectileAssets>,
+    humanoid_query: Query<&Humanoid>,
+    sfx: Res<Sfx>,
     mut spawn_events: EventReader<ItemSpawnEvent<SMG>>,
     mut equip_events: EventWriter<ItemEquipEvent<SMG>>,
-    humanoid_query: Query<&Humanoid>,
 ) {
     for ItemSpawnEvent { parent_entity, .. } in spawn_events.iter() {
         let Ok(humanoid) = humanoid_query.get(*parent_entity) else {
@@ -100,9 +86,6 @@ pub fn spawn(
         let item_entity = commands
             .spawn((
                 SMG::default(),
-                Target::default(),
-                Active::default(),
-                Aiming::default(),
                 WeaponBundle {
                     material_mesh: MaterialMeshBundle {
                         mesh: assets.gun.clone(),
@@ -111,6 +94,13 @@ pub fn spawn(
                         ..Default::default()
                     },
                     ..Default::default()
+                },
+                AutoFireBundle {
+                    fire_rate: FireRate(0.1),
+                    ..Default::default()
+                },
+                ItemSfx {
+                    on_fire: sfx.uzi.clone(),
                 },
             ))
             .with_children(|parent| {
@@ -122,78 +112,31 @@ pub fn spawn(
             .set_parent(humanoid.dominant_hand())
             .id();
 
-        equip_events.send(ItemEquipEvent::<SMG>::new(*parent_entity, item_entity));
-    }
-}
-
-pub struct ShotEvent(Entity);
-
-pub struct ShotsBegan(Entity);
-
-pub struct ShotsEnded(Entity);
-
-pub fn fire(
-    mut commands: Commands,
-    mut weapon_query: Query<(&mut SMG, &Target, &Active, Option<&Player>, &Children)>,
-    mut shot_events: EventWriter<ShotEvent>,
-    mut shots_began: EventWriter<ShotsBegan>,
-    mut shots_ended: EventWriter<ShotsEnded>,
-    time: Res<Time>,
-) {
-    for (mut item, target, active, player, children) in weapon_query.iter_mut() {
-        for child in children.iter() {
-            let mut e = commands.get_or_spawn(*child);
-            e.insert(*target);
-            if let Some(player) = player {
-                e.insert(*player);
-            }
-        }
-        if item.cooldown < item.fire_rate {
-            item.cooldown += time.delta_seconds();
-        }
-
-        if active.0 {
-            if item.cooldown >= item.fire_rate {
-                if !item.firing {
-                    item.firing = true;
-                    shots_began.send_batch(children.iter().map(|e| ShotsBegan(*e)));
-                }
-
-                // need to use loops to account for frame lag
-                // (might need to fire multiple at once if it spiked)
-                while item.cooldown >= item.fire_rate {
-                    item.cooldown -= item.fire_rate;
-                    shot_events.send_batch(children.iter().map(|e| ShotEvent(*e)));
-                }
-            }
-        } else {
-            if item.firing {
-                item.firing = false;
-                shots_ended.send_batch(children.iter().map(|e| ShotsEnded(*e)));
-            }
-        }
+        equip_events.send(ItemEquipEvent::new(*parent_entity, item_entity));
     }
 }
 
 pub fn spawn_bullet(
     mut commands: Commands,
-    muzzle_query: Query<(&GlobalTransform, &Target, Option<&Player>), With<Muzzle>>,
-    mut shot_events: EventReader<ShotEvent>,
+    weapon_query: Query<(&Target, &Accuracy, &Children, Option<&Player>), With<SMG>>,
+    muzzle_query: Query<&GlobalTransform, With<Muzzle>>,
+    mut shot_events: EventReader<ShotFired<SMG>>,
     projectile_assets: Res<ProjectileAssets>,
 ) {
-    let distr = Uniform::new_inclusive(-5.0_f32.to_radians(), 5.0_f32.to_radians());
+    for ShotFired { entity, .. } in shot_events.iter() {
+        let (target, accuracy, children, plr) = weapon_query.get(*entity).unwrap();
+        let muzzle_g_transform = muzzle_query.get(*children.first().unwrap()).unwrap();
 
-    for ShotEvent(entity) in shot_events.iter() {
-        let Ok((g_transform, target, plr)) = muzzle_query.get(*entity) else {
-            return;
-        };
-
-        let origin = g_transform.translation();
+        let origin = muzzle_g_transform.translation();
         let target = target.transform.translation;
         let group = match plr {
-            Some(_) => Group::PLAYER_PROJECTILE,
+            Some(..) => Group::PLAYER_PROJECTILE,
             None => Group::ENEMY_PROJECTILE,
         };
+        let distr = Uniform::new_inclusive(
+            (-5.0 / accuracy.0).to_radians(),
+            (5.0 / accuracy.0).to_radians(),
+        );
 
         let fwd = (target - origin).normalize();
         let mut bullet_transform = Transform::from_translation(origin).looking_to(fwd, fwd.perp());
@@ -226,44 +169,5 @@ pub fn spawn_bullet(
             Ccd::enabled(),
             NoOutline,
         ));
-    }
-}
-
-pub fn send_muzzle_flash(
-    mut shot_events: EventReader<ShotEvent>,
-    mut muzzle_flash_events: EventWriter<MuzzleFlashEvent>,
-) {
-    shot_events
-        .iter()
-        .for_each(|ShotEvent(e)| muzzle_flash_events.send(MuzzleFlashEvent(*e)));
-}
-
-pub fn play_sfx(
-    mut commands: Commands,
-    sfx: Res<Sfx>,
-    audio_query: Query<&mut LocalizedSound>,
-    audio_sinks: Res<Assets<SpatialAudioSink>>,
-    mut shots_began: EventReader<ShotsBegan>,
-    mut shots_ended: EventReader<ShotsEnded>,
-) {
-    for ShotsBegan(entity) in shots_began.iter() {
-        if let Ok(sound) = audio_query.get(*entity) {
-            if let Some(sound_sink) = audio_sinks.get(&sound.0) {
-                sound_sink.stop();
-            }
-        }
-
-        commands
-            .get_or_spawn(*entity)
-            .insert(InitLocalizedSound(sfx.uzi.clone(), PlaybackSettings::LOOP));
-    }
-
-    for ShotsEnded(entity) in shots_ended.iter() {
-        let Ok(sound) = audio_query.get(*entity) else {
-            return;
-        };
-        if let Some(sound_sink) = audio_sinks.get(&sound.0) {
-            sound_sink.stop();
-        }
     }
 }

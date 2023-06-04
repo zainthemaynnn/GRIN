@@ -5,16 +5,16 @@ use std::array::IntoIter;
 use std::marker::PhantomData;
 
 use crate::asset::AssetLoadState;
-use crate::damage::{Health, HealthBundle, DamageBuffer};
-use crate::humanoid::{Head, HumanoidAssets, HumanoidBuilder};
+use crate::damage::{DamageBuffer, Health, HealthBundle};
+use crate::humanoid::{Dash, Head, HumanoidAssets, HumanoidBuilder};
 use crate::render::sketched::SketchMaterial;
 use crate::sound::Ears;
 
-use crate::collisions::CollisionGroupExt;
+use crate::collisions::{CollisionGroupExt, CollisionGroupsExt};
 use crate::item::{Equipped, Item};
 use crate::render::RenderLayer;
 use bevy::prelude::*;
-use bevy::render::camera::{Viewport, RenderTarget};
+use bevy::render::camera::RenderTarget;
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
@@ -60,7 +60,13 @@ impl Plugin for CharacterPlugin {
                     .in_schedule(OnEnter(AssetLoadState::Success)),
             )
             .add_systems((insert_status_viewport,).in_schedule(OnEnter(AvatarLoadState::Loaded)))
-            .add_system(char_update.in_set(OnUpdate(AvatarLoadState::Loaded)));
+            .add_systems(
+                (
+                    input_walk,
+                    input_dash.before(crate::humanoid::dash),
+                )
+                    .in_set(OnUpdate(AvatarLoadState::Loaded)),
+            );
     }
 }
 
@@ -104,13 +110,11 @@ impl<'a> HumanoidBuilder<'a> {
         meshes: &'a Assets<Mesh>,
     ) -> Self {
         let humanoid = Self::new(commands, assets, meshes);
-        commands
-            .get_or_spawn(humanoid.head)
-            .insert((
-                Ears(0.5),
-                DamageBuffer::default(),
-                AvatarSimulationBundle::default(),
-            ));
+        commands.get_or_spawn(humanoid.head).insert((
+            Ears(0.5),
+            DamageBuffer::default(),
+            AvatarSimulationBundle::default(),
+        ));
         commands
             .get_or_spawn(humanoid.lhand)
             .insert(AvatarSimulationBundle::default());
@@ -167,10 +171,7 @@ impl Default for AvatarSimulationBundle {
                 RenderLayer::STANDARD as u8,
                 RenderLayer::AVATAR as u8,
             ]),
-            collision_groups: CollisionGroups::new(
-                Group::PLAYER,
-                Group::all().difference(Group::PLAYER),
-            ),
+            collision_groups: CollisionGroups::from_group_default(Group::PLAYER),
             player: Player::default(),
         }
     }
@@ -242,11 +243,11 @@ fn insert_status_viewport(
     });
 }
 
-fn char_update(
+pub fn input_walk(
     input: Res<Input<KeyCode>>,
     mut character: Query<
         (&mut KinematicCharacterController, &mut Transform),
-        (With<PlayerCharacter>, Without<PlayerHead>),
+        (With<PlayerCharacter>, Without<Dash>),
     >,
     mut head: Query<&mut Transform, (With<PlayerHead>, Without<PlayerCharacter>)>,
     look_info: Res<LookInfo>,
@@ -284,6 +285,26 @@ fn char_update(
     }
 }
 
+pub fn input_dash(
+    mut commands: Commands,
+    character: Query<(Entity, &Velocity), With<PlayerCharacter>>,
+    input: Res<Input<KeyCode>>,
+    mut cooldown: Local<f32>,
+    time: Res<Time>,
+) {
+    if *cooldown <= 0.0 {
+        if input.pressed(KeyCode::LShift) {
+            let (entity, velocity) = character.single();
+            commands.entity(entity).insert(Dash {
+                velocity: velocity.linvel * 2.0,
+                time: 0.2,
+            });
+        }
+        *cooldown = 0.4;
+    } else {
+        *cooldown -= time.delta_seconds();
+    }
+}
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum AvatarLoadState {
     #[default]

@@ -4,6 +4,8 @@ use bevy_rapier3d::prelude::*;
 
 use crate::{asset::AssetLoadState, collider, render::sketched::SketchMaterial};
 
+pub const HUMANOID_HEIGHT: f32 = 2.625;
+
 pub struct HumanoidPlugin;
 
 impl Plugin for HumanoidPlugin {

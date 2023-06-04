@@ -26,8 +26,8 @@ use bevy_hanabi::HanabiPlugin;
 use bevy_rapier3d::prelude::*;
 use character::{Character, CharacterPlugin, CharacterSet};
 use damage::DamagePlugin;
-use humanoid::HumanoidPlugin;
 use dialogue::{DialoguePlugin, DialogueEvent, DialogueMap, asset_gen::DialogueAssetLoadState};
+use humanoid::{HumanoidPlugin, HUMANOID_HEIGHT};
 use image::io::Reader as ImageReader;
 use item::{ItemPlugins, ItemSet};
 use render::{sketched::SketchMaterial, RenderFXPlugins};
@@ -85,6 +85,10 @@ fn main() -> Result<(), io::Error> {
         .init_resource::<AmbientLight>()
         .add_plugin(DynamicAssetPlugin)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+        .insert_resource(RapierConfiguration {
+            gravity: Vec3::NEG_Y * 9.81 * (HUMANOID_HEIGHT / 1.8),
+            ..Default::default()
+        })
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugins(RenderFXPlugins)
         .add_plugin(HanabiPlugin)

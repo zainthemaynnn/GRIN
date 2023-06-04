@@ -385,6 +385,33 @@ fn hand_update(
 }
 
 #[derive(Component)]
+pub struct Dash {
+    pub velocity: Vec3,
+    pub time: f32,
+}
+
+// most simple 3D dash mechanic in history???
+pub fn dash(
+    mut commands: Commands,
+    mut humanoid_query: Query<
+        (Entity, &mut KinematicCharacterController, &mut Dash),
+        With<Humanoid>,
+    >,
+    time: Res<Time>,
+) {
+    for (entity, mut char_controller, mut dash) in humanoid_query.iter_mut() {
+        dash.time -= time.delta_seconds();
+        if dash.time > 0.0 {
+            let mut t = char_controller.translation.unwrap_or_default();
+            t += dash.velocity * time.delta_seconds();
+            char_controller.translation = Some(t);
+        } else {
+            commands.get_or_spawn(entity).remove::<Dash>();
+        }
+    }
+}
+
+#[derive(Component)]
 pub struct Shatter {
     pub material: Handle<SketchMaterial>,
     pub inherited_velocity: Vec3,

@@ -32,6 +32,7 @@ use image::io::Reader as ImageReader;
 use item::{ItemPlugins, ItemSet};
 use render::{sketched::SketchMaterial, RenderFXPlugins};
 use sound::SoundPlugin;
+use time::{RewindComponentPlugin, RewindPlugin};
 
 use crate::asset::{AssetLoadState, DynamicAssetPlugin};
 
@@ -95,6 +96,8 @@ fn main() -> Result<(), io::Error> {
         .add_plugin(SoundPlugin)
         .add_systems((load_scene, Dummy::spawn).in_schedule(OnEnter(AssetLoadState::Success)))
         .add_plugin(DialoguePlugin)
+        .add_plugin(RewindPlugin::default())
+        .add_plugin(RewindComponentPlugin::<Transform>::default())
         // ensure that all humanoids exist before potentially adding items directly to them
         .add_system(
             apply_system_buffers

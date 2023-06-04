@@ -7,6 +7,7 @@ A third person shooter.
 - Morph targets: Needed for character animations.
 - Extensible `StandardMaterial`: Reduces boilerplate.
 - Ability to disable transform propagation: Propagation is nice but it makes physics tricky.
+    - Related... Entity-entity relations (custom hierarchy): Currently using a bootleg ones for rewinds. Not amazing.
 - Text wrapping with percent layout: Self-explanatory.
 
 ## Platform support

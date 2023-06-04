@@ -5,7 +5,11 @@
 
 use std::{collections::vec_deque::VecDeque, marker::PhantomData};
 
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{
+    ecs::system::{EntityCommand, EntityCommands},
+    prelude::*,
+    utils::{HashMap, HashSet},
+};
 
 pub const FIXED_TIMESTEP_SECS: f32 = 1.0 / 60.0;
 
@@ -28,7 +32,7 @@ impl Plugin for RewindPlugin {
         app.init_resource::<Frame>()
             .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP_SECS))
             .add_systems(
-                (update_frame_index, update_rewind_frames)
+                (update_frame_index, update_rewind_frames, propagate_rewinds)
                     .in_base_set(CoreSet::First)
                     .in_schedule(if self.fixed_timestep {
                         CoreSchedule::FixedUpdate
@@ -62,7 +66,7 @@ impl<T: Component + Clone> Plugin for RewindComponentPlugin<T> {
                 add_new_histories::<T>,
                 retire_frame::<T>,
                 save_frame::<T>,
-                initialize_rewinds::<T>,
+                initialize_rewinds::<T>.after(propagate_rewinds),
                 rewind::<T>.after(update_rewind_frames),
                 clear_unused_histories::<T>,
             )
@@ -103,6 +107,105 @@ impl Default for Rewind {
         Self { frames: 0, fps: 1 }
     }
 }
+
+/// Defines what related entities should be rewound by `Rewind` along with this one.
+///
+/// Unlike usual `Children`, this uses a `HashSet` instead of a `SmallVec`
+/// to support a larger number of relations. This makes it unordered.
+///
+/// This is useful for rewinding other entities without necessarily associating their transforms
+/// using the typical `Parent`, `Children` hierarchy.
+/// For example, projectiles from a weapon could be in global space but can also rewind with the gun.
+#[derive(Component, Default)]
+pub struct TimeChildren(pub HashSet<Entity>);
+
+/// Defines what entity this entity should rewind with.
+///
+/// This is useful for rewinding other entities without necessarily associating their transforms
+/// using the typical `Parent`, `Children` hierarchy.
+/// For example, projectiles from a weapon could be in global space but can also rewind with the gun.
+#[derive(Component)]
+pub struct TimeParent(pub Entity);
+
+pub struct SetTimeParent {
+    pub parent: Entity,
+}
+
+// NOTE: I don't see why in the world switching or removing time relations would ever happen
+// outside of despawning, so I'm not going to implement any of the sort until then
+impl EntityCommand for SetTimeParent {
+    fn write(self, entity: Entity, world: &mut World) {
+        let mut parent = world.entity_mut(self.parent);
+        let mut children = match parent.get_mut::<TimeChildren>() {
+            Some(c) => c,
+            None => parent
+                .insert(TimeChildren::default())
+                .get_mut::<TimeChildren>()
+                .unwrap(),
+        };
+        children.0.insert(entity);
+
+        let mut child = world.entity_mut(entity);
+        child.insert(TimeParent(self.parent));
+    }
+}
+
+/// This is a drop-in replacement for regular despawn. It also affects the time hierarchy.
+pub struct Despawn;
+
+impl EntityCommand for Despawn {
+    fn write(self, entity: Entity, world: &mut World) {
+        if let Some(TimeParent(e_parent)) = world.entity_mut(entity).take::<TimeParent>() {
+            let mut parent = world.entity_mut(e_parent);
+            parent.get_mut::<TimeChildren>().unwrap().0.remove(&entity);
+        }
+        world.entity_mut(entity).despawn();
+    }
+}
+
+pub trait CommandsExt {
+    fn set_time_parent(&mut self, parent: Entity);
+    fn time_despawn(&mut self);
+}
+
+impl<'w, 's, 'a> CommandsExt for EntityCommands<'w, 's, 'a> {
+    /// Sets the `TimeParent` for this entity.
+    fn set_time_parent(&mut self, parent: Entity) {
+        self.add(SetTimeParent { parent });
+    }
+
+    /// Despawns the entity and resolves the time hierarchy.
+    /// **Prefer this over `despawn`.**
+    fn time_despawn(&mut self) {
+        self.add(Despawn);
+        self.despawn();
+    }
+}
+
+// can't use `iter_descendants` cause I'm using a bootleg hierarchy
+pub fn propagate_rewinds(
+    mut commands: Commands,
+    query: Query<(Entity, &Rewind), (With<TimeChildren>, Added<Rewind>)>,
+    children_query: Query<&TimeChildren>,
+) {
+    for (entity, rewind) in query.iter() {
+        for child in children_query.get(entity).unwrap().0.iter() {
+            propagate_rewinds_child(&mut commands, &children_query, rewind, *child);
+        }
+    }
+}
+
+pub fn propagate_rewinds_child(
+    commands: &mut Commands,
+    children_query: &Query<&TimeChildren>,
+    rewind: &Rewind,
+    entity: Entity,
+) {
+    commands.entity(entity).insert(rewind.clone());
+
+    if let Ok(children) = children_query.get(entity) {
+        for child in children.0.iter() {
+            propagate_rewinds_child(commands, children_query, rewind, *child);
         }
     }
 }

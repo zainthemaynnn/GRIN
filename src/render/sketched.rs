@@ -50,7 +50,12 @@ impl Plugin for SketchEffectPlugin {
             .add_plugin(AutoGenerateOutlineNormalsPlugin)
             .add_plugin(MaterialPlugin::<SketchMaterial>::default())
             .insert_resource(self.outline.clone())
-            .add_systems((animate_sketched_materials, animate_sketched_outlines))
+            .add_systems((
+                init_sketched_ui_images,
+                animate_sketched_materials,
+                animate_sketched_outlines,
+                animate_sketched_ui_images.after(init_sketched_ui_images),
+            ))
             .add_system(autofill_sketch_effect.run_if(move || autofill_enabled == true));
     }
 }
@@ -99,9 +104,9 @@ pub fn animate_sketched_materials(
 
 // just gonna hardcode these xddd
 // the fact that this measly thing is its own plugin is service enough
-fn animate_sketched_outlines(
-    mut outline_query: Query<(&mut OutlineDeform, &SketchAnimation)>,
+pub fn animate_sketched_outlines(
     time: Res<Time>,
+    mut outline_query: Query<(&mut OutlineDeform, &SketchAnimation)>,
 ) {
     for (mut deform, sketch) in outline_query.iter_mut() {
         let even = (time.elapsed_seconds_wrapped() / sketch.rate) as u32 % 2 == 0;
@@ -109,6 +114,40 @@ fn animate_sketched_outlines(
     }
 }
 
+pub fn init_sketched_ui_images(
+    mut commands: Commands,
+    query: Query<
+        Entity,
+        (
+            With<Handle<SketchUiImage>>,
+            Or<(Without<UiImage>, Without<BackgroundColor>)>,
+        ),
+    >,
+) {
+    for e_image in query.iter() {
+        commands
+            .entity(e_image)
+            .insert((UiImage::default(), BackgroundColor::default()));
+    }
+}
+
+pub fn animate_sketched_ui_images(
+    time: Res<Time>,
+    sketch_images: Res<Assets<SketchUiImage>>,
+    mut query: Query<(
+        &Handle<SketchUiImage>,
+        &mut UiImage,
+        &SketchAnimation,
+        &mut BackgroundColor,
+    )>,
+) {
+    for (sketch_image_handle, mut ui_image, sketch, mut background_color) in query.iter_mut() {
+        let SketchUiImage { images } = sketch_images.get(sketch_image_handle).unwrap();
+        let idx = (time.elapsed_seconds_wrapped() / sketch.rate) as usize % images.len();
+        ui_image.texture = images[idx].clone();
+        *background_color = BackgroundColor::default();
+    }
+}
 
 pub fn autofill_sketch_effect(
     mut commands: Commands,
@@ -121,7 +160,13 @@ pub fn autofill_sketch_effect(
         ),
     >,
     no_outline_depth_query: Query<Entity, (With<OutlineVolume>, Without<SetOutlineDepth>)>,
-    no_animation_query: Query<Entity, (With<Handle<Mesh>>, Without<SketchAnimation>)>,
+    no_animation_query: Query<
+        Entity,
+        (
+            Or<(With<Handle<Mesh>>, With<Handle<SketchUiImage>>)>,
+            Without<SketchAnimation>,
+        ),
+    >,
     outline: Res<GlobalMeshOutline>,
 ) {
     for entity in no_outline_query.iter() {
@@ -137,6 +182,12 @@ pub fn autofill_sketch_effect(
             .get_or_spawn(entity)
             .insert(SketchAnimation::default());
     }
+}
+
+#[derive(TypeUuid)]
+#[uuid = "150d5b43-9699-41b8-9586-6536af4fed99"]
+pub struct SketchUiImage {
+    pub images: Vec<Handle<Image>>,
 }
 
 // NOTE: this is almost a direct copy/paste of the regular `StandardMaterial`

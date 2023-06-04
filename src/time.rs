@@ -92,25 +92,23 @@ impl<T: Component + Clone> Plugin for RewindComponentPlugin<T> {
 /// At the moment entities only store about 10 seconds worth of history,
 /// and history isn't recorded during rewinding.
 /// If this buffer of 10 seconds without rest is depleted then it will fall back to `Rewind.out_of_history`.
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone)]
 pub struct Rewind {
     pub frames: u32,
     pub fps: u32,
-    pub out_of_history: OutOfHistory,
 }
 
 impl Default for Rewind {
     fn default() -> Self {
-        Self {
-            frames: 0,
-            fps: 1,
-            out_of_history: OutOfHistory::default(),
+        Self { frames: 0, fps: 1 }
+    }
+}
         }
     }
 }
 
 /// Decides what to do with the entity if `Rewind` reaches the beginning of its history.
-#[derive(Debug, Default)]
+#[derive(Component, Debug, Default, Copy, Clone)]
 pub enum OutOfHistory {
     /// Terminates rewinding but keeps the `Rewind` component for the remaining frames.
     Pause,
@@ -331,11 +329,11 @@ pub fn update_rewind_frames(mut query: Query<&mut Rewind>) {
 pub fn rewind<T: Component + Clone>(
     mut commands: Commands,
     frame_time: Res<Frame>,
-    query: Query<(Entity, &Rewind)>,
+    query: Query<(Entity, &Rewind, Option<&OutOfHistory>)>,
     t_query: Query<&T, With<Rewind>>,
     mut histories: ResMut<EntityHistories<T>>,
 ) {
-    for (entity, rewind) in query.iter() {
+    for (entity, rewind, out_of_history) in query.iter() {
         let history = histories.0.get_mut(&entity).unwrap();
         // need to track this in a variable instead of query since buffers aren't updated within system
         let mut despawned = false;
@@ -374,7 +372,7 @@ pub fn rewind<T: Component + Clone>(
                         warn!("`History` ran out of frames!");
                     }
 
-                    match rewind.out_of_history {
+                    match out_of_history.copied().unwrap_or_default() {
                         OutOfHistory::Pause => (),
                         OutOfHistory::Resume => {
                             commands.entity(entity).remove::<Rewind>();
@@ -640,31 +638,25 @@ mod tests {
 
         let e = app.world.spawn(MockComponent::default()).id();
 
-        app.world.entity_mut(e).insert(Rewind {
-            frames: 1,
-            fps: 1,
-            out_of_history: OutOfHistory::Resume,
-        });
+        app.world
+            .entity_mut(e)
+            .insert((Rewind { frames: 1, fps: 1 }, OutOfHistory::Resume));
         app.update();
 
         assert!(app.world.get::<Rewind>(e).is_none());
 
-        app.world.entity_mut(e).insert(Rewind {
-            frames: 2,
-            fps: 1,
-            out_of_history: OutOfHistory::Pause,
-        });
+        app.world
+            .entity_mut(e)
+            .insert((Rewind { frames: 2, fps: 1 }, OutOfHistory::Pause));
         app.update();
 
         assert!(app.world.get::<Rewind>(e).is_some());
 
         app.update();
 
-        app.world.entity_mut(e).insert(Rewind {
-            frames: 5,
-            fps: 1,
-            out_of_history: OutOfHistory::Despawn,
-        });
+        app.world
+            .entity_mut(e)
+            .insert((Rewind { frames: 5, fps: 1 }, OutOfHistory::Despawn));
 
         app.update();
         app.update();

@@ -54,10 +54,10 @@ impl<I: Send + Sync + 'static> Default for ItemPlugin<I> {
     }
 }
 
-impl<I: Send + Sync + 'static> Plugin for ItemPlugin<I> {
+impl<I: Item + Send + Sync + 'static> Plugin for ItemPlugin<I> {
     fn build(&self, app: &mut App) {
-        app.add_event::<ItemSpawnEvent<I>>()
-            .add_event::<ItemEquipEvent<I>>()
+        app.add_event::<<I as Item>::SpawnEvent>()
+            .add_event::<<I as Item>::EquipEvent>()
             .add_system(equip_items::<I>);
     }
 }

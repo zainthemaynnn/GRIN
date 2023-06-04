@@ -1,5 +1,6 @@
 use crate::{
     asset::AssetLoadState,
+    collider,
     humanoid::{HumanoidAssets, HumanoidBuilder},
     item::{smg::SMG, Item},
 };
@@ -48,6 +49,7 @@ pub fn spawn(
                     ..Default::default()
                 },
                 AvatarSimulationBundle::default(),
+                collider!(meshes, &assets.pizza_shades),
             ))
             .id();
         commands

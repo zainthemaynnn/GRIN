@@ -5,6 +5,7 @@
 //! Theoretically, both AI and players should be able to use an item, so
 //! they should work purely based on components. Input should only insert components.
 
+pub mod firing;
 pub mod smg;
 
 use std::marker::PhantomData;

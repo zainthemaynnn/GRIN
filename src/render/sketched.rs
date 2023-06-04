@@ -47,6 +47,7 @@ impl Plugin for SketchEffectPlugin {
         let autofill_enabled = self.autofill_sketch_effect;
         app.add_plugin(OutlinePlugin)
             .add_plugin(AutoGenerateOutlineNormalsPlugin)
+            .add_plugin(MaterialPlugin::<SketchMaterial>::default())
             .insert_resource(self.outline.clone())
             .add_systems((animate_sketched_materials, animate_sketched_outlines))
             .add_system(autofill_sketch_effect.run_if(move || autofill_enabled == true));
@@ -80,11 +81,11 @@ impl Default for SketchAnimation {
 #[derive(Component, Clone, Default)]
 pub struct NoOutline;
 
-fn animate_sketched_materials(
-    mut material_handle_query: Query<(&mut Handle<SketchMaterial>, &SketchAnimation)>,
-    mut materials: ResMut<Assets<SketchMaterial>>,
+pub fn animate_sketched_materials(
     textures: Res<Assets<Image>>,
+    mut materials: ResMut<Assets<SketchMaterial>>,
     time: Res<Time>,
+    mut material_handle_query: Query<(&mut Handle<SketchMaterial>, &SketchAnimation)>,
 ) {
     for (material_handle, sketch) in material_handle_query.iter_mut() {
         if let Some(mut material) = materials.get_mut(&material_handle) {
@@ -107,7 +108,8 @@ fn animate_sketched_outlines(
     }
 }
 
-fn autofill_sketch_effect(
+
+pub fn autofill_sketch_effect(
     mut commands: Commands,
     no_outline_query: Query<
         Entity,

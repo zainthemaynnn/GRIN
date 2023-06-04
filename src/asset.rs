@@ -19,7 +19,6 @@ impl Plugin for DynamicAssetPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<AssetLoadState>()
             .init_resource::<FallbackImage>()
-            .add_plugin(MaterialPlugin::<SketchMaterial>::default())
             .add_plugin(
                 ProgressPlugin::new(AssetLoadState::Loading).continue_to(AssetLoadState::Success),
             )
@@ -70,7 +69,7 @@ pub enum AssetLoadState {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-enum CustomDynamicAsset {
+pub enum CustomDynamicAsset {
     File {
         path: String,
     },

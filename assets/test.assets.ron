@@ -39,29 +39,29 @@ CustomDynamicAssetCollection({
      "tex.dissolve": File (
           path: "textures/noise.png",
      ),
-     "mat.body_gray": StandardMaterial (
+     "mat.body_gray": SketchMaterial (
           base_color: (0.5, 0.5, 0.5, 1.0),
      ),
-     "mat.skin": StandardMaterial (
+     "mat.skin": SketchMaterial (
           base_color_texture: "textures/generated/skin.png",
      ),
-     "mat.shades": StandardMaterial (
+     "mat.shades": SketchMaterial (
           base_color: (0.0, 0.0, 0.0, 1.0),
           perceptual_roughness: 0.2,
           reflectance: 1.0,
      ),
-     "mat.bullet": StandardMaterial (
+     "mat.bullet": SketchMaterial (
           base_color: (0.0, 0.0, 0.0, 0.0),
           emissive: (1.0, 0.65, 0.0, 0.0),
      ),
-     "mat.gun": StandardMaterial (
+     "mat.gun": SketchMaterial (
           base_color: (0.0, 0.0, 0.0, 0.0),
      ),
-     "mat.smirk": StandardMaterial (
+     "mat.smirk": SketchMaterial (
           base_color_texture: "textures/generated/smirk.png",
           layers: 2,
      ),
-     "mat.meh": StandardMaterial (
+     "mat.meh": SketchMaterial (
           base_color_texture: "textures/generated/meh.png",
           layers: 2,
      ),

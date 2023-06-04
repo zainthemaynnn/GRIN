@@ -92,7 +92,7 @@ impl DynamicAsset for CustomDynamicAsset {
         match self {
             Self::File { path } => vec![asset_server.load_untyped(path)],
             Self::UVSphereMesh { .. } => vec![],
-            Self::StandardMaterial {
+            Self::SketchMaterial {
                 base_color_texture, ..
             } => base_color_texture
                 .as_ref()
@@ -122,7 +122,7 @@ impl DynamicAsset for CustomDynamicAsset {
                         .into(),
                 ))
             }
-            Self::StandardMaterial {
+            Self::SketchMaterial {
                 base_color,
                 base_color_texture,
                 perceptual_roughness,

@@ -8,16 +8,22 @@ pub struct DamagePlugin;
 
 impl Plugin for DamagePlugin {
     fn build(&self, app: &mut App) {
-        app.configure_sets((DamageSet::Resist, DamageSet::Clear).chain())
-            .add_systems(
-                (
-                    push_contact_damage.in_set(DamageSet::Insert),
-                    propagate_damage_buffers,
-                    apply_resist.in_set(DamageSet::Resist),
-                    apply_damage_buffers.in_set(DamageSet::Clear),
-                )
-                    .chain(),
-            );
+        app.configure_sets(
+            (
+                DamageSet::Insert,
+                DamageSet::Resist,
+                DamageSet::Clear,
+                DamageSet::Kill,
+            )
+                .chain(),
+        )
+        .add_systems((
+            push_contact_damage.in_set(DamageSet::Insert),
+            propagate_damage_buffers,
+            apply_resist.in_set(DamageSet::Resist),
+            apply_damage_buffers.in_set(DamageSet::Clear),
+            die.in_set(DamageSet::Kill),
+        ));
     }
 }
 
@@ -29,6 +35,8 @@ pub enum DamageSet {
     Resist,
     /// `DamageBuffer`s are cleared in this stage.
     Clear,
+    /// Things die in this stage.
+    Kill,
 }
 
 /// Health. Is there anything more I can say?
@@ -121,7 +129,7 @@ fn propagate_damage_buffers_child(
 }
 
 /// Applies damage values from `DamageBuffer`.
-pub fn apply_damage_buffers(mut query: Query<(&mut Health, &mut DamageBuffer)>) {
+pub fn apply_damage_buffers(mut query: Query<(&mut Health, &mut DamageBuffer), Without<Dead>>) {
     for (mut health, mut damage_buf) in query.iter_mut() {
         for damage in damage_buf.0.drain(0..) {
             health.0 = (health.0 - damage.value).max(0.0);
@@ -130,9 +138,21 @@ pub fn apply_damage_buffers(mut query: Query<(&mut Health, &mut DamageBuffer)>) 
     }
 }
 
+pub fn die(mut commands: Commands, health_query: Query<(Entity, &Health)>) {
+    for (entity, health) in health_query.iter() {
+        if health.0 == 0.0 {
+            commands.entity(entity).insert(Dead::default());
+        }
+    }
+}
+
 /// Items colliding with this entity will have damage propagated to it.
 #[derive(Component, Default)]
 pub struct ContactDamage;
+
+/// PCs and NPCs with this are dead.
+#[derive(Component, Default)]
+pub struct Dead;
 
 pub fn push_contact_damage(
     mut commands: Commands,
@@ -306,5 +326,17 @@ mod tests {
             0,
             "Child `DamageBuffer` was not cleared.",
         );
+    }
+
+    #[test]
+    fn death() {
+        let mut app = App::new();
+        app.add_system(die);
+
+        let e = app.world.spawn(Health(0.0)).id();
+
+        app.update();
+
+        assert!(app.world.entity(e).contains::<Dead>());
     }
 }

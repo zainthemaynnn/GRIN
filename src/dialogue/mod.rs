@@ -63,15 +63,12 @@ impl Plugin for DialoguePlugin {
                     .chain()
                     .in_set(OnUpdate(DialogueAssetLoadState::Success)),
             )
-            .add_system(asset_gen::add_dialogue_assets.in_set(OnUpdate(AssetLoadState::Success)));
+            .add_system(
+                asset_gen::add_dialogue_assets
+                    .in_set(OnUpdate(AssetLoadState::Success))
+                    .run_if(in_state(DialogueAssetLoadState::Loading)),
+            );
     }
-}
-
-#[derive(SystemSet, Debug, Hash, Eq, PartialEq, Copy, Clone)]
-pub enum DialogueSet {
-    Dialogue,
-    DialogueSelect,
-    DialogueShow,
 }
 
 /// Procedurally iterates the characters in a block of dialogue.

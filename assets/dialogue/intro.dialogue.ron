@@ -1,0 +1,34 @@
+#![enable(implicit_some)]
+DialogueMap({
+     "test_1": Dialogue (
+          text: "hi",
+          blip: Smirk,
+          next: Continue("test_2"),
+     ),
+     "test_2": Dialogue (
+          text: "hi again",
+          blip: Smirk,
+          next: Respond(DialogueOptions ([
+               DialogueOption (
+                    text: "Say hi",
+                    icon: Smirk,
+                    dialogue: "test_3",
+               ),
+               DialogueOption (
+                    text: "Say bye",
+                    icon: Smirk,
+                    dialogue: "test_3",
+               ),
+          ])),
+     ),
+     "test_3": Dialogue (
+          text: "yeah whaddup",
+          blip: Smirk,
+          next: Continue("test_4"),
+     ),
+     "test_4": Dialogue (
+          text: "see ya",
+          blip: Smirk,
+          next: Finish,
+     ),
+})

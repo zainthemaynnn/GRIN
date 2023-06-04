@@ -75,19 +75,23 @@ impl PluginGroup for ItemPlugins {
 #[derive(Resource, AssetCollection)]
 pub struct ProjectileAssets {
     #[asset(key = "mesh.gun")]
-    gun: Handle<Mesh>,
+    pub gun: Handle<Mesh>,
     #[asset(key = "mesh.bullet_5cm")]
-    bullet_5cm: Handle<Mesh>,
+    pub bullet_5cm: Handle<Mesh>,
+    #[asset(key = "mesh.bullet_8cm")]
+    pub bullet_8cm: Handle<Mesh>,
+    #[asset(key = "mesh.bullet_10cm")]
+    pub bullet_10cm: Handle<Mesh>,
     #[asset(key = "mat.bullet")]
-    bullet_material: Handle<SketchMaterial>,
+    pub bullet_material: Handle<SketchMaterial>,
     #[asset(key = "mat.gun")]
-    gun_material: Handle<SketchMaterial>,
+    pub gun_material: Handle<SketchMaterial>,
 }
 
 #[derive(Resource, AssetCollection)]
 pub struct Sfx {
     #[asset(key = "sfx.uzi")]
-    uzi: Handle<AudioSource>,
+    pub uzi: Handle<AudioSource>,
 }
 
 pub struct ItemSpawnEvent<M> {
@@ -160,9 +164,9 @@ pub struct Muzzle;
 
 #[derive(Component)]
 pub struct MuzzleFlash {
-    color: Color,
-    intensity: f32,
-    fade_time: f32,
+    pub color: Color,
+    pub intensity: f32,
+    pub fade_time: f32,
 }
 
 impl Default for MuzzleFlash {
@@ -177,26 +181,29 @@ impl Default for MuzzleFlash {
 
 #[derive(Bundle, Default)]
 struct MuzzleFlashBundle {
-    flash: MuzzleFlash,
-    point_light: PointLight,
-    cubemap_visible_entities: CubemapVisibleEntities,
-    cubemap_frusta: CubemapFrusta,
+    pub flash: MuzzleFlash,
+    pub point_light: PointLight,
+    pub cubemap_visible_entities: CubemapVisibleEntities,
+    pub cubemap_frusta: CubemapFrusta,
 }
 
 #[derive(Bundle, Default)]
 struct MuzzleBundle {
-    muzzle: Muzzle,
-    flash_bundle: MuzzleFlashBundle,
-    transform: Transform,
-    global_transform: GlobalTransform,
-    visibility: Visibility,
-    computed_visibility: ComputedVisibility,
+    pub muzzle: Muzzle,
+    pub flash_bundle: MuzzleFlashBundle,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub visibility: Visibility,
+    pub computed_visibility: ComputedVisibility,
 }
 
 #[derive(Bundle, Default)]
 struct WeaponBundle {
-    weapon: Weapon,
-    material_mesh: MaterialMeshBundle<SketchMaterial>,
+    pub weapon: Weapon,
+    pub target: Target,
+    pub aiming: Aiming,
+    pub accuracy: Accuracy,
+    pub material_mesh: MaterialMeshBundle<SketchMaterial>,
 }
 
 pub struct MuzzleFlashEvent(pub Entity);

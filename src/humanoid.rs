@@ -18,17 +18,21 @@ impl Plugin for HumanoidPlugin {
 #[derive(Resource, AssetCollection)]
 pub struct HumanoidAssets {
     #[asset(key = "mesh.mbody")]
-    mbody: Handle<Mesh>,
+    pub mbody: Handle<Mesh>,
+    #[asset(key = "mesh.mbody_shatter")]
+    pub mbody_shatter: Handle<Gltf>,
     #[asset(key = "mesh.fbody")]
-    fbody: Handle<Mesh>,
+    pub fbody: Handle<Mesh>,
     #[asset(key = "mesh.head")]
-    head: Handle<Mesh>,
+    pub head: Handle<Mesh>,
+    #[asset(key = "mesh.head_shatter")]
+    pub head_shatter: Handle<Gltf>,
     #[asset(key = "mesh.hand")]
-    hand: Handle<Mesh>,
+    pub hand: Handle<Mesh>,
     #[asset(key = "mat.body_gray")]
-    body_gray: Handle<SketchMaterial>,
+    pub body_gray: Handle<SketchMaterial>,
     #[asset(key = "mat.skin")]
-    skin: Handle<SketchMaterial>,
+    pub skin: Handle<SketchMaterial>,
 }
 
 /// Root object for standard player character.

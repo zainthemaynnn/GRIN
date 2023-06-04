@@ -4,10 +4,11 @@ use bevy_rapier3d::prelude::{CollisionGroups, GravityScale, Group};
 use crate::{
     asset::AssetLoadState,
     character::{Character, CharacterSet, CharacterSpawnEvent, PlayerCharacter},
-    collisions::CollisionGroupExt,
-    damage::{Health, HealthBundle, DamageBuffer},
+    collisions::{CollisionGroupExt, CollisionGroupsExt},
+    damage::{DamageBuffer, Dead, Health, HealthBundle},
     humanoid::{HumanoidAssets, HumanoidBuilder},
     item::{smg::SMG, Active, Aiming, Equipped, Item, Target},
+    time::{OutOfHistory, Rewind},
 };
 
 use super::{
@@ -91,7 +92,7 @@ pub fn spawn<'w, 's>(
 
 fn fire(
     time: Res<Time>,
-    dummy_query: Query<&Equipped, With<Dummy>>,
+    dummy_query: Query<&Equipped, (With<Dummy>, Without<Rewind>, Without<Dead>)>,
     mut weapon_query: Query<(&mut Active, &mut Aiming)>,
 ) {
     let set = (time.elapsed_seconds() / 5.0) as u32 % 2 == 0;

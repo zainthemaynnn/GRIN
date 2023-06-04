@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-use crate::util::vectors::normalize_y;
+use crate::{damage::Dead, time::Rewind, util::vectors::normalize_y};
 
 #[derive(Bundle, Default)]
 pub struct MovementBundle {
@@ -54,7 +54,7 @@ pub fn move_to_target<T: Component>(
             &MoveTarget,
             &PathBehavior,
         ),
-        With<T>,
+        (With<T>, Without<Rewind>, Without<Dead>),
     >,
     time: Res<Time>,
 ) {

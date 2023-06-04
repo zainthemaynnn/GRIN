@@ -331,6 +331,24 @@ impl From<bool> for Aiming {
     }
 }
 
+/// For most items, affects the accuracy of projectiles in different ways. A higher number is better.
+///
+/// `1.0` is the default. Can't go below zero.
+#[derive(Component, Debug, Copy, Clone, PartialEq)]
+pub struct Accuracy(pub f32);
+
+impl Default for Accuracy {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+impl From<f32> for Accuracy {
+    fn from(value: f32) -> Self {
+        Self(value)
+    }
+}
+
 pub fn aim_single<T: Component>(
     item_query: Query<(&Parent, &Aiming), (With<T>, Changed<Aiming>)>,
     mut hands_query: Query<(&mut Hand, &HandOffsets), With<DominantHand>>,

@@ -2,6 +2,7 @@ use std::num::NonZeroU32;
 
 use bevy::{
     prelude::*,
+    reflect::TypeUuid,
     render::render_resource::{TextureViewDescriptor, TextureViewDimension},
     utils::HashMap,
 };
@@ -191,9 +192,9 @@ impl DynamicAsset for CustomDynamicAsset {
     }
 }
 
-#[derive(serde::Deserialize, bevy::reflect::TypeUuid)]
+#[derive(Deserialize, TypeUuid)]
 #[uuid = "18dc82eb-d5f5-4d72-b0c4-e2b234367c35"]
-struct CustomDynamicAssetCollection(HashMap<String, CustomDynamicAsset>);
+pub struct CustomDynamicAssetCollection(pub HashMap<String, CustomDynamicAsset>);
 
 impl DynamicAssetCollection for CustomDynamicAssetCollection {
     fn register(&self, dynamic_assets: &mut DynamicAssets) {

@@ -5,6 +5,8 @@ pub trait CollisionGroupExt {
     const PLAYER_PROJECTILE: Group;
     const ENEMY: Group;
     const ENEMY_PROJECTILE: Group;
+    const DEBRIS: Group;
+    const MAP: Group;
 }
 
 impl CollisionGroupExt for Group {
@@ -12,6 +14,8 @@ impl CollisionGroupExt for Group {
     const PLAYER_PROJECTILE: Group = Self::GROUP_2;
     const ENEMY: Group = Self::GROUP_3;
     const ENEMY_PROJECTILE: Group = Self::GROUP_4;
+    const DEBRIS: Group = Self::GROUP_5;
+    const MAP: Group = Self::GROUP_32;
 }
 
 pub trait CollisionGroupsExt {
@@ -32,6 +36,8 @@ impl CollisionGroupsExt for CollisionGroups {
                 Group::ENEMY_PROJECTILE,
                 Group::all() - Group::ENEMY - Group::ENEMY_PROJECTILE,
             ),
+            Group::DEBRIS => CollisionGroups::new(Group::DEBRIS, Group::MAP),
+            Group::MAP => CollisionGroups::new(Group::MAP, Group::all()),
             _ => CollisionGroups::default(),
         }
     }

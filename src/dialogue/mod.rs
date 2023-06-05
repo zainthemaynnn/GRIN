@@ -23,7 +23,7 @@ use crate::{
     util::keys::{InputExt, KeyCodeExt},
 };
 
-use self::asset_gen::{DefaultTextStyle, DialogueAssetLoadState};
+use self::asset_gen::{DefaultTextStyle, DialogueAssetLoadState, Portrait};
 
 /// Maps `Dialogue` string ID's (defined in assets file) to `Dialogue` handles.
 // the strings are like, handles... for handles.
@@ -48,6 +48,7 @@ impl Plugin for DialoguePlugin {
             ]))
             .add_event::<DialogueEvent>()
             .add_event::<SelectedDialogueOptionEvent>()
+            .add_event::<DialoguePortraitEvent>()
             .add_startup_system(init_dialogue_box)
             .add_systems(
                 (
@@ -57,6 +58,7 @@ impl Plugin for DialoguePlugin {
                     apply_system_buffers,
                     select_dialogue_options,
                     display_dialogue_options,
+                    render_dialogue_portrait,
                     apply_system_buffers,
                     highlight_selected_dialogue,
                 )
@@ -155,12 +157,13 @@ pub fn init_dialogue_box(mut commands: Commands) {
         .with_children(|parent| {
             parent.spawn((
                 DialoguePortrait,
-                NodeBundle {
+                ImageBundle {
                     style: Style {
                         aspect_ratio: Some(1.0),
                         size: Size::height(Val::Percent(100.0)),
                         ..Default::default()
                     },
+                    background_color: BackgroundColor(Color::WHITE),
                     ..Default::default()
                 },
             ));
@@ -208,6 +211,7 @@ pub fn init_dialogue_box(mut commands: Commands) {
 #[uuid = "25fec548-b7dd-4664-be6c-ced090b2787f"]
 pub struct Dialogue {
     pub text: Text,
+    pub portrait: Portrait,
     pub blip: Handle<AudioSource>,
     pub cps: f32,
     pub stop_delay: f32,
@@ -257,12 +261,17 @@ pub struct DialogueOption {
 #[derive(Component)]
 pub struct DialogueOptionIcon;
 
+pub struct DialoguePortraitEvent {
+    pub portrait: Portrait,
+}
+
 pub fn prepare_dialogue_block(
     mut commands: Commands,
     dialogue_assets: Res<Assets<Dialogue>>,
     mut text_query: Query<(Entity, &mut Text), With<DialogueText>>,
     mut window_query: Query<&mut Style, With<DialogueWindow>>,
     mut events: EventReader<DialogueEvent>,
+    mut portrait_events: EventWriter<DialoguePortraitEvent>,
 ) {
     let (e_text, mut text) = text_query.single_mut();
     for event in events.iter() {
@@ -271,6 +280,7 @@ pub fn prepare_dialogue_block(
             DialogueEvent::Say(h_dialogue) => {
                 let Dialogue {
                     text,
+                    portrait,
                     blip,
                     cps,
                     stop_delay,
@@ -291,6 +301,12 @@ pub fn prepare_dialogue_block(
                     },
                     next,
                 ));
+
+                // this is separated into an exclusive access system
+                // (see `render_dialogue_portrait`)
+                portrait_events.send(DialoguePortraitEvent {
+                    portrait: portrait.clone(),
+                });
             }
             DialogueEvent::Finish => {
                 let mut style = window_query.single_mut();
@@ -298,6 +314,26 @@ pub fn prepare_dialogue_block(
             }
         }
     }
+}
+
+pub fn render_dialogue_portrait(world: &mut World) {
+    let e_portrait = world
+        .query_filtered::<Entity, With<DialoguePortrait>>()
+        .single(world);
+
+    world.resource_scope::<Events<DialoguePortraitEvent>, _>(|world, events| {
+        for DialoguePortraitEvent { portrait } in events.get_reader().iter(&events) {
+            match portrait.render_target(world) {
+                Ok(image) => {
+                    world.entity_mut(e_portrait).insert(UiImage::new(image));
+                }
+                Err(e) => error!(
+                    "Attempted to get a portrait for nonexistent component: {}",
+                    e
+                ),
+            };
+        }
+    });
 }
 
 pub fn speak_dialogue(
@@ -494,8 +530,9 @@ pub fn continue_dialogue(
     input: Res<Input<KeyCode>>,
     dialogue_map: Res<DialogueMap>,
     text_query: Query<(Entity, &DialogueNext), With<DialogueText>>,
-    mut motor_query: Query<&mut TextMotor, With<DialogueText>>,
     selector_query: Query<Entity, With<DialogueSelector>>,
+    portrait_query: Query<Entity, With<DialoguePortrait>>,
+    mut motor_query: Query<&mut TextMotor, With<DialogueText>>,
     opts_query: Query<&DialogueOptions, With<DialogueSelector>>,
     mut events: EventWriter<DialogueEvent>,
     mut opt_events: EventWriter<SelectedDialogueOptionEvent>,
@@ -503,6 +540,7 @@ pub fn continue_dialogue(
     if input.just_released(KeyCode::Return) {
         let (e_text, next) = text_query.single();
         let e_select = selector_query.single();
+        let e_portrait = portrait_query.single();
         if let Ok(mut motor) = motor_query.get_mut(e_text) {
             motor.skip = true;
         } else if let Ok(opts) = opts_query.get(e_select) {
@@ -512,6 +550,7 @@ pub fn continue_dialogue(
                 .entity(e_select)
                 .remove::<DialogueOptions>()
                 .despawn_descendants();
+            commands.entity(e_portrait).remove::<UiImage>();
         } else {
             match next {
                 DialogueNext::Continue(dialogue) => {

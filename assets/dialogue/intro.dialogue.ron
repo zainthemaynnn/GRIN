@@ -2,32 +2,38 @@
 DialogueMap({
      "test_1": Dialogue (
           text: "hi",
+          portrait: Smirk,
           blip: Smirk,
           next: Continue("test_2"),
      ),
      "test_2": Dialogue (
           text: "hi again",
+          portrait: Smirk,
           blip: Smirk,
           next: Respond(DialogueOptions ([
                DialogueOption (
                     text: "Say hi",
                     icon: Smirk,
+                    portrait: Smirk,
                     dialogue: "test_3",
                ),
                DialogueOption (
                     text: "Say bye",
                     icon: Smirk,
+                    portrait: Smirk,
                     dialogue: "test_3",
                ),
           ])),
      ),
      "test_3": Dialogue (
           text: "yeah whaddup",
+          portrait: Smirk,
           blip: Smirk,
           next: Continue("test_4"),
      ),
      "test_4": Dialogue (
           text: "see ya",
+          portrait: Smirk,
           blip: Smirk,
           next: Finish,
      ),

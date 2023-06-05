@@ -1,10 +1,21 @@
-use bevy::{asset::LoadState, prelude::*, reflect::TypeUuid, utils::HashMap};
+use bevy::{
+    asset::LoadState, ecs::query::QuerySingleError, prelude::*, reflect::TypeUuid,
+    render::view::RenderLayers, utils::HashMap,
+};
 use bevy_asset_loader::prelude::*;
 use html_parser::{Dom, Node};
 use itertools::Itertools;
 use serde::Deserialize;
 
-use crate::render::sketched::SketchUiImage;
+use crate::{
+    character::eightball::EightBall,
+    humanoid::Humanoid,
+    render::{
+        gopro::{add_gopro_world, GoProSettings},
+        sketched::SketchUiImage,
+        RenderLayer,
+    },
+};
 
 #[derive(Resource)]
 pub struct DefaultTextStyle(pub TextStyle);
@@ -26,6 +37,11 @@ pub struct DialogueAssets {
     pub smirk_blip: Handle<AudioSource>,
     #[asset(key = "image.smirk-icon")]
     pub smirk_icon: Handle<SketchUiImage>,
+}
+
+#[derive(Resource)]
+pub struct PortraitHandles {
+    pub smirk: Handle<Image>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, States)]
@@ -65,6 +81,41 @@ impl Blip {
     }
 }
 
+#[derive(Debug, Deserialize, Clone, Default)]
+pub enum Portrait {
+    #[default]
+    Smirk,
+}
+
+impl Portrait {
+    // I can't think of a way to query based on component type with regular systems.
+    // instead I just threw in `&mut World` access + a macro. not performance critical.
+    pub fn render_target(&self, world: &mut World) -> Result<Handle<Image>, QuerySingleError> {
+        macro_rules! typed_portrait {
+            ( $ty:ident ) => {{
+                let humanoid = world
+                    .query_filtered::<&Humanoid, With<$ty>>()
+                    .get_single(world)?;
+
+                Ok(add_gopro_world(
+                    world,
+                    GoProSettings {
+                        entity: humanoid.head,
+                        transform: Transform::from_translation(Vec3::new(0.0, 0.0, -2.0))
+                            .looking_to(Vec3::Z, Vec3::Y),
+                        size: UVec2::splat(240),
+                        render_layers: RenderLayers::layer(RenderLayer::AVATAR as u8),
+                    },
+                ))
+            }};
+        }
+
+        match self {
+            Portrait::Smirk => typed_portrait!(EightBall),
+        }
+    }
+}
+
 // spent a good few days making this work with `bevy_asset_loader`
 // but I guess it was much simpler to just go manual all along!
 pub fn add_dialogue_assets(
@@ -94,6 +145,7 @@ pub fn add_dialogue_assets(
             key,
             Dialogue {
                 text,
+                portrait,
                 blip,
                 cps,
                 stop_delay,
@@ -104,6 +156,7 @@ pub fn add_dialogue_assets(
             // AVERAGE RUST PROGRAM
             let dialogue = super::Dialogue {
                 text: parse_dialogue(text, &default_style.0),
+                portrait: portrait.clone(),
                 blip: blip.from_asset_collection(&dialogue_assets).clone(),
                 cps: cps.unwrap_or(15.0),
                 stop_delay: stop_delay.unwrap_or(0.5),
@@ -153,6 +206,7 @@ pub struct DialogueMap(pub HashMap<String, Dialogue>);
 #[derive(Debug, Deserialize, Clone)]
 pub struct Dialogue {
     pub text: String,
+    pub portrait: Portrait,
     pub blip: Blip,
     pub cps: Option<f32>,
     pub stop_delay: Option<f32>,

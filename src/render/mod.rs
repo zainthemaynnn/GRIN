@@ -1,4 +1,5 @@
 pub mod bwstatic;
+pub mod gopro;
 pub mod sketched;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
@@ -6,7 +7,7 @@ use bevy_mod_outline::{OutlineBundle, OutlineVolume};
 
 use self::{
     bwstatic::BWStaticPlugin,
-    sketched::{GlobalMeshOutline, SketchEffectPlugin},
+    sketched::{GlobalMeshOutline, SketchEffectPlugin}, gopro::GoProPlugin,
 };
 
 #[repr(u8)]
@@ -42,5 +43,6 @@ impl PluginGroup for RenderFXPlugins {
                 autofill_sketch_effect: true,
             })
             .add(BWStaticPlugin)
+            .add(GoProPlugin)
     }
 }

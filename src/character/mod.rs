@@ -7,6 +7,7 @@ use std::marker::PhantomData;
 use crate::asset::AssetLoadState;
 use crate::damage::{DamageBuffer, Health, HealthBundle};
 use crate::humanoid::{Dash, Head, HumanoidAssets, HumanoidBuilder};
+use crate::render::gopro::{add_gopro, GoProSettings};
 use crate::render::sketched::SketchMaterial;
 use crate::sound::Ears;
 
@@ -14,10 +15,6 @@ use crate::collisions::{CollisionGroupExt, CollisionGroupsExt};
 use crate::item::{Equipped, Item};
 use crate::render::RenderLayer;
 use bevy::prelude::*;
-use bevy::render::camera::RenderTarget;
-use bevy::render::render_resource::{
-    Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-};
 use bevy::render::view::RenderLayers;
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
@@ -59,7 +56,7 @@ impl Plugin for CharacterPlugin {
                     .after(CharacterSet::Spawn)
                     .in_schedule(OnEnter(AssetLoadState::Success)),
             )
-            .add_systems((insert_status_viewport,).in_schedule(OnEnter(AvatarLoadState::Loaded)))
+            .add_system(insert_status_viewport.in_schedule(OnEnter(AvatarLoadState::Loaded)))
             .add_systems(
                 (
                     input_walk,
@@ -177,58 +174,31 @@ impl Default for AvatarSimulationBundle {
     }
 }
 
-fn insert_status_viewport(
+pub fn insert_status_viewport(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
-    body: Query<Entity, With<PlayerCharacter>>,
-    head: Query<&Transform, (With<Head>, With<Player>)>,
+    humanoid_query: Query<(Entity, &Humanoid), With<Player>>,
+    transform_query: Query<&Transform>,
 ) {
-    let head = head.single();
+    let (e_body, humanoid) = humanoid_query.single();
+    let head_transform = transform_query.get(humanoid.head).unwrap();
 
-    let size = Extent3d {
-        width: 240,
-        height: 240,
-        depth_or_array_layers: 1,
-    };
-    let mut target = Image {
-        texture_descriptor: TextureDescriptor {
-            label: None,
-            size,
-            dimension: TextureDimension::D2,
-            format: TextureFormat::Bgra8UnormSrgb,
-            mip_level_count: 1,
-            sample_count: 1,
-            usage: TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_DST
-                | TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
+    let image = add_gopro(
+        &mut commands,
+        &mut images,
+        GoProSettings {
+            entity: e_body,
+            transform: Transform::from_translation(
+                head_transform.translation + Vec3::new(0.0, 0.0, -2.0),
+            )
+            .looking_to(Vec3::Z, Vec3::Y),
+            size: UVec2::splat(240),
+            render_layers: RenderLayers::layer(RenderLayer::AVATAR as u8),
         },
-        ..Default::default()
-    };
-    target.resize(size);
-
-    let target_handle = images.add(target);
-
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_translation(head.translation + Vec3::new(0.0, 0.0, -2.0))
-                .looking_to(Vec3::Z, Vec3::Y),
-            camera: Camera {
-                order: -1,
-                target: RenderTarget::Image(target_handle.clone()),
-                ..Default::default()
-            },
-            camera_3d: Camera3d {
-                clear_color: bevy::core_pipeline::clear_color::ClearColorConfig::None,
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(RenderLayers::layer(RenderLayer::AVATAR as u8))
-        .set_parent(body.single());
+    );
 
     commands.spawn(ImageBundle {
-        image: target_handle.clone().into(),
+        image: image.into(),
         style: Style {
             position_type: PositionType::Absolute,
             size: Size::all(Val::Px(240.0)),

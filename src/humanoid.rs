@@ -475,7 +475,7 @@ pub fn shatter_on_death(
                 .set_time_parent(entity);
 
             commands
-                .entity(entity)
+                .entity(e_fragment)
                 .remove::<(Handle<Mesh>, Handle<SketchMaterial>, Collider)>();
         }
 

@@ -3,7 +3,7 @@ use std::num::NonZeroU32;
 use bevy::{
     prelude::*,
     reflect::TypeUuid,
-    render::render_resource::{TextureViewDescriptor, TextureViewDimension},
+    render::render_resource::{Face, TextureViewDescriptor, TextureViewDimension},
     utils::HashMap,
 };
 use bevy_asset_loader::prelude::*;
@@ -69,6 +69,24 @@ pub enum AssetLoadState {
     Failure,
 }
 
+/// Deserializable `Face`.
+#[derive(Debug, Deserialize, Copy, Clone)]
+pub enum AssetFace {
+    Front,
+    Back,
+    NoCull,
+}
+
+impl From<AssetFace> for Option<Face> {
+    fn from(value: AssetFace) -> Self {
+        match value {
+            AssetFace::Front => Some(Face::Front),
+            AssetFace::Back => Some(Face::Back),
+            AssetFace::NoCull => None,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub enum CustomDynamicAsset {
     File {
@@ -84,6 +102,8 @@ pub enum CustomDynamicAsset {
         perceptual_roughness: Option<f32>,
         reflectance: Option<f32>,
         emissive: Option<[f32; 4]>,
+        double_sided: Option<bool>,
+        cull_mode: Option<AssetFace>,
         layers: Option<u32>,
     },
     SketchUiImage {
@@ -115,7 +135,7 @@ impl DynamicAsset for CustomDynamicAsset {
         let asset_server = world_cell
             .get_resource::<AssetServer>()
             .expect("Failed to get AssetServer.");
-        
+
         match self {
             Self::File { path } => Ok(DynamicAssetType::Single(asset_server.load_untyped(path))),
             Self::UVSphereMesh { radius } => {
@@ -137,6 +157,8 @@ impl DynamicAsset for CustomDynamicAsset {
                 perceptual_roughness,
                 reflectance,
                 emissive,
+                double_sided,
+                cull_mode,
                 layers,
             } => {
                 // the textureview dimension MUST be D2Array
@@ -191,6 +213,9 @@ impl DynamicAsset for CustomDynamicAsset {
                             reflectance: reflectance.unwrap_or(mat_default.reflectance),
                             emissive: emissive
                                 .map_or(mat_default.emissive, |channels| Color::from(channels)),
+                            double_sided: double_sided.unwrap_or(mat_default.double_sided),
+                            cull_mode: cull_mode
+                                .map_or(mat_default.cull_mode, Option::<Face>::from),
                             ..Default::default()
                         })
                         .into(),

@@ -87,6 +87,8 @@ pub struct ProjectileAssets {
     pub bullet_material: Handle<SketchMaterial>,
     #[asset(key = "mat.gun")]
     pub gun_material: Handle<SketchMaterial>,
+    #[asset(key = "mat.laser")]
+    pub laser_material: Handle<SketchMaterial>,
 }
 
 #[derive(Resource, AssetCollection)]

@@ -1,4 +1,5 @@
 pub mod bwstatic;
+pub mod duoquad;
 pub mod gopro;
 pub mod sketched;
 
@@ -7,7 +8,7 @@ use bevy_mod_outline::{OutlineBundle, OutlineVolume};
 
 use self::{
     bwstatic::BWStaticPlugin,
-    sketched::{GlobalMeshOutline, SketchEffectPlugin}, gopro::GoProPlugin,
+    sketched::{GlobalMeshOutline, SketchEffectPlugin}, gopro::GoProPlugin, duoquad::DuoQuadPlugin,
 };
 
 #[repr(u8)]
@@ -44,5 +45,6 @@ impl PluginGroup for RenderFXPlugins {
             })
             .add(BWStaticPlugin)
             .add(GoProPlugin)
+            .add(DuoQuadPlugin)
     }
 }

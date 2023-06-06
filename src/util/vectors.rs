@@ -8,16 +8,16 @@ use itertools::Itertools;
 use super::distr::{self, closed_f32_distribution, open_f32_distribution};
 
 pub trait Vec3Ext {
-    /// Creates an arbitrary perpendicular vector.
+    /// Creates an arbitrary perpendicular vector of equal length.
     fn perp(&self) -> Self;
 }
 
 impl Vec3Ext for Vec3 {
     fn perp(&self) -> Self {
         if self.z.abs() < self.x.abs() {
-            Vec3::new(self.y, -self.x, 0.0)
+            Vec3::new(self.y, -self.x, 0.0).normalize() * self.length()
         } else {
-            Vec3::new(0.0, -self.z, self.y)
+            Vec3::new(0.0, -self.z, self.y).normalize() * self.length()
         }
     }
 }

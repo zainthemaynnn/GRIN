@@ -5,7 +5,6 @@ use crate::{
     damage::{Damage, DamageVariant, ProjectileBundle},
     humanoid::Humanoid,
     render::sketched::NoOutline,
-    util::vectors::Vec3Ext,
 };
 
 use super::{
@@ -139,7 +138,8 @@ pub fn spawn_bullet(
         );
 
         let fwd = (target - origin).normalize();
-        let mut bullet_transform = Transform::from_translation(origin).looking_to(fwd, fwd.perp());
+        let mut bullet_transform =
+            Transform::from_translation(origin).looking_to(fwd, fwd.any_orthogonal_vector());
         bullet_transform.rotate(Quat::from_euler(
             EulerRot::XYZ,
             rand::thread_rng().sample(distr),

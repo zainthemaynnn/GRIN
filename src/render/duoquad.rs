@@ -7,7 +7,6 @@ use bevy::prelude::{shape::Quad, *};
 use crate::{
     character::{camera::PlayerCamera, AvatarLoadState},
     render::sketched::{NoOutline, SketchMaterial},
-    util::vectors::Vec3Ext,
 };
 
 pub struct DuoQuadPlugin;
@@ -79,13 +78,13 @@ pub fn render_duoquads(
         let h_mesh = meshes.add(Mesh::from(Quad::new(Vec2::new(axis.length(), *radius))));
         let mut it = children.iter().filter(|e| quad_query.get(**e).is_ok());
 
-        let axis = axis.normalize();
+        let perp = axis.normalize().any_orthonormal_pair();
         // this was the point where I found out `Quat::from_rotation_axes` is private.
         // maybe creating a quaternion from three axes is doing it wrong?
         // I'm not a good enough programmer or mathematician to figure that out
         // so I'm just gonna do it with a `Mat3`.
         *transform = Transform::from_translation(mdpt).with_rotation(Quat::from_mat3(
-            &Mat3::from_cols(axis, axis.perp(), axis.cross(axis.perp())),
+            &Mat3::from_cols(axis.normalize(), perp.0, perp.1),
         ));
 
         commands

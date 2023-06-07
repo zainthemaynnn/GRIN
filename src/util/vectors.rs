@@ -1,26 +1,10 @@
 //! Common `Vec3` calculations.
 use std::f32::consts::TAU;
 
-use approx::assert_relative_eq;
 use bevy::prelude::{Quat, Vec3};
 use itertools::Itertools;
 
 use super::distr::{self, closed_f32_distribution, open_f32_distribution};
-
-pub trait Vec3Ext {
-    /// Creates an arbitrary perpendicular vector of equal length.
-    fn perp(&self) -> Self;
-}
-
-impl Vec3Ext for Vec3 {
-    fn perp(&self) -> Self {
-        if self.z.abs() < self.x.abs() {
-            Vec3::new(self.y, -self.x, 0.0).normalize() * self.length()
-        } else {
-            Vec3::new(0.0, -self.z, self.y).normalize() * self.length()
-        }
-    }
-}
 
 /// Sets `Vec3.y` to `0.0`.
 #[inline]
@@ -115,7 +99,7 @@ pub fn polygon_eq<'a>(
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::PI;
+    use approx::assert_relative_eq;
 
     use super::*;
 

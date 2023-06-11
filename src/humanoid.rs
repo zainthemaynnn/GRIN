@@ -19,7 +19,7 @@ pub struct HumanoidPlugin;
 impl Plugin for HumanoidPlugin {
     fn build(&self, app: &mut App) {
         app.add_collection_to_loading_state::<_, HumanoidAssets>(AssetLoadState::Loading)
-            .add_systems((dash, jump).before(PhysicsSet::StepSimulation))
+            .add_system(dash.before(PhysicsSet::StepSimulation))
             .add_systems((
                 shatter_on_death.run_if(in_state(AssetLoadState::Success)),
                 // since scenes render in preupdate this'll actually have to wait a frame

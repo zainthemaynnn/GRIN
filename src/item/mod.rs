@@ -20,7 +20,7 @@ use crate::{
     asset::AssetLoadState,
     character::camera::LookInfo,
     character::Player,
-    humanoid::{DominantHand, Hand, HandOffsets},
+    humanoid::{DominantHand, Hand},
     render::sketched::SketchMaterial,
 };
 
@@ -44,7 +44,7 @@ impl Plugin for ItemCommonPlugin {
 }
 
 pub struct ItemPlugin<I: Send + Sync + 'static> {
-    phantom_data: PhantomData<I>,
+    pub phantom_data: PhantomData<I>,
 }
 
 impl<I: Send + Sync + 'static> Default for ItemPlugin<I> {
@@ -353,18 +353,6 @@ impl From<f32> for Accuracy {
 
 pub fn aim_single<T: Component>(
     item_query: Query<(&Parent, &Aiming), (With<T>, Changed<Aiming>)>,
-    mut hands_query: Query<(&mut Hand, &HandOffsets), With<DominantHand>>,
 ) {
-    for (parent, Aiming(aiming)) in item_query.iter() {
-        let Ok((mut hand, offsets)) = hands_query.get_mut(parent.get()) else {
-            println!("`aim_single` requires the item to be parented to a (`humanoid::Hand, humanoid::HandOffsets`).");
-            return;
-        };
-
-        if *aiming {
-            hand.offset = offsets.aim_single;
-        } else {
-            hand.offset = offsets.rest;
-        }
-    }
+    // TODO
 }

@@ -24,6 +24,9 @@ CustomDynamicAssetCollection({
      "mesh.gun": UVSphereMesh ( // TODO: make like, an actual gun
           radius: 0.15,
      ),
+     "mesh.sledge": File (
+          path: "meshes/sledge.glb#Mesh0/Primitive0",
+     ),
      "mesh.bullet_5cm": UVSphereMesh ( // TODO: switch to icospheres
           radius: 0.05,
      ),

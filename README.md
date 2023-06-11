@@ -5,6 +5,8 @@ A third person shooter.
 
 ## Engine features I'm waiting on
 - Morph targets: Needed for character animations.
+    - Alternative: It would be nice to have some access to shear. `GlobalTransform` uses an affine matrix but `Transform` doesn't,
+    and it's impossible to mutate it so that it actually does affine transformations.
 - Extensible `StandardMaterial`: Reduces boilerplate.
 - Ability to disable transform propagation: Propagation is nice but it makes physics tricky.
     - Related... Entity-entity relations (custom hierarchy): Currently using a bootleg ones for rewinds. Not amazing.

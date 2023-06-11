@@ -48,7 +48,7 @@ pub struct HumanoidAssets {
     pub body_gray: Handle<SketchMaterial>,
     #[asset(key = "mat.skin")]
     pub skin: Handle<SketchMaterial>,
-    #[asset(path = "meshes/skeleton.glb#Scene0")]
+    #[asset(key = "rig.humanoid_skeleton")]
     pub skeleton: Handle<Scene>,
 }
 

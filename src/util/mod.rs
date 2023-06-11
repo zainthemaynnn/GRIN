@@ -1,3 +1,4 @@
+pub mod color;
 pub mod distr;
 pub mod keys;
 pub mod query;

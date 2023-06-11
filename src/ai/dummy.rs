@@ -1,14 +1,14 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::{CollisionGroups, GravityScale, Group};
+use bevy_rapier3d::prelude::{CollisionGroups, Group};
 
 use crate::{
     asset::AssetLoadState,
     character::{Character, CharacterSet, CharacterSpawnEvent, PlayerCharacter},
     collisions::{CollisionGroupExt, CollisionGroupsExt},
-    damage::{DamageBuffer, Dead, Health, HealthBundle},
-    humanoid::{HumanoidAssets, HumanoidBuilder},
+    damage::{Dead, Health, HealthBundle},
+    humanoid::{HumanoidAssets, HumanoidBundle},
     item::{smg::SMG, Active, Aiming, Equipped, Item, Target},
-    time::{OutOfHistory, Rewind},
+    time::Rewind,
 };
 
 use super::{
@@ -54,14 +54,13 @@ type SMGSpawnEvent = <<Dummy as Character>::StartItem as Item>::SpawnEvent;
 
 pub fn spawn<'w, 's>(
     mut commands: Commands<'w, 's>,
-    assets: Res<HumanoidAssets>,
+    hum_assets: Res<HumanoidAssets>,
     meshes: Res<Assets<Mesh>>,
     mut events: EventReader<CharacterSpawnEvent<Dummy>>,
     mut weapon_events: EventWriter<SMGSpawnEvent>,
 ) {
     for _ in events.iter() {
-        let mut humanoid = HumanoidBuilder::new(&mut commands, &assets, &meshes);
-        commands.get_or_spawn(humanoid.body).insert((
+        commands.spawn((
             Dummy::default(),
             Target::default(),
             Equipped::default(),
@@ -77,20 +76,17 @@ pub fn spawn<'w, 's>(
                 target: MoveTarget::default(),
             },
             CollisionGroups::from_group_default(Group::ENEMY),
-            GravityScale(1.0),
+            HumanoidBundle {
+                skeleton_gltf: hum_assets.skeleton.clone(),
+                transform: Transform::from_xyz(10.0, 0.0, 0.0),
+                ..Default::default()
+            },
         ));
-        commands.get_or_spawn(humanoid.head).insert((
-            DamageBuffer::default(),
-            CollisionGroups::from_group_default(Group::ENEMY),
-        ));
-        humanoid
-            .with_transform(Transform::from_xyz(10.0, 0.0, 0.0))
-            .build(&mut commands);
-        weapon_events.send(SMGSpawnEvent::new(humanoid.body));
+        //weapon_events.send(SMGSpawnEvent::new(humanoid.body));
     }
 }
 
-fn fire(
+pub fn fire(
     time: Res<Time>,
     dummy_query: Query<&Equipped, (With<Dummy>, Without<Rewind>, Without<Dead>)>,
     mut weapon_query: Query<(&mut Active, &mut Aiming)>,
@@ -99,7 +95,7 @@ fn fire(
     for Equipped(equipped) in dummy_query.iter() {
         for item in equipped {
             let Ok((mut active, mut aiming)) = weapon_query.get_mut(*item) else {
-                println!("Item missing `(Active, Aiming)` component.");
+                error!("Item missing `(Active, Aiming)` component.");
                 continue;
             };
             *active = Active(set);

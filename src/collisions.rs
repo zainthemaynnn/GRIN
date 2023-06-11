@@ -1,4 +1,13 @@
+use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+
+pub struct CollisionsPlugin;
+
+impl Plugin for CollisionsPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems((align_collider_refs, assign_collider_ref_collision_groups));
+    }
+}
 
 pub trait CollisionGroupExt {
     const PLAYER: Group;
@@ -84,4 +93,42 @@ macro_rules! convex_collider {
             &ComputedColliderShape::ConvexDecomposition($vhacd)
         )
     }};
+}
+
+// TODO: optimize MAYBE
+
+/// Matches the transform of an adjacent `Collider` to this entity.
+///
+/// A jank solution to combined colliders of a rigid-body
+/// needing to have direct children as colliders.
+#[derive(Component)]
+pub struct ColliderRef(pub Entity);
+
+/// Updates the `Transform`s of `ColliderRef`s to match the source entity.
+pub fn align_collider_refs(
+    mut collider_ref_query: Query<(&ColliderRef, Option<&Parent>, &mut Transform)>,
+    g_transform_query: Query<&GlobalTransform>,
+) {
+    for (ColliderRef(e_collider), parent, mut transform) in
+        collider_ref_query.iter_mut()
+    {
+        let g_parent_transform = match parent {
+            Some(parent) => *g_transform_query.get(parent.get()).unwrap(),
+            None => GlobalTransform::default(),
+        };
+        let g_collider_transform = g_transform_query.get(*e_collider).unwrap();
+        *transform = g_collider_transform.reparented_to(&g_parent_transform);
+    }
+}
+
+/// Updates the `CollisionGroups` of `ColliderRef`s to match the source entity.
+pub fn assign_collider_ref_collision_groups(
+    mut collider_ref_query: Query<(&ColliderRef, &mut CollisionGroups)>,
+    collision_groups_query: Query<&CollisionGroups, Without<ColliderRef>>,
+) {
+    for (ColliderRef(e_collider), mut collision_groups) in collider_ref_query.iter_mut() {
+        if let Ok(new_collision_groups) = collision_groups_query.get(*e_collider) {
+            *collision_groups = *new_collision_groups;
+        };
+    }
 }

@@ -25,6 +25,7 @@ use bevy::{
 use bevy_hanabi::HanabiPlugin;
 use bevy_rapier3d::prelude::*;
 use character::{Character, CharacterPlugin, CharacterSet};
+use collisions::CollisionsPlugin;
 use damage::DamagePlugin;
 use dialogue::{DialoguePlugin, DialogueEvent, DialogueMap, asset_gen::DialogueAssetLoadState};
 use humanoid::{HumanoidPlugin, HUMANOID_HEIGHT};
@@ -92,6 +93,7 @@ fn main() -> Result<(), io::Error> {
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugins(RenderFXPlugins)
         .add_plugin(HanabiPlugin)
+        .add_plugin(CollisionsPlugin)
         .add_plugin(HumanoidPlugin)
         .add_plugins(ItemPlugins)
         .add_plugin(CharacterPlugin)

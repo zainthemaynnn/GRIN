@@ -1,11 +1,17 @@
 use crate::{
     asset::AssetLoadState,
     collider,
-    humanoid::{HumanoidAssets, HumanoidBuilder},
+    humanoid::{
+        Humanoid, HumanoidAssets, HumanoidBuild, HumanoidBundle,
+        HumanoidDominantHand,
+    },
     item::{smg::SMG, Item},
 };
 
-use super::{AvatarAssets, AvatarSimulationBundle, Character, CharacterSet, CharacterSpawnEvent};
+use super::{
+    AvatarAssets, AvatarLoadEvent, AvatarSimulationBundle, Character, CharacterSet,
+    CharacterSpawnEvent,
+};
 use bevy::prelude::*;
 
 pub struct EightBallPlugin;
@@ -17,9 +23,13 @@ impl Plugin for EightBallPlugin {
                 spawn
                     .in_set(CharacterSet::Spawn)
                     .in_schedule(OnEnter(AssetLoadState::Success)),
-            );
+            )
+            .add_system(init_humanoid.in_set(CharacterSet::Init));
     }
 }
+
+#[derive(Component, Default)]
+pub struct EightBallUninit;
 
 #[derive(Component, Default)]
 pub struct EightBall;
@@ -32,35 +42,57 @@ type ItemSpawnEvent = <<EightBall as Character>::StartItem as Item>::SpawnEvent;
 
 pub fn spawn(
     mut commands: Commands,
-    hum_assets: Res<HumanoidAssets>,
-    meshes: Res<Assets<Mesh>>,
     assets: Res<AvatarAssets>,
+    hum_assets: Res<HumanoidAssets>,
     mut events: EventReader<CharacterSpawnEvent<EightBall>>,
-    mut weapon_events: EventWriter<ItemSpawnEvent>,
 ) {
     for _ in events.iter() {
-        let mut humanoid = HumanoidBuilder::new_player(&mut commands, &hum_assets, &meshes);
-        let shades = commands
+        commands
             .spawn((
-                MaterialMeshBundle {
-                    mesh: assets.pizza_shades.clone(),
-                    material: assets.matte_shades.clone(),
-                    transform: Transform::from_xyz(0.0, 0.0, -0.525),
+                HumanoidBundle {
+                    skeleton_gltf: hum_assets.skeleton.clone(),
+                    face: assets.face_smirk.clone().into(),
+                    build: HumanoidBuild::Male,
+                    dominant_hand: HumanoidDominantHand::Right,
+                    transform: Transform::from_xyz(0.0, 1E-2, 0.0),
                     ..Default::default()
                 },
-                AvatarSimulationBundle::default(),
-                collider!(meshes, &assets.pizza_shades),
-            ))
-            .id();
-        commands
-            .get_or_spawn(humanoid.head)
-            .push_children(&[shades]);
-        commands
-            .get_or_spawn(humanoid.body)
-            .insert(EightBall::default());
-        humanoid
-            .with_face(assets.face_smirk.clone())
-            .build(&mut commands);
-        weapon_events.send(ItemSpawnEvent::new(humanoid.body));
+                EightBallUninit,
+            ));
     }
+}
+
+pub fn init_humanoid(
+    mut commands: Commands,
+    assets: Res<AvatarAssets>,
+    meshes: Res<Assets<Mesh>>,
+    humanoid_query: Query<(Entity, &Humanoid), With<EightBallUninit>>,
+    mut loaded_events: EventWriter<AvatarLoadEvent>,
+    mut weapon_events: EventWriter<ItemSpawnEvent>,
+) {
+    let Ok((e_humanoid, humanoid)) = humanoid_query.get_single() else {
+        return;
+    };
+
+    commands
+        .spawn((
+            MaterialMeshBundle {
+                mesh: assets.pizza_shades.clone(),
+                material: assets.matte_shades.clone(),
+                transform: Transform::from_xyz(0.0, 0.0, -0.525),
+                ..Default::default()
+            },
+            AvatarSimulationBundle::default(),
+            collider!(meshes, &assets.pizza_shades),
+        ))
+        .set_parent(humanoid.head);
+
+    commands
+        .entity(e_humanoid)
+        .remove::<EightBallUninit>()
+        .insert(EightBall::default());
+
+    loaded_events.send_default();
+
+    weapon_events.send(ItemSpawnEvent::new(e_humanoid));
 }

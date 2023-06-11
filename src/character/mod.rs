@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 
 use crate::asset::AssetLoadState;
 use crate::damage::{DamageBuffer, Health, HealthBundle};
-use crate::humanoid::{Dash, Head, HumanoidAssets, HumanoidBuilder};
+use crate::humanoid::{Dash, Head, Humanoid};
 use crate::render::gopro::{add_gopro, GoProSettings};
 use crate::render::sketched::SketchMaterial;
 use crate::sound::Ears;
@@ -27,34 +27,47 @@ pub struct CharacterPlugin;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum CharacterSet {
     Spawn,
+    Init,
+    Load,
 }
 
-fn set_avatar_load_state(state: AvatarLoadState) -> impl Fn(ResMut<NextState<AvatarLoadState>>) {
-    move |mut next_state| {
-        next_state.set(state);
+#[derive(Default)]
+pub struct AvatarLoadEvent;
+
+pub fn set_avatar_load_state(
+    load_events: EventReader<AvatarLoadEvent>,
+    mut next_state: ResMut<NextState<AvatarLoadState>>,
+) {
+    if !load_events.is_empty() {
+        next_state.set(AvatarLoadState::Loaded);
     }
 }
 
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<AvatarLoadState>()
+            .add_event::<AvatarLoadEvent>()
             .add_plugin(PlayerCameraPlugin)
             .add_plugin(EightBallPlugin)
             .add_collection_to_loading_state::<_, AvatarAssets>(AssetLoadState::Loading)
-            .configure_set(CharacterSet::Spawn.run_if(in_state(AssetLoadState::Success)))
+            .configure_sets((
+                CharacterSet::Spawn.run_if(in_state(AssetLoadState::Success)),
+                CharacterSet::Init.run_if(in_state(AssetLoadState::Success)),
+                CharacterSet::Load.run_if(
+                    in_state(AssetLoadState::Success)
+                        .and_then(in_state(AvatarLoadState::NotLoaded)),
+                ),
+            ))
             .add_system(
                 <EightBall as Character>::spawn
                     .before(CharacterSet::Spawn)
                     .in_schedule(OnEnter(AssetLoadState::Success)),
             )
+            .add_system(init_character_model.in_set(CharacterSet::Init))
             .add_systems(
-                (
-                    apply_system_buffers,
-                    set_avatar_load_state(AvatarLoadState::Loaded),
-                )
+                (apply_system_buffers, set_avatar_load_state)
                     .chain()
-                    .after(CharacterSet::Spawn)
-                    .in_schedule(OnEnter(AssetLoadState::Success)),
+                    .in_set(CharacterSet::Load),
             )
             .add_system(insert_status_viewport.in_schedule(OnEnter(AvatarLoadState::Loaded)))
             .add_systems(
@@ -68,7 +81,7 @@ impl Plugin for CharacterPlugin {
 }
 
 pub struct CharacterSpawnEvent<C: Character> {
-    phantom_data: PhantomData<C>,
+    pub phantom_data: PhantomData<C>,
 }
 
 impl<C: Character> Default for CharacterSpawnEvent<C> {
@@ -100,62 +113,14 @@ pub struct AvatarAssets {
     face_meh: Handle<SketchMaterial>,
 }
 
-impl<'a> HumanoidBuilder<'a> {
-    fn new_player(
-        commands: &mut Commands,
-        assets: &'a HumanoidAssets,
-        meshes: &'a Assets<Mesh>,
-    ) -> Self {
-        let humanoid = Self::new(commands, assets, meshes);
-        commands.get_or_spawn(humanoid.head).insert((
-            Ears(0.5),
-            DamageBuffer::default(),
-            AvatarSimulationBundle::default(),
-        ));
-        commands
-            .get_or_spawn(humanoid.lhand)
-            .insert(AvatarSimulationBundle::default());
-        commands
-            .get_or_spawn(humanoid.rhand)
-            .insert(AvatarSimulationBundle::default());
-        commands
-            .get_or_spawn(humanoid.body)
-            .insert((
-                HealthBundle {
-                    health: Health(100.0),
-                    ..Default::default()
-                },
-                AvatarSimulationBundle::default(),
-                PlayerCharacter,
-                RigidBody::KinematicPositionBased,
-                KinematicCharacterController::default(),
-                Equipped::default(),
-            ))
-            .with_children(|parent| {
-                parent.spawn((
-                    PlayerCamera,
-                    Camera3dBundle {
-                        transform: Transform::from_xyz(0.0, 6.0, 12.0)
-                            .looking_at(Vec3::NEG_Z, Vec3::Y),
-                        ..Default::default()
-                    },
-                ));
-            });
-        humanoid
-    }
-}
-
 #[derive(Component, Default)]
 pub struct PlayerCharacter;
-
-#[derive(Component, Default)]
-pub struct PlayerHead;
 
 #[derive(Component, Copy, Clone, Default)]
 pub struct Player;
 
 #[derive(Bundle)]
-struct AvatarSimulationBundle {
+pub struct AvatarSimulationBundle {
     render_layers: RenderLayers,
     collision_groups: CollisionGroups,
     player: Player,
@@ -174,23 +139,62 @@ impl Default for AvatarSimulationBundle {
     }
 }
 
+pub fn init_character_model(
+    mut commands: Commands,
+    player_query: Query<(Entity, &Humanoid), Without<PlayerCharacter>>,
+) {
+    let Ok((e_humanoid, humanoid)) = player_query.get_single() else {
+        return;
+    };
+
+    commands.entity(e_humanoid).insert((
+        PlayerCharacter,
+        KinematicCharacterController::default(),
+        Equipped::default(),
+        HealthBundle {
+            health: Health(100.0),
+            ..Default::default()
+        },
+        AvatarSimulationBundle::default(),
+    ));
+    commands.entity(humanoid.head).insert((
+        Ears(0.5),
+        DamageBuffer::default(),
+        AvatarSimulationBundle::default(),
+    ));
+    commands
+        .get_or_spawn(humanoid.body)
+        .insert((DamageBuffer::default(), AvatarSimulationBundle::default()))
+        .with_children(|parent| {
+            parent.spawn((
+                PlayerCamera,
+                Camera3dBundle {
+                    transform: Transform::from_xyz(0.0, 6.0, 12.0).looking_at(Vec3::NEG_Z, Vec3::Y),
+                    ..Default::default()
+                },
+            ));
+        });
+    commands
+        .get_or_spawn(humanoid.lhand)
+        .insert(AvatarSimulationBundle::default());
+    commands
+        .get_or_spawn(humanoid.rhand)
+        .insert(AvatarSimulationBundle::default());
+}
+
 pub fn insert_status_viewport(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
-    humanoid_query: Query<(Entity, &Humanoid), With<Player>>,
-    transform_query: Query<&Transform>,
+    player_query: Query<Entity, With<PlayerCharacter>>,
 ) {
-    let (e_body, humanoid) = humanoid_query.single();
-    let head_transform = transform_query.get(humanoid.head).unwrap();
+    let e_avatar = player_query.single();
 
     let image = add_gopro(
         &mut commands,
         &mut images,
         GoProSettings {
-            entity: e_body,
-            transform: Transform::from_translation(
-                head_transform.translation + Vec3::new(0.0, 0.0, -2.0),
-            )
+            entity: e_avatar,
+            transform: Transform::from_translation(Vec3::new(0.0, 2.125, -2.0))
             .looking_to(Vec3::Z, Vec3::Y),
             size: UVec2::splat(240),
             render_layers: RenderLayers::layer(RenderLayer::AVATAR as u8),
@@ -214,17 +218,18 @@ pub fn insert_status_viewport(
 }
 
 pub fn input_walk(
+    mut commands: Commands,
     input: Res<Input<KeyCode>>,
     mut character: Query<
-        (&mut KinematicCharacterController, &mut Transform),
+        (Entity, &mut KinematicCharacterController, &mut Transform),
         (With<PlayerCharacter>, Without<Dash>),
     >,
-    mut head: Query<&mut Transform, (With<PlayerHead>, Without<PlayerCharacter>)>,
+    mut head: Query<&mut Transform, (With<Head>, With<Player>, Without<PlayerCharacter>)>,
     look_info: Res<LookInfo>,
     time: Res<Time>,
 ) {
-    if let Ok((mut char_controller, mut transform)) = character.get_single_mut() {
-        if let Ok(mut head_transform) = head.get_single_mut() {
+    if let Ok((e, mut char_controller, mut transform)) = character.get_single_mut() {
+        /*if let Ok(mut head_transform) = head.get_single_mut() {
             let target_point = look_info.target_point();
             let target_local = Transform::from_matrix(
                 Mat4::from_translation(target_point) * transform.compute_matrix().inverse(),
@@ -233,7 +238,7 @@ pub fn input_walk(
                 (target_local.translation - head_transform.translation) * Vec3::new(0.0, 1.0, 1.0);
             let right = head_transform.right();
             head_transform.look_to(look.normalize(), (-look).normalize().cross(right));
-        }
+        }*/
 
         let mut movement = Vec3::ZERO;
         if input.pressed(KeyCode::W) {
@@ -275,6 +280,7 @@ pub fn input_dash(
         *cooldown -= time.delta_seconds();
     }
 }
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum AvatarLoadState {
     #[default]

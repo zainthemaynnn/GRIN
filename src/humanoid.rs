@@ -239,47 +239,6 @@ pub fn dash(
 }
 
 #[derive(Component)]
-pub struct Jump {
-    pub velocity: f32,
-}
-
-impl Jump {
-    /// Initialize a jump of `max_height` units, assuming typical gravity.
-    pub fn from_max_height(max_height: f32) -> Self {
-        Self {
-            velocity: (2.0 * max_height).sqrt(),
-        }
-    }
-}
-
-pub fn jump(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut humanoid_query: Query<
-        (
-            Entity,
-            &mut KinematicCharacterController,
-            &KinematicCharacterControllerOutput,
-            &mut Jump,
-            &GravityScale,
-        ),
-        With<Humanoid>,
-    >,
-) {
-    for (entity, mut char_controller, output, mut jump, gravity) in humanoid_query.iter_mut() {
-        if !output.grounded {
-            let dv = (jump.velocity * gravity.0) * time.delta_seconds();
-            jump.velocity -= dv;
-            let mut t = char_controller.translation.unwrap_or_default();
-            t += Vec3::Y * jump.velocity * time.delta_seconds();
-            char_controller.translation = Some(t);
-        } else {
-            commands.entity(entity).remove::<Jump>();
-        }
-    }
-}
-
-#[derive(Component)]
 pub struct Shatter {
     pub material: Handle<SketchMaterial>,
     pub inherited_velocity: Vec3,

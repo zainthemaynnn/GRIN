@@ -3,6 +3,7 @@
 use std::f32::consts::TAU;
 
 use bevy::prelude::{shape::Quad, *};
+use bevy_tweening::{Lens, component_animator_system};
 
 use crate::{
     character::{camera::PlayerCamera, AvatarLoadState},
@@ -17,6 +18,9 @@ impl Plugin for DuoQuadPlugin {
             init_duoquads,
             render_duoquads,
             inherit_materials,
+            component_animator_system::<DuoQuad>,
+            render_endpoint::<DuoQuadOrigin>.run_if(in_state(AvatarLoadState::Loaded)),
+            render_endpoint::<DuoQuadTarget>.run_if(in_state(AvatarLoadState::Loaded)),
         ));
     }
 }
@@ -42,6 +46,18 @@ pub struct DuoQuadBundle {
     pub computed: ComputedVisibility,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+}
+
+#[derive(Component, Default)]
+pub struct DuoQuadRadiusLens {
+    pub start: f32,
+    pub end: f32,
+}
+
+impl Lens<DuoQuad> for DuoQuadRadiusLens {
+    fn lerp(&mut self, target: &mut DuoQuad, ratio: f32) {
+        target.radius = self.start + (self.end - self.start) * ratio;
+    }
 }
 
 pub fn init_duoquads(mut commands: Commands, query: Query<Entity, Added<DuoQuad>>) {

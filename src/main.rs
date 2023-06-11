@@ -24,6 +24,7 @@ use bevy::{
 };
 use bevy_hanabi::HanabiPlugin;
 use bevy_rapier3d::prelude::*;
+use bevy_tweening::TweeningPlugin;
 use character::{Character, CharacterPlugin, CharacterSet};
 use collisions::CollisionsPlugin;
 use damage::DamagePlugin;
@@ -34,6 +35,7 @@ use item::{ItemPlugins, ItemSet};
 use render::{sketched::SketchMaterial, RenderFXPlugins};
 use sound::SoundPlugin;
 use time::{RewindComponentPlugin, RewindPlugin};
+use util::tween::TweenEventPlugin;
 
 use crate::asset::{AssetLoadState, DynamicAssetPlugin};
 
@@ -91,19 +93,21 @@ fn main() -> Result<(), io::Error> {
             ..Default::default()
         })
         .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugins(RenderFXPlugins)
+        .add_plugin(TweeningPlugin)
+        .add_plugin(TweenEventPlugin)
         .add_plugin(HanabiPlugin)
         .add_plugin(CollisionsPlugin)
+        .add_plugins(RenderFXPlugins)
         .add_plugin(HumanoidPlugin)
         .add_plugins(ItemPlugins)
         .add_plugin(CharacterPlugin)
         .add_plugins(AIPlugins)
         .add_plugin(DamagePlugin)
         .add_plugin(SoundPlugin)
-        .add_systems((load_scene, Dummy::spawn).in_schedule(OnEnter(AssetLoadState::Success)))
         .add_plugin(DialoguePlugin)
         .add_plugin(RewindPlugin::default())
         .add_plugin(RewindComponentPlugin::<Transform>::default())
+        //.add_system(Dummy::spawn.in_schedule(OnEnter(AssetLoadState::Success)))
         .add_system(load_scene.in_schedule(OnEnter(AssetLoadState::Success)))
         .add_system(test_dialogue.in_schedule(OnEnter(DialogueAssetLoadState::Success)))
         // ensure that all humanoids exist before potentially adding items directly to them

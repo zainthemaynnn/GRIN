@@ -99,14 +99,15 @@ pub fn apply_resist(mut query: Query<(&mut DamageBuffer, &Resist)>) {
 
 /// Recursively empties `DamageBuffer`s for entities without a `Health` component
 /// and appends them to the `DamageBuffer` of the first ancestor with a `Health` component.
+// I don't *think* using the optional components should slow this down cause it only uses `get_mut`?
 pub fn propagate_damage_buffers(
-    mut query: Query<(&mut DamageBuffer, &Children), With<Health>>,
-    mut buffer_query: Query<&mut DamageBuffer, Without<Health>>,
-    child_query: Query<&Children, (With<DamageBuffer>, Without<Health>)>,
+    mut health_query: Query<(&mut DamageBuffer, &Children), With<Health>>,
+    mut buffer_query: Query<Option<&mut DamageBuffer>, Without<Health>>,
+    children_query: Query<&Children, (With<DamageBuffer>, Without<Health>)>,
 ) {
-    for (mut buffer, children) in query.iter_mut() {
+    for (mut buffer, children) in health_query.iter_mut() {
         for child in children.iter() {
-            propagate_damage_buffers_child(&mut buffer, *child, &mut buffer_query, &child_query);
+            propagate_damage_buffers_child(&mut buffer, *child, &mut buffer_query, &children_query);
         }
     }
 }
@@ -114,15 +115,17 @@ pub fn propagate_damage_buffers(
 fn propagate_damage_buffers_child(
     buffer: &mut DamageBuffer,
     child: Entity,
-    buffer_query: &mut Query<&mut DamageBuffer, Without<Health>>,
-    child_query: &Query<&Children, (With<DamageBuffer>, Without<Health>)>,
+    buffer_query: &mut Query<Option<&mut DamageBuffer>, Without<Health>>,
+    children_query: &Query<&Children, (With<DamageBuffer>, Without<Health>)>,
 ) {
     if let Ok(mut child_buffer) = buffer_query.get_mut(child) {
-        buffer.0.append(&mut child_buffer.0);
+        if let Some(mut child_buffer) = child_buffer {
+            buffer.0.append(&mut child_buffer.0);
+        }
 
-        if let Ok(children) = child_query.get(child) {
+        if let Ok(children) = children_query.get(child) {
             for child in children.iter() {
-                propagate_damage_buffers_child(buffer, *child, buffer_query, child_query);
+                propagate_damage_buffers_child(buffer, *child, buffer_query, children_query);
             }
         }
     }
@@ -178,6 +181,7 @@ pub fn push_contact_damage(
         damage_buf.0.push(*damage);
     }
 }
+
 #[derive(Bundle)]
 pub struct ProjectileBundle {
     pub body: RigidBody,

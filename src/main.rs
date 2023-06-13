@@ -72,13 +72,13 @@ fn main() -> Result<(), io::Error> {
     #[cfg(debug_assertions)]
     let default_plugins = default_plugins.set(LogPlugin {
         level: Level::INFO,
-        filter: "info,wgpu_core=warn,wgpu_hal=warn,grin=info".into(),
+        filter: "info,wgpu_core=warn,wgpu_hal=warn,grin=debug".into(),
     });
 
     #[cfg(not(debug_assertions))]
     let default_plugins = default_plugins.set(LogPlugin {
         level: Level::DEBUG,
-        filter: "info,wgpu_core=warn,wgpu_hal=warn,grin=debug".into(),
+        filter: "info,wgpu_core=warn,wgpu_hal=warn,grin=info".into(),
     });
 
     app.add_plugins(default_plugins);

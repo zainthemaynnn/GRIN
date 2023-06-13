@@ -31,10 +31,20 @@ impl Plugin for DynamicAssetPlugin {
                     .continue_to_state(AssetLoadState::Success)
                     .on_failure_continue_to_state(AssetLoadState::Failure),
             )
+            .add_system(log_load_progress)
             .add_dynamic_collection_to_loading_state::<_, CustomDynamicAssetCollection>(
                 AssetLoadState::Loading,
                 "test.assets.ron",
             );
+    }
+}
+
+pub fn log_load_progress(progress: Option<Res<ProgressCounter>>, mut last_done: Local<u32>) {
+    if let Some(progress) = progress.map(|counter| counter.progress()) {
+        if progress.done > *last_done {
+            *last_done = progress.done;
+            debug!("{:?}", progress);
+        }
     }
 }
 

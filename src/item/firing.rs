@@ -114,28 +114,39 @@ pub fn update_cooldown<T: Component>(
 }
 
 pub fn semi_fire<T: Component>(
-    mut query: Query<(Entity, &mut Cooldown, &FireRate, Ref<Active>), With<T>>,
+    mut query: Query<(Entity, &mut Cooldown, &FireRate, Option<Ref<Active>>), With<T>>,
     mut shot_events: EventWriter<ShotFired<T>>,
 ) {
     for (entity, mut cooldown, fire_rate, active) in query.iter_mut() {
-        if active.0 && cooldown.0 >= fire_rate.0 && active.is_changed() {
-            shot_events.send(ShotFired {
-                entity,
-                phantom_data: PhantomData::default(),
-            });
-            cooldown.0 = 0.0;
+        if let Some(active) = active {
+            if active.is_added() && cooldown.0 >= fire_rate.0 {
+                shot_events.send(ShotFired {
+                    entity,
+                    phantom_data: PhantomData::default(),
+                });
+                cooldown.0 = 0.0;
+            }
         }
     }
 }
 
 pub fn auto_fire<T: Component>(
-    mut query: Query<(Entity, &mut Cooldown, &FireRate, &Active, &mut AutoFire), With<T>>,
+    mut query: Query<
+        (
+            Entity,
+            &mut Cooldown,
+            &FireRate,
+            Option<&Active>,
+            &mut AutoFire,
+        ),
+        With<T>,
+    >,
     mut shot_events: EventWriter<ShotFired<T>>,
     mut shots_began: EventWriter<ShotsBegan<T>>,
     mut shots_ended: EventWriter<ShotsEnded<T>>,
 ) {
     for (entity, mut cooldown, fire_rate, active, mut firing) in query.iter_mut() {
-        if active.0 {
+        if active.is_some() {
             if cooldown.0 >= fire_rate.0 {
                 if !firing.0 {
                     firing.0 = true;

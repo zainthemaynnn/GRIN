@@ -204,9 +204,7 @@ struct MuzzleBundle {
 struct WeaponBundle {
     pub weapon: Weapon,
     pub target: Target,
-    pub aiming: Aiming,
     pub accuracy: Accuracy,
-    pub material_mesh: MaterialMeshBundle<SketchMaterial>,
 }
 
 pub struct MuzzleFlashEvent(pub Entity);
@@ -277,61 +275,54 @@ pub fn set_local_mouse_target<T: Component>(
 }
 
 /// On `(With<Player>, With<T>)`,
-/// - If `mouse_button` is pressed, sets `C::from(true)`.
-/// - If `mouse_button` is not pressed, sets `C::from(false)`.
-pub fn set_on_mouse_button<T: Component, C: Component + From<bool>>(
+/// - If `mouse_button` is pressed, inserts `C`.
+/// - If `mouse_button` is not pressed, removes `C`.
+pub fn insert_on_mouse_button<T: Component, C: Component + Default>(
+    commands: &mut Commands,
+    query: &Query<Entity, (With<Player>, With<T>)>,
+    mouse_buttons: &Input<MouseButton>,
     mouse_button: MouseButton,
-    mut query: Query<&mut C, (With<Player>, With<T>)>,
-    mouse_buttons: Res<Input<MouseButton>>,
 ) {
     if mouse_buttons.pressed(mouse_button) {
-        for mut cmpt in query.iter_mut() {
-            *cmpt = C::from(true);
+        for entity in query.iter() {
+            commands.entity(entity).insert(C::default());
         }
     } else {
-        for mut cmpt in query.iter_mut() {
-            *cmpt = C::from(false);
+        for entity in query.iter() {
+            commands.entity(entity).remove::<C>();
         }
     }
 }
 
 /// On `(With<Player>, With<T>)`,
-/// - If LMB is pressed, sets `C::from(true)`.
-/// - If LMB is not pressed, sets `C::from(false)`.
-pub fn set_on_lmb<T: Component, C: Component + From<bool>>(
-    query: Query<&mut C, (With<Player>, With<T>)>,
+/// - If LMB is pressed, inserts `C`.
+/// - If LMB is not pressed, removes `C`.
+pub fn insert_on_lmb<T: Component, C: Component + Default>(
+    mut commands: Commands,
+    query: Query<Entity, (With<Player>, With<T>)>,
     mouse_buttons: Res<Input<MouseButton>>,
 ) {
-    set_on_mouse_button(MouseButton::Left, query, mouse_buttons);
+    insert_on_mouse_button::<T, C>(&mut commands, &query, &mouse_buttons, MouseButton::Left);
 }
 
 /// On `(With<Player>, With<T>)`,
-/// - If RMB is pressed, sets `C::from(true)`.
-/// - If RMB is not pressed, sets `C::from(false)`.
-pub fn set_on_rmb<T: Component, C: Component + From<bool>>(
-    query: Query<&mut C, (With<Player>, With<T>)>,
+/// - If RMB is pressed, inserts `C`.
+/// - If RMB is not pressed, removes `C`.
+pub fn insert_on_rmb<T: Component, C: Component + Default>(
+    mut commands: Commands,
+    query: Query<Entity, (With<Player>, With<T>)>,
     mouse_buttons: Res<Input<MouseButton>>,
 ) {
-    set_on_mouse_button(MouseButton::Right, query, mouse_buttons);
+    insert_on_mouse_button::<T, C>(&mut commands, &query, &mouse_buttons, MouseButton::Right);
 }
 
 #[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Default)]
-pub struct Active(pub bool);
-
-impl From<bool> for Active {
-    fn from(value: bool) -> Self {
-        Self(value)
-    }
-}
+#[component(storage = "SparseSet")]
+pub struct Active;
 
 #[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Default)]
-pub struct Aiming(pub bool);
-
-impl From<bool> for Aiming {
-    fn from(value: bool) -> Self {
-        Self(value)
-    }
-}
+#[component(storage = "SparseSet")]
+pub struct Aiming;
 
 /// For most items, affects the accuracy of projectiles in different ways. A higher number is better.
 ///
@@ -351,8 +342,6 @@ impl From<f32> for Accuracy {
     }
 }
 
-pub fn aim_single<T: Component>(
-    item_query: Query<(&Parent, &Aiming), (With<T>, Changed<Aiming>)>,
-) {
+pub fn aim_single<T: Component>(item_query: Query<(&Parent, &Aiming), (With<T>, Changed<Aiming>)>) {
     // TODO
 }

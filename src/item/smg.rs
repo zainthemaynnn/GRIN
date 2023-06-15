@@ -10,7 +10,7 @@ use crate::{
 use super::{
     aim_single,
     firing::{self, AutoFireBundle, FireRate, FiringPlugin, FiringType, ItemSfx, ShotFired},
-    set_local_mouse_target, set_on_lmb, set_on_rmb, Accuracy, Aiming, Item, ItemEquipEvent,
+    set_local_mouse_target, insert_on_lmb, insert_on_rmb, Accuracy, Aiming, Item, ItemEquipEvent,
     ItemPlugin, ItemSet, ItemSpawnEvent, Muzzle, MuzzleBundle, ProjectileAssets, Sfx, WeaponBundle,
 };
 pub use super::{Active, Target};
@@ -47,8 +47,8 @@ impl Plugin for SMGPlugin {
             .add_systems(
                 (
                     set_local_mouse_target::<SMG>,
-                    set_on_lmb::<SMG, Active>,
-                    set_on_rmb::<SMG, Aiming>,
+                    insert_on_lmb::<SMG, Active>,
+                    insert_on_rmb::<SMG, Aiming>,
                 )
                     .chain()
                     .in_set(SMGSystemSet::Input),
@@ -85,13 +85,11 @@ pub fn spawn(
         let item_entity = commands
             .spawn((
                 SMG::default(),
-                WeaponBundle {
-                    material_mesh: MaterialMeshBundle {
-                        mesh: assets.gun.clone(),
-                        material: assets.gun_material.clone(),
-                        transform: Transform::from_xyz(0.0, 0.0, -0.15),
-                        ..Default::default()
-                    },
+                WeaponBundle::default(),
+                MaterialMeshBundle {
+                    mesh: assets.gun.clone(),
+                    material: assets.gun_material.clone(),
+                    transform: Transform::from_xyz(0.0, 0.0, -0.15),
                     ..Default::default()
                 },
                 AutoFireBundle {

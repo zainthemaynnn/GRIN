@@ -76,7 +76,7 @@ pub fn create_gopro(
                 ..Default::default()
             },
             camera_3d: Camera3d {
-                clear_color: ClearColorConfig::None,
+                clear_color: ClearColorConfig::Custom(Color::NONE),
                 ..Default::default()
             },
             ..Default::default()

@@ -24,6 +24,9 @@ CustomDynamicAssetCollection({
      "mesh.gun": UVSphereMesh ( // TODO: make like, an actual gun
           radius: 0.15,
      ),
+     "mesh.sledge": File (
+          path: "meshes/sledge.glb#Mesh0/Primitive0",
+     ),
      "mesh.bullet_5cm": UVSphereMesh ( // TODO: switch to icospheres
           radius: 0.05,
      ),
@@ -35,6 +38,27 @@ CustomDynamicAssetCollection({
      ),
      "rig.humanoid_skeleton": File (
           path: "meshes/skeleton.glb#Scene0",
+     ),
+     "anim.hammer.charge": File (
+          path: "meshes/skeleton.glb#Animation0",
+     ),
+     "anim.hammer.equip": File (
+          path: "meshes/skeleton.glb#Animation1",
+     ),
+     "anim.hammer.swing": File (
+          path: "meshes/skeleton.glb#Animation2",
+     ),
+     "anim.hammer.unswing": File (
+          path: "meshes/skeleton.glb#Animation3",
+     ),
+     "anim.hammer.wind": File (
+          path: "meshes/skeleton.glb#Animation4",
+     ),
+     "anim.idle": File (
+          path: "meshes/skeleton.glb#Animation5",
+     ),
+     "anim.stretch": File (
+          path: "meshes/skeleton.glb#Animation6",
      ),
      "tex.skin": File (
           path: "textures/generated/skin.png",

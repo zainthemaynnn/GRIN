@@ -6,7 +6,7 @@ use crate::{
     character::{Character, CharacterSet, CharacterSpawnEvent, PlayerCharacter},
     collisions::{CollisionGroupExt, CollisionGroupsExt},
     damage::{Dead, Health, HealthBundle},
-    humanoid::{HumanoidAssets, HumanoidBundle},
+    humanoid::{Humanoid, HumanoidAssets, HumanoidBundle},
     item::{smg::SMG, Active, Aiming, Equipped, Item, Target},
     time::Rewind,
 };
@@ -32,6 +32,7 @@ impl Plugin for DummyPlugin {
             .add_systems(
                 (
                     spawn.in_set(CharacterSet::Spawn),
+                    init_humanoid.in_set(CharacterSet::Spawn),
                     set_closest_target::<Dummy, PlayerCharacter>.in_set(DummySet::Setup),
                     propagate_move_target::<Dummy>.in_set(DummySet::Propagate),
                     propagate_item_target::<Dummy>.in_set(DummySet::Propagate),
@@ -55,13 +56,11 @@ type SMGSpawnEvent = <<Dummy as Character>::StartItem as Item>::SpawnEvent;
 pub fn spawn<'w, 's>(
     mut commands: Commands<'w, 's>,
     hum_assets: Res<HumanoidAssets>,
-    meshes: Res<Assets<Mesh>>,
     mut events: EventReader<CharacterSpawnEvent<Dummy>>,
-    mut weapon_events: EventWriter<SMGSpawnEvent>,
 ) {
     for _ in events.iter() {
         commands.spawn((
-            Dummy::default(),
+            DummyUninit,
             Target::default(),
             Equipped::default(),
             HealthBundle {
@@ -82,24 +81,45 @@ pub fn spawn<'w, 's>(
                 ..Default::default()
             },
         ));
-        //weapon_events.send(SMGSpawnEvent::new(humanoid.body));
     }
 }
 
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+pub struct DummyUninit;
+
+pub fn init_humanoid(
+    mut commands: Commands,
+    humanoid_query: Query<Entity, (With<DummyUninit>, With<Humanoid>)>,
+    mut weapon_events: EventWriter<SMGSpawnEvent>,
+) {
+    let Ok(e_humanoid) = humanoid_query.get_single() else {
+        return;
+    };
+
+    commands
+        .entity(e_humanoid)
+        .remove::<DummyUninit>()
+        .insert(Dummy::default());
+
+    weapon_events.send(SMGSpawnEvent::new(e_humanoid));
+}
+
 pub fn fire(
+    mut commands: Commands,
     time: Res<Time>,
     dummy_query: Query<&Equipped, (With<Dummy>, Without<Rewind>, Without<Dead>)>,
-    mut weapon_query: Query<(&mut Active, &mut Aiming)>,
+    weapon_query: Query<Entity>,
 ) {
     let set = (time.elapsed_seconds() / 5.0) as u32 % 2 == 0;
     for Equipped(equipped) in dummy_query.iter() {
         for item in equipped {
-            let Ok((mut active, mut aiming)) = weapon_query.get_mut(*item) else {
-                error!("Item missing `(Active, Aiming)` component.");
-                continue;
-            };
-            *active = Active(set);
-            *aiming = Aiming(set);
+            let e_item = weapon_query.get(*item).unwrap();
+            if set {
+                commands.entity(e_item).insert((Active, Aiming));
+            } else {
+                commands.entity(e_item).remove::<(Active, Aiming)>();
+            }
         }
     }
 }

@@ -39,6 +39,7 @@ pub fn set_avatar_load_state(
     mut next_state: ResMut<NextState<AvatarLoadState>>,
 ) {
     if !load_events.is_empty() {
+        info!("character loaded; advancing state");
         next_state.set(AvatarLoadState::Loaded);
     }
 }
@@ -71,10 +72,7 @@ impl Plugin for CharacterPlugin {
             )
             .add_system(insert_status_viewport.in_schedule(OnEnter(AvatarLoadState::Loaded)))
             .add_systems(
-                (
-                    input_walk,
-                    input_dash.before(crate::humanoid::dash),
-                )
+                (input_walk, input_dash.before(crate::humanoid::dash))
                     .in_set(OnUpdate(AvatarLoadState::Loaded)),
             );
     }
@@ -141,30 +139,23 @@ impl Default for AvatarSimulationBundle {
 
 pub fn init_character_model(
     mut commands: Commands,
-    player_query: Query<(Entity, &Humanoid), Without<PlayerCharacter>>,
+    player_query: Query<(Entity, &Humanoid), (With<PlayerCharacter>, Without<Player>)>,
 ) {
     let Ok((e_humanoid, humanoid)) = player_query.get_single() else {
         return;
     };
 
-    commands.entity(e_humanoid).insert((
-        PlayerCharacter,
-        KinematicCharacterController::default(),
-        Equipped::default(),
-        HealthBundle {
-            health: Health(100.0),
-            ..Default::default()
-        },
-        AvatarSimulationBundle::default(),
-    ));
-    commands.entity(humanoid.head).insert((
-        Ears(0.5),
-        DamageBuffer::default(),
-        AvatarSimulationBundle::default(),
-    ));
     commands
-        .get_or_spawn(humanoid.body)
-        .insert((DamageBuffer::default(), AvatarSimulationBundle::default()))
+        .entity(e_humanoid)
+        .insert((
+            KinematicCharacterController::default(),
+            Equipped::default(),
+            HealthBundle {
+                health: Health(100.0),
+                ..Default::default()
+            },
+            AvatarSimulationBundle::default(),
+        ))
         .with_children(|parent| {
             parent.spawn((
                 PlayerCamera,
@@ -174,6 +165,14 @@ pub fn init_character_model(
                 },
             ));
         });
+    commands.entity(humanoid.head).insert((
+        Ears(0.5),
+        DamageBuffer::default(),
+        AvatarSimulationBundle::default(),
+    ));
+    commands
+        .get_or_spawn(humanoid.body)
+        .insert((DamageBuffer::default(), AvatarSimulationBundle::default()));
     commands
         .get_or_spawn(humanoid.lhand)
         .insert(AvatarSimulationBundle::default());
@@ -195,7 +194,7 @@ pub fn insert_status_viewport(
         GoProSettings {
             entity: e_avatar,
             transform: Transform::from_translation(Vec3::new(0.0, 2.125, -2.0))
-            .looking_to(Vec3::Z, Vec3::Y),
+                .looking_to(Vec3::Z, Vec3::Y),
             size: UVec2::splat(240),
             render_layers: RenderLayers::layer(RenderLayer::AVATAR as u8),
         },
@@ -218,17 +217,16 @@ pub fn insert_status_viewport(
 }
 
 pub fn input_walk(
-    mut commands: Commands,
     input: Res<Input<KeyCode>>,
     mut character: Query<
-        (Entity, &mut KinematicCharacterController, &mut Transform),
+        (&mut KinematicCharacterController, &mut Transform),
         (With<PlayerCharacter>, Without<Dash>),
     >,
     mut head: Query<&mut Transform, (With<Head>, With<Player>, Without<PlayerCharacter>)>,
     look_info: Res<LookInfo>,
     time: Res<Time>,
 ) {
-    if let Ok((e, mut char_controller, mut transform)) = character.get_single_mut() {
+    if let Ok((mut char_controller, mut transform)) = character.get_single_mut() {
         /*if let Ok(mut head_transform) = head.get_single_mut() {
             let target_point = look_info.target_point();
             let target_local = Transform::from_matrix(

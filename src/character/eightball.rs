@@ -10,7 +10,7 @@ use crate::{
 
 use super::{
     AvatarAssets, AvatarLoadEvent, AvatarSimulationBundle, Character, CharacterSet,
-    CharacterSpawnEvent,
+    CharacterSpawnEvent, PlayerCharacter,
 };
 use bevy::prelude::*;
 
@@ -21,6 +21,7 @@ impl Plugin for EightBallPlugin {
         app.add_event::<CharacterSpawnEvent<EightBall>>()
             .add_system(
                 spawn
+                    .after(<EightBall as Character>::spawn)
                     .in_set(CharacterSet::Spawn)
                     .in_schedule(OnEnter(AssetLoadState::Success)),
             )
@@ -49,6 +50,7 @@ pub fn spawn(
     for _ in events.iter() {
         commands
             .spawn((
+                PlayerCharacter,
                 HumanoidBundle {
                     skeleton_gltf: hum_assets.skeleton.clone(),
                     face: assets.face_smirk.clone().into(),

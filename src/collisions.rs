@@ -5,7 +5,7 @@ pub struct CollisionsPlugin;
 
 impl Plugin for CollisionsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems((align_collider_refs, assign_collider_ref_collision_groups));
+        app.add_systems((assign_collider_ref_transforms, assign_collider_ref_collision_groups));
     }
 }
 
@@ -104,8 +104,17 @@ macro_rules! convex_collider {
 #[derive(Component)]
 pub struct ColliderRef(pub Entity);
 
+#[derive(Bundle)]
+pub struct ColliderRefBundle {
+    pub collider: Collider,
+    pub collider_ref: ColliderRef,
+    pub collision_groups: CollisionGroups,
+    pub transform: Transform,
+    pub global_transform: Transform,
+}
+
 /// Updates the `Transform`s of `ColliderRef`s to match the source entity.
-pub fn align_collider_refs(
+pub fn assign_collider_ref_transforms(
     mut collider_ref_query: Query<(&ColliderRef, Option<&Parent>, &mut Transform)>,
     g_transform_query: Query<&GlobalTransform>,
 ) {

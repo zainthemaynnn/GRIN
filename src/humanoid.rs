@@ -79,6 +79,8 @@ pub struct HeadBundle<M: Material> {
     pub head: Head,
     pub mesh: Handle<Mesh>,
     pub material: Handle<M>,
+    pub collider: Collider,
+    pub velocity: Velocity,
 }
 
 #[derive(Component, Default)]
@@ -89,6 +91,7 @@ pub struct BodyBundle<M: Material> {
     pub body: Body,
     pub mesh: Handle<Mesh>,
     pub material: Handle<M>,
+    pub collider: Collider,
 }
 
 #[derive(Component, Default)]
@@ -102,7 +105,7 @@ pub struct HandBundle<M: Material> {
     pub hand: Hand,
     pub mesh: Handle<Mesh>,
     pub material: Handle<M>,
-    pub velocity: Velocity,
+    pub collider: Collider,
 }
 
 #[derive(Component, Default, Clone, Copy, Eq, PartialEq)]
@@ -513,15 +516,9 @@ pub fn process_skeletons(
                     commands.entity(e_node).insert(HeadBundle {
                         mesh,
                         material: face.clone(),
+                        collider: Collider::ball(0.5),
                         ..Default::default()
                     });
-                    commands
-                        .spawn((
-                            Collider::ball(1.0),
-                            ColliderRef(e_node),
-                            CollisionGroups::default(),
-                        ))
-                        .set_parent(e_skeleton);
                 }
                 HumanoidPartType::Body => {
                     builder.body = Some(e_node);
@@ -535,54 +532,44 @@ pub fn process_skeletons(
                     commands.entity(e_node).insert(BodyBundle {
                         mesh,
                         material: clothing.clone(),
+                        collider: Collider::capsule_y(0.375, 0.5),
                         ..Default::default()
                     });
-                    commands
-                        .spawn((
-                            Collider::capsule_y(0.375, 0.5),
-                            ColliderRef(e_node),
-                            CollisionGroups::default(),
-                        ))
-                        .set_parent(e_skeleton);
                 }
                 HumanoidPartType::LeftHand => {
                     builder.lhand = Some(e_node);
                     commands.entity(e_node).insert(HandBundle {
                         mesh: hand_mesh.clone(),
                         material: assets.skin.clone(),
+                        collider: Collider::ball(0.15),
                         ..Default::default()
                     });
-                    commands
-                        .spawn((
-                            Collider::ball(0.15),
-                            ColliderRef(e_node),
-                            CollisionGroups::default(),
-                        ))
-                        .set_parent(e_skeleton);
                 }
                 HumanoidPartType::RightHand => {
                     builder.rhand = Some(e_node);
                     commands.entity(e_node).insert(HandBundle {
                         mesh: hand_mesh.clone(),
                         material: assets.skin.clone(),
+                        collider: Collider::ball(0.15),
                         ..Default::default()
                     });
-                    commands
-                        .spawn((
-                            Collider::ball(0.15),
-                            ColliderRef(e_node),
-                            CollisionGroups::default(),
-                        ))
-                        .set_parent(e_skeleton);
                 }
             }
         }
 
         match builder.build() {
             Ok(humanoid) => {
-                commands
-                    .entity(e_skeleton)
-                    .insert((humanoid, Collider::default()));
+                commands.entity(e_skeleton).insert((
+                    humanoid,
+                    match race {
+                        HumanoidRace::Round => Collider::capsule(
+                            Vec3::new(0.0, 0.5, 0.0),
+                            Vec3::new(0.0, 2.125, 0.0),
+                            0.5,
+                        ),
+                        HumanoidRace::Square => todo!(),
+                    },
+                ));
             }
             Err(e) => error!("{}", e),
         }

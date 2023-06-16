@@ -145,16 +145,20 @@ pub fn init_character_model(
         return;
     };
 
+    let mut controller_collision_groups = CollisionGroups::from_group_default(Group::PLAYER);
+    // body parts can still hit projectiles, but the controller shouldn't detect them at all
+    controller_collision_groups.filters -= Group::ENEMY_PROJECTILE;
+
     commands
         .entity(e_humanoid)
         .insert((
-            KinematicCharacterController::default(),
+            Player,
             Equipped::default(),
             HealthBundle {
                 health: Health(100.0),
                 ..Default::default()
             },
-            AvatarSimulationBundle::default(),
+            controller_collision_groups,
         ))
         .with_children(|parent| {
             parent.spawn((

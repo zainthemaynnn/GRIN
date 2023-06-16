@@ -12,11 +12,11 @@ CustomDynamicAssetCollection({
      "mesh.hand": File (
           path: "meshes/hand.glb#Mesh0/Primitive0",
      ),
-     "mesh.mbody_shatter": File (
-          path: "meshes/mbody_shatter.glb",
+     "model.mbody_shatter": File (
+          path: "meshes/mbody_shatter.glb#Scene0",
      ),
-     "mesh.head_shatter": File (
-          path: "meshes/head_shatter.glb",
+     "model.head_shatter": File (
+          path: "meshes/head_shatter.glb#Scene0",
      ),
      "mesh.pizza_shades": File (
           path: "meshes/pizza_shades.glb#Mesh0/Primitive0",

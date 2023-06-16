@@ -34,14 +34,14 @@ impl Plugin for HumanoidPlugin {
 pub struct HumanoidAssets {
     #[asset(key = "mesh.mbody")]
     pub mbody: Handle<Mesh>,
-    #[asset(key = "mesh.mbody_shatter")]
-    pub mbody_shatter: Handle<Gltf>,
+    #[asset(key = "model.mbody_shatter")]
+    pub mbody_shatter: Handle<Scene>,
     #[asset(key = "mesh.fbody")]
     pub fbody: Handle<Mesh>,
     #[asset(key = "mesh.head")]
     pub head: Handle<Mesh>,
-    #[asset(key = "mesh.head_shatter")]
-    pub head_shatter: Handle<Gltf>,
+    #[asset(key = "model.head_shatter")]
+    pub head_shatter: Handle<Scene>,
     #[asset(key = "mesh.hand")]
     pub hand: Handle<Mesh>,
     #[asset(key = "mat.body_gray")]
@@ -188,6 +188,7 @@ pub struct HumanoidBundle {
     pub dominant_hand: HumanoidDominantHand,
     pub rigid_body: RigidBody,
     pub controller: KinematicCharacterController,
+    pub velocity: Velocity,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub visibility: Visibility,
@@ -204,8 +205,9 @@ impl Default for HumanoidBundle {
             race: HumanoidRace::default(),
             build: HumanoidBuild::default(),
             dominant_hand: HumanoidDominantHand::default(),
-            rigid_body: RigidBody::KinematicPositionBased,
+            rigid_body: RigidBody::KinematicPositionBased, // SCREW YOU
             controller: KinematicCharacterController::default(),
+            velocity: Velocity::default(),
             transform: Transform::default(),
             global_transform: GlobalTransform::default(),
             visibility: Visibility::default(),
@@ -242,6 +244,11 @@ pub fn dash(
 }
 
 #[derive(Component)]
+#[component(storage = "SparseSet")]
+pub struct Shattered;
+
+#[derive(Component)]
+#[component(storage = "SparseSet")]
 pub struct Shatter {
     pub material: Handle<SketchMaterial>,
     pub inherited_velocity: Vec3,
@@ -259,19 +266,20 @@ pub struct Shatter {
 pub fn shatter_on_death(
     mut commands: Commands,
     assets: Res<HumanoidAssets>,
-    gltf: Res<Assets<Gltf>>,
-    humanoid_query: Query<(Entity, &Humanoid, &Velocity), (With<Dead>, With<Handle<Mesh>>)>,
+    humanoid_query: Query<(Entity, &Humanoid, &Velocity), (With<Dead>, Without<Shattered>)>,
     shatter_query: Query<(&GlobalTransform, &Handle<SketchMaterial>)>,
-    child_query: Query<(&GlobalTransform, &Handle<SketchMaterial>, &Collider)>,
+    child_query: Query<(&GlobalTransform, &Handle<Mesh>, &Handle<SketchMaterial>, &Collider)>,
     children_query: Query<&Children>,
 ) {
-    for (entity, humanoid, velocity) in humanoid_query.iter() {
+    for (e_humanoid, humanoid, velocity) in humanoid_query.iter() {
+        commands.entity(e_humanoid).insert(Shattered);
+
         // cause the head to explode and the body to crumble
         // there's a little bit of speed on the body
         // so that it doesn't just fall straight down
-        for (e_fragment, gltf_handle, speed) in [
+        for (e_fragment, scene, speed) in [
             (
-                entity,
+                humanoid.body,
                 &assets.mbody_shatter,
                 Uniform::new_inclusive(0.0, 2.0),
             ),
@@ -290,19 +298,12 @@ pub fn shatter_on_death(
                         speed,
                     },
                     SceneBundle {
-                        // AVERAGE RUST PROGRAM
-                        scene: gltf
-                            .get(&gltf_handle)
-                            .unwrap()
-                            .default_scene
-                            .as_ref()
-                            .unwrap()
-                            .clone(),
+                        scene: scene.clone(),
                         transform: g_transform.compute_transform(),
                         ..Default::default()
                     },
                 ))
-                .set_time_parent(entity);
+                .set_time_parent(e_humanoid);
 
             commands
                 .entity(e_fragment)
@@ -310,26 +311,31 @@ pub fn shatter_on_death(
         }
 
         // for everything else (hands, accessories), create debris copies in global space
-        for entity in children_query.iter_descendants(entity) {
-            if entity == humanoid.head {
+        for e_child in children_query.iter_descendants(e_humanoid) {
+            if e_child == humanoid.head || e_child == humanoid.body {
                 continue;
             }
 
-            if let Ok((g_transform, material, collider)) = child_query.get(entity) {
+            if let Ok((g_transform, mesh, material, collider)) = child_query.get(e_child) {
+                commands
+                    .entity(e_child)
+                    .remove::<(Handle<Mesh>, Handle<SketchMaterial>, Collider)>();
+
                 commands
                     .spawn((
-                        material.clone(),
-                        g_transform.compute_transform(),
+                        MaterialMeshBundle {
+                            mesh: mesh.clone(),
+                            material: material.clone(),
+                            transform: g_transform.compute_transform(),
+                            ..Default::default()
+                        },
+                        RigidBody::Dynamic,
                         collider.clone(),
                         CollisionGroups::from_group_default(Group::DEBRIS),
                         velocity.clone(),
                     ))
-                    .set_time_parent(entity);
+                    .set_time_parent(e_humanoid);
             };
-
-            commands
-                .entity(entity)
-                .remove::<(Handle<Mesh>, Handle<SketchMaterial>, Collider)>();
         }
     }
 }

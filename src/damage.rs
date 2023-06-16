@@ -141,7 +141,7 @@ pub fn apply_damage_buffers(mut query: Query<(&mut Health, &mut DamageBuffer), W
 pub fn die(mut commands: Commands, health_query: Query<(Entity, &Health)>) {
     for (entity, health) in health_query.iter() {
         if health.0 == 0.0 {
-            commands.entity(entity).insert(Dead::default());
+            commands.entity(entity).insert(Dead);
         }
     }
 }
@@ -152,6 +152,7 @@ pub struct ContactDamage;
 
 /// PCs and NPCs with this are dead.
 #[derive(Component, Default)]
+#[component(storage = "SparseSet")]
 pub struct Dead;
 
 pub fn push_contact_damage(

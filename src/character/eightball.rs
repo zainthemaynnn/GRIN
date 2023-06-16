@@ -5,7 +5,7 @@ use crate::{
         Humanoid, HumanoidAssets, HumanoidBuild, HumanoidBundle,
         HumanoidDominantHand,
     },
-    item::{smg::SMG, Item},
+    item::{smg::SMG, Item, sledge::Sledge},
 };
 
 use super::{
@@ -36,7 +36,7 @@ pub struct EightBallUninit;
 pub struct EightBall;
 
 impl Character for EightBall {
-    type StartItem = SMG;
+    type StartItem = Sledge;
 }
 
 type ItemSpawnEvent = <<EightBall as Character>::StartItem as Item>::SpawnEvent;

@@ -6,6 +6,8 @@
 //! they should work purely based on components. Input should only insert components.
 
 pub mod firing;
+pub mod melee;
+pub mod sledge;
 pub mod smg;
 
 use std::marker::PhantomData;
@@ -24,7 +26,7 @@ use crate::{
     render::sketched::SketchMaterial,
 };
 
-use self::smg::SMGPlugin;
+use self::{sledge::SledgePlugin, smg::SMGPlugin};
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum ItemSet {
@@ -70,6 +72,7 @@ impl PluginGroup for ItemPlugins {
         PluginGroupBuilder::start::<Self>()
             .add(ItemCommonPlugin)
             .add(SMGPlugin)
+            .add(SledgePlugin)
     }
 }
 

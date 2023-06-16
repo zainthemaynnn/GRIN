@@ -215,14 +215,12 @@ impl DynamicAsset for CustomDynamicAsset {
                 Ok(DynamicAssetType::Single(
                     materials
                         .add(SketchMaterial {
-                            base_color: base_color
-                                .map_or(mat_default.base_color, |channels| Color::from(channels)),
+                            base_color: base_color.map_or(mat_default.base_color, Color::from),
                             base_color_texture: Some(base_color_texture),
                             perceptual_roughness: perceptual_roughness
                                 .unwrap_or(mat_default.perceptual_roughness),
                             reflectance: reflectance.unwrap_or(mat_default.reflectance),
-                            emissive: emissive
-                                .map_or(mat_default.emissive, |channels| Color::from(channels)),
+                            emissive: emissive.map_or(mat_default.emissive, Color::from),
                             double_sided: double_sided.unwrap_or(mat_default.double_sided),
                             cull_mode: cull_mode
                                 .map_or(mat_default.cull_mode, Option::<Face>::from),

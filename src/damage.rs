@@ -99,11 +99,10 @@ pub fn apply_resist(mut query: Query<(&mut DamageBuffer, &Resist)>) {
 
 /// Recursively empties `DamageBuffer`s for entities without a `Health` component
 /// and appends them to the `DamageBuffer` of the first ancestor with a `Health` component.
-// I don't *think* using the optional components should slow this down cause it only uses `get_mut`?
 pub fn propagate_damage_buffers(
     mut health_query: Query<(&mut DamageBuffer, &Children), With<Health>>,
     mut buffer_query: Query<Option<&mut DamageBuffer>, Without<Health>>,
-    children_query: Query<&Children, (With<DamageBuffer>, Without<Health>)>,
+    children_query: Query<&Children, Without<Health>>,
 ) {
     for (mut buffer, children) in health_query.iter_mut() {
         for child in children.iter() {
@@ -116,17 +115,15 @@ fn propagate_damage_buffers_child(
     buffer: &mut DamageBuffer,
     child: Entity,
     buffer_query: &mut Query<Option<&mut DamageBuffer>, Without<Health>>,
-    children_query: &Query<&Children, (With<DamageBuffer>, Without<Health>)>,
+    children_query: &Query<&Children, Without<Health>>,
 ) {
-    if let Ok(mut child_buffer) = buffer_query.get_mut(child) {
-        if let Some(mut child_buffer) = child_buffer {
-            buffer.0.append(&mut child_buffer.0);
-        }
+    if let Some(mut child_buffer) = buffer_query.get_mut(child).unwrap() {
+        buffer.0.append(&mut child_buffer.0);
+    }
 
-        if let Ok(children) = children_query.get(child) {
-            for child in children.iter() {
-                propagate_damage_buffers_child(buffer, *child, buffer_query, children_query);
-            }
+    if let Ok(children) = children_query.get(child) {
+        for child in children.iter() {
+            propagate_damage_buffers_child(buffer, *child, buffer_query, children_query);
         }
     }
 }
@@ -136,7 +133,7 @@ pub fn apply_damage_buffers(mut query: Query<(&mut Health, &mut DamageBuffer), W
     for (mut health, mut damage_buf) in query.iter_mut() {
         for damage in damage_buf.0.drain(0..) {
             health.0 = (health.0 - damage.value).max(0.0);
-            dbg!(health.0);
+            info!("health: {}", health.0);
         }
     }
 }

@@ -11,6 +11,7 @@ A third person shooter.
 - Ability to disable transform propagation: Propagation is nice but it makes physics tricky.
     - Related... Entity-entity relations (custom hierarchy): Currently using a bootleg ones for rewinds. Not amazing.
 - Text wrapping with percent layout: Self-explanatory.
+- Window icons: Doable already but only through `winit`. This is low priority enough that I can just wait for first-class.
 
 ## Platform support
 At the moment every single material texture is represented by a texture array.

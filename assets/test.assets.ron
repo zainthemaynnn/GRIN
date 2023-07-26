@@ -98,6 +98,74 @@ CustomDynamicAssetCollection({
           base_color_texture: "textures/generated/meh.png",
           layers: 2,
      ),
+     // a bit repetitive, but too lazy to automate. perhaps I should hire an intern?
+     // with a lot of bullets I feel like duplicating even a simple texture
+     // like this could slow down, (full disclosure, I have no idea if this is true)
+     // so I'll just share handles by writing this into the file to be safe.
+     // plus the materials defined here can be replaced in the future.
+     "mat.red_half_unlit": SketchMaterial (
+          base_color: (1.0, 1.0, 1.0, 0.5),
+          unlit: true,
+          alpha_mode: Blend,
+     ),
+     "mat.red_unlit": SketchMaterial (
+          base_color: (1.0, 1.0, 1.0, 1.0),
+          unlit: true,
+     ),
+     "mat.orange_half_unlit": SketchMaterial (
+          base_color: (1.0, 0.65, 0.0, 0.5),
+          unlit: true,
+          alpha_mode: Blend,
+     ),
+     "mat.orange_unlit": SketchMaterial (
+          base_color: (1.0, 0.65, 0.0, 1.0),
+          unlit: true,
+     ),
+     "mat.yellow_half_unlit": SketchMaterial (
+          base_color: (1.0, 1.0, 0.0, 0.5),
+          unlit: true,
+          alpha_mode: Blend,
+     ),
+     "mat.yellow_unlit": SketchMaterial (
+          base_color: (1.0, 1.0, 0.0, 1.0),
+          unlit: true,
+     ),
+     "mat.green_half_unlit": SketchMaterial (
+          base_color: (0.0, 1.0, 0.0, 0.5),
+          unlit: true,
+          alpha_mode: Blend,
+     ),
+     "mat.green_unlit": SketchMaterial (
+          base_color: (0.0, 1.0, 0.0, 1.0),
+          unlit: true,
+     ),
+     "mat.blue_half_unlit": SketchMaterial (
+          base_color: (0.0, 0.0, 1.0, 0.5),
+          unlit: true,
+          alpha_mode: Blend,
+     ),
+     "mat.blue_unlit": SketchMaterial (
+          base_color: (0.0, 0.0, 1.0, 1.0),
+          unlit: true,
+     ),
+     "mat.violet_half_unlit": SketchMaterial (
+          base_color: (1.0, 0.0, 1.0, 0.5),
+          unlit: true,
+          alpha_mode: Blend,
+     ),
+     "mat.violet_unlit": SketchMaterial (
+          base_color: (1.0, 0.0, 1.0, 1.0),
+          unlit: true,
+     ),
+     "mat.white_half_unlit": SketchMaterial (
+          base_color: (1.0, 1.0, 1.0, 0.5),
+          unlit: true,
+          alpha_mode: Blend,
+     ),
+     "mat.white_unlit": SketchMaterial (
+          base_color: (1.0, 1.0, 1.0, 1.0),
+          unlit: true,
+     ),
      "sfx.uzi": File (
           path: "audio/uzi-1800-rpm.ogg",
      ),

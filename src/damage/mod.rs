@@ -1,29 +1,38 @@
+pub mod projectiles;
+
 use bevy::{prelude::*, utils::HashMap};
 use bevy_rapier3d::prelude::*;
 
-use crate::{render::sketched::SketchMaterial, util::query::distinguish_by_query};
+use crate::util::query::distinguish_by_query;
+
+use self::projectiles::ProjectilePlugin;
 
 /// Health and damage calculations.
 pub struct DamagePlugin;
 
 impl Plugin for DamagePlugin {
     fn build(&self, app: &mut App) {
-        app.configure_sets(
-            (
-                DamageSet::Insert,
-                DamageSet::Resist,
-                DamageSet::Clear,
-                DamageSet::Kill,
+        app.add_plugins(ProjectilePlugin)
+            .configure_sets(
+                Update,
+                (
+                    DamageSet::Insert,
+                    DamageSet::Resist,
+                    DamageSet::Clear,
+                    DamageSet::Kill,
+                )
+                    .chain(),
             )
-                .chain(),
-        )
-        .add_systems((
-            push_contact_damage.in_set(DamageSet::Insert),
-            propagate_damage_buffers,
-            apply_resist.in_set(DamageSet::Resist),
-            apply_damage_buffers.in_set(DamageSet::Clear),
-            die.in_set(DamageSet::Kill),
-        ));
+            .add_systems(
+                Update,
+                (
+                    push_contact_damage.in_set(DamageSet::Insert),
+                    propagate_damage_buffers,
+                    apply_resist.in_set(DamageSet::Resist),
+                    apply_damage_buffers.in_set(DamageSet::Clear),
+                    die.in_set(DamageSet::Kill),
+                ),
+            );
     }
 }
 
@@ -169,46 +178,12 @@ pub fn push_contact_damage(
             continue;
         };
 
-        if let Some(mut e) = commands.get_entity(e_damage) {
-            e.despawn();
-        }
+        commands.get_or_spawn(e_damage).despawn_recursive();
         let damage = damage_query.get(e_damage).unwrap();
         let Ok(mut damage_buf) = hit_query.get_mut(e_hit) else {
             continue;
         };
         damage_buf.0.push(*damage);
-    }
-}
-
-#[derive(Bundle)]
-pub struct ProjectileBundle {
-    pub body: RigidBody,
-    pub material_mesh: MaterialMeshBundle<SketchMaterial>,
-    pub collider: Collider,
-    pub collision_groups: CollisionGroups,
-    pub velocity: Velocity,
-    pub sensor: Sensor,
-    pub active_events: ActiveEvents,
-    pub gravity: GravityScale,
-    pub damage: Damage,
-    pub contact_damage: ContactDamage,
-}
-
-impl Default for ProjectileBundle {
-    fn default() -> Self {
-        Self {
-            #[rustfmt::skip]
-            active_events: ActiveEvents::COLLISION_EVENTS,
-            gravity: GravityScale(0.0),
-            collision_groups: CollisionGroups::default(),
-            body: RigidBody::default(),
-            material_mesh: MaterialMeshBundle::default(),
-            collider: Collider::default(),
-            velocity: Velocity::default(),
-            sensor: Sensor::default(),
-            damage: Damage::default(),
-            contact_damage: ContactDamage::default(),
-        }
     }
 }
 

@@ -97,6 +97,30 @@ impl From<AssetFace> for Option<Face> {
     }
 }
 
+/// Deserializable `AlphaMode`.
+#[derive(Debug, Deserialize, Copy, Clone)]
+pub enum AssetAlphaMode {
+    Opaque,
+    Mask(f32),
+    Blend,
+    Premultiplied,
+    Add,
+    Multiply,
+}
+
+impl From<AssetAlphaMode> for AlphaMode {
+    fn from(value: AssetAlphaMode) -> Self {
+        match value {
+            AssetAlphaMode::Opaque => AlphaMode::Opaque,
+            AssetAlphaMode::Mask(t) => AlphaMode::Mask(t),
+            AssetAlphaMode::Blend => AlphaMode::Blend,
+            AssetAlphaMode::Premultiplied => AlphaMode::Premultiplied,
+            AssetAlphaMode::Add => AlphaMode::Add,
+            AssetAlphaMode::Multiply => AlphaMode::Multiply,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub enum CustomDynamicAsset {
     File {
@@ -115,6 +139,8 @@ pub enum CustomDynamicAsset {
         double_sided: Option<bool>,
         cull_mode: Option<AssetFace>,
         layers: Option<u32>,
+        alpha_mode: Option<AssetAlphaMode>,
+        unlit: Option<bool>,
     },
     SketchUiImage {
         images: Vec<String>,
@@ -170,6 +196,8 @@ impl DynamicAsset for CustomDynamicAsset {
                 double_sided,
                 cull_mode,
                 layers,
+                alpha_mode,
+                unlit,
             } => {
                 // the textureview dimension MUST be D2Array
                 // this is a problem because singly layered images
@@ -224,6 +252,8 @@ impl DynamicAsset for CustomDynamicAsset {
                             double_sided: double_sided.unwrap_or(mat_default.double_sided),
                             cull_mode: cull_mode
                                 .map_or(mat_default.cull_mode, Option::<Face>::from),
+                            alpha_mode: alpha_mode.map_or(mat_default.alpha_mode, AlphaMode::from),
+                            unlit: unlit.unwrap_or(mat_default.unlit),
                             ..Default::default()
                         })
                         .into(),

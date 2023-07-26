@@ -1,4 +1,7 @@
 //! Just some maps for `[0.0, 1.0]` ranges.
+
+#![allow(dead_code)]
+
 use std::f32::consts::PI;
 
 #[inline]

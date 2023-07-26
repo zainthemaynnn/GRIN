@@ -1,4 +1,7 @@
 //! Common `Vec3` calculations.
+
+#![allow(dead_code)]
+
 use std::f32::consts::TAU;
 
 use bevy::prelude::{Quat, Vec3};

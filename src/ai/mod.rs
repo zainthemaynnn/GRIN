@@ -1,4 +1,5 @@
 pub mod dummy;
+pub mod dummy_2d;
 pub mod movement;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
@@ -15,7 +16,9 @@ pub struct AIPlugins;
 
 impl PluginGroup for AIPlugins {
     fn build(self) -> PluginGroupBuilder {
-        PluginGroupBuilder::start::<Self>().add(DummyPlugin)
+        PluginGroupBuilder::start::<Self>()
+            .add(DummyPlugin)
+            .add(dummy_2d::DummyPlugin)
     }
 }
 

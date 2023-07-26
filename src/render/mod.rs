@@ -8,7 +8,9 @@ use bevy_mod_outline::{OutlineBundle, OutlineVolume};
 
 use self::{
     bwstatic::BWStaticPlugin,
-    sketched::{GlobalMeshOutline, SketchEffectPlugin}, gopro::GoProPlugin, duoquad::DuoQuadPlugin,
+    duoquad::DuoQuadPlugin,
+    gopro::GoProPlugin,
+    sketched::{GlobalMeshOutline, SketchEffectPlugin},
 };
 
 #[repr(u8)]
@@ -27,7 +29,7 @@ impl PluginGroup for RenderFXPlugins {
                     standard: OutlineBundle {
                         outline: OutlineVolume {
                             colour: Color::BLACK,
-                            width: 8.0,
+                            width: 6.0,
                             visible: true,
                         },
                         ..Default::default()

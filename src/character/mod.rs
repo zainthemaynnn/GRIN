@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 
 use crate::asset::AssetLoadState;
 use crate::damage::{DamageBuffer, Health, HealthBundle};
-use crate::humanoid::{Dash, Head, Humanoid};
+use crate::humanoid::{Dash, Humanoid};
 use crate::render::gopro::{add_gopro, GoProSettings};
 use crate::render::sketched::SketchMaterial;
 use crate::sound::Ears;
@@ -31,7 +31,7 @@ pub enum CharacterSet {
     Load,
 }
 
-#[derive(Default)]
+#[derive(Default, Event)]
 pub struct AvatarLoadEvent;
 
 pub fn set_avatar_load_state(
@@ -48,36 +48,40 @@ impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<AvatarLoadState>()
             .add_event::<AvatarLoadEvent>()
-            .add_plugin(PlayerCameraPlugin)
-            .add_plugin(EightBallPlugin)
+            .add_plugins((PlayerCameraPlugin, EightBallPlugin))
             .add_collection_to_loading_state::<_, AvatarAssets>(AssetLoadState::Loading)
-            .configure_sets((
-                CharacterSet::Spawn.run_if(in_state(AssetLoadState::Success)),
-                CharacterSet::Init.run_if(in_state(AssetLoadState::Success)),
-                CharacterSet::Load.run_if(
-                    in_state(AssetLoadState::Success)
-                        .and_then(in_state(AvatarLoadState::NotLoaded)),
+            .configure_sets(
+                Update,
+                (
+                    CharacterSet::Spawn.run_if(in_state(AssetLoadState::Success)),
+                    CharacterSet::Init.run_if(in_state(AssetLoadState::Success)),
+                    CharacterSet::Load.run_if(
+                        in_state(AssetLoadState::Success)
+                            .and_then(in_state(AvatarLoadState::NotLoaded)),
+                    ),
                 ),
-            ))
-            .add_system(
-                <EightBall as Character>::spawn
-                    .before(CharacterSet::Spawn)
-                    .in_schedule(OnEnter(AssetLoadState::Success)),
             )
-            .add_system(init_character_model.in_set(CharacterSet::Init))
             .add_systems(
-                (apply_system_buffers, set_avatar_load_state)
+                OnEnter(AssetLoadState::Success),
+                <EightBall as Character>::spawn.before(CharacterSet::Spawn),
+            )
+            .add_systems(Update, init_character_model.in_set(CharacterSet::Init))
+            .add_systems(
+                Update,
+                (apply_deferred, set_avatar_load_state)
                     .chain()
                     .in_set(CharacterSet::Load),
             )
-            .add_system(insert_status_viewport.in_schedule(OnEnter(AvatarLoadState::Loaded)))
+            .add_systems(OnEnter(AvatarLoadState::Loaded), insert_status_viewport)
             .add_systems(
+                Update,
                 (input_walk, input_dash.before(crate::humanoid::dash))
-                    .in_set(OnUpdate(AvatarLoadState::Loaded)),
+                    .run_if(in_state(AvatarLoadState::Loaded)),
             );
     }
 }
 
+#[derive(Event)]
 pub struct CharacterSpawnEvent<C: Character> {
     pub phantom_data: PhantomData<C>,
 }
@@ -102,13 +106,13 @@ pub trait Character: Component + Sized {
 #[derive(Resource, AssetCollection)]
 pub struct AvatarAssets {
     #[asset(key = "mesh.pizza_shades")]
-    pizza_shades: Handle<Mesh>,
+    pub pizza_shades: Handle<Mesh>,
     #[asset(key = "mat.shades")]
-    matte_shades: Handle<SketchMaterial>,
+    pub matte_shades: Handle<SketchMaterial>,
     #[asset(key = "mat.smirk")]
-    face_smirk: Handle<SketchMaterial>,
+    pub face_smirk: Handle<SketchMaterial>,
     #[asset(key = "mat.meh")]
-    face_meh: Handle<SketchMaterial>,
+    pub face_meh: Handle<SketchMaterial>,
 }
 
 #[derive(Component, Default)]
@@ -119,9 +123,9 @@ pub struct Player;
 
 #[derive(Bundle)]
 pub struct AvatarSimulationBundle {
-    render_layers: RenderLayers,
-    collision_groups: CollisionGroups,
-    player: Player,
+    pub render_layers: RenderLayers,
+    pub collision_groups: CollisionGroups,
+    pub player: Player,
 }
 
 impl Default for AvatarSimulationBundle {
@@ -149,26 +153,15 @@ pub fn init_character_model(
     // body parts can still hit projectiles, but the controller shouldn't detect them at all
     controller_collision_groups.filters -= Group::ENEMY_PROJECTILE;
 
-    commands
-        .entity(e_humanoid)
-        .insert((
-            Player,
-            Equipped::default(),
-            HealthBundle {
-                health: Health(100.0),
-                ..Default::default()
-            },
-            controller_collision_groups,
-        ))
-        .with_children(|parent| {
-            parent.spawn((
-                PlayerCamera,
-                Camera3dBundle {
-                    transform: Transform::from_xyz(0.0, 6.0, 12.0).looking_at(Vec3::NEG_Z, Vec3::Y),
-                    ..Default::default()
-                },
-            ));
-        });
+    commands.entity(e_humanoid).insert((
+        Player,
+        Equipped::default(),
+        HealthBundle {
+            health: Health(100.0),
+            ..Default::default()
+        },
+        controller_collision_groups,
+    ));
     commands.entity(humanoid.head).insert((
         Ears(0.5),
         DamageBuffer::default(),
@@ -208,12 +201,10 @@ pub fn insert_status_viewport(
         image: image.into(),
         style: Style {
             position_type: PositionType::Absolute,
-            size: Size::all(Val::Px(240.0)),
-            position: UiRect {
-                bottom: Val::Percent(0.0),
-                left: Val::Percent(0.0),
-                ..Default::default()
-            },
+            bottom: Val::Percent(0.0),
+            left: Val::Percent(0.0),
+            width: Val::Px(240.0),
+            height: Val::Px(240.0),
             ..Default::default()
         },
         ..Default::default()
@@ -227,22 +218,10 @@ pub fn input_walk(
         (&mut KinematicCharacterController, &mut Transform),
         (With<PlayerCharacter>, Without<Dash>),
     >,
-    mut head: Query<&mut Transform, (With<Head>, With<Player>, Without<PlayerCharacter>)>,
     look_info: Res<LookInfo>,
     time: Res<Time>,
 ) {
     if let Ok((mut char_controller, mut transform)) = character.get_single_mut() {
-        /*if let Ok(mut head_transform) = head.get_single_mut() {
-            let target_point = look_info.target_point();
-            let target_local = Transform::from_matrix(
-                Mat4::from_translation(target_point) * transform.compute_matrix().inverse(),
-            );
-            let look =
-                (target_local.translation - head_transform.translation) * Vec3::new(0.0, 1.0, 1.0);
-            let right = head_transform.right();
-            head_transform.look_to(look.normalize(), (-look).normalize().cross(right));
-        }*/
-
         let (cam_transform, camera) = camera_query.single();
 
         let normalize_xz = |v: Vec3| Vec3::new(v.x, 0.0, v.z);
@@ -286,7 +265,7 @@ pub fn input_dash(
     time: Res<Time>,
 ) {
     if *cooldown <= 0.0 {
-        if input.pressed(KeyCode::LShift) {
+        if input.pressed(KeyCode::ShiftLeft) {
             let (entity, velocity) = character.single();
             commands.entity(entity).insert(Dash {
                 velocity: velocity.linvel * 2.0,

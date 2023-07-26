@@ -1,27 +1,27 @@
 [package]
 name = "grin"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.10", features = ["dynamic_linking"] }
-bevy_asset_loader = { version = "0.16", features = ["3d", "progress_tracking"] }
-bevy_common_assets = { version = "0.6", features = ["ron"] }
+bevy = { version = "0.11" }
+bevy_asset_loader = { version = "0.17", features = ["3d", "progress_tracking"] }
+bevy_common_assets = { version = "0.7", features = ["ron"] }
 bevy_mod_outline = { git = "https://github.com/zainthemaynnn/bevy_mod_outline.git" }
-bevy_rapier3d = "0.21"
+bevy_rapier3d = "0.22"
+bevy_mod_debugdump = "*"
+bevy_hanabi = "0.7"
+bevy_tweening = "0.8"
+iyes_progress = "0.9"
 bitflags = "2.1"
 env_logger = "0.10"
 log = "0.4"
 rand = "0.8"
-iyes_progress = "0.8"
 # bevy_shader_utils = "0.3.0"
-bevy_mod_debugdump = "*"
 thiserror = "1.0"
 image = "0.24"
-bevy_hanabi = "0.6"
-bevy_tweening = "0.7"
 serde = { version = "1.0", features = ["derive"] }
 bitfield = "0.14"
 itertools = "0.10"

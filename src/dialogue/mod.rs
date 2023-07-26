@@ -9,7 +9,7 @@ pub mod asset_gen;
 
 use bevy::{
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     ui::FocusPolicy,
     utils::{HashMap, HashSet},
 };
@@ -43,31 +43,33 @@ impl Plugin for DialoguePlugin {
             .add_collection_to_loading_state::<_, asset_gen::DialogueAssets>(
                 AssetLoadState::Loading,
             )
-            .add_plugin(RonAssetPlugin::<asset_gen::DialogueMap>::new(&[
+            .add_plugins(RonAssetPlugin::<asset_gen::DialogueMap>::new(&[
                 "dialogue.ron",
             ]))
             .add_event::<DialogueEvent>()
             .add_event::<SelectedDialogueOptionEvent>()
             .add_event::<DialoguePortraitEvent>()
-            .add_startup_system(init_dialogue_box)
+            .add_systems(Startup, init_dialogue_box)
             .add_systems(
+                Update,
                 (
                     prepare_dialogue_block,
                     speak_dialogue,
                     continue_dialogue,
-                    apply_system_buffers,
+                    apply_deferred,
                     select_dialogue_options,
                     display_dialogue_options,
                     render_dialogue_portrait,
-                    apply_system_buffers,
+                    apply_deferred,
                     highlight_selected_dialogue,
                 )
                     .chain()
-                    .in_set(OnUpdate(DialogueAssetLoadState::Success)),
+                    .run_if(in_state(DialogueAssetLoadState::Success)),
             )
-            .add_system(
+            .add_systems(
+                Update,
                 asset_gen::add_dialogue_assets
-                    .in_set(OnUpdate(AssetLoadState::Success))
+                    .run_if(in_state(AssetLoadState::Success))
                     .run_if(in_state(DialogueAssetLoadState::Loading)),
             );
     }
@@ -133,19 +135,12 @@ pub fn init_dialogue_box(mut commands: Commands) {
                     position_type: PositionType::Absolute,
                     direction: Direction::LeftToRight,
                     flex_direction: FlexDirection::Row,
-                    position: UiRect {
-                        bottom: Val::Percent(0.0),
-                        right: Val::Percent(0.0),
-                        left: Val::Auto,
-                        top: Val::Auto,
-                    },
+                    bottom: Val::Percent(0.0),
+                    right: Val::Percent(0.0),
                     padding: UiRect::all(Val::Px(8.0)),
-                    size: Size {
-                        width: Val::Percent(100.0),
-                        height: Val::Px(200.0),
-                    },
-                    max_size: Size::width(Val::Percent(100.0)),
-                    gap: Size::width(Val::Px(8.0)),
+                    width: Val::Percent(100.0),
+                    height: Val::Px(200.0),
+                    column_gap: Val::Px(8.0),
                     ..Default::default()
                 },
                 background_color: BackgroundColor(Color::BLACK.with_a(0.5)),
@@ -160,7 +155,7 @@ pub fn init_dialogue_box(mut commands: Commands) {
                 ImageBundle {
                     style: Style {
                         aspect_ratio: Some(1.0),
-                        size: Size::height(Val::Percent(100.0)),
+                        height: Val::Percent(100.0),
                         ..Default::default()
                     },
                     background_color: BackgroundColor(Color::WHITE),
@@ -183,7 +178,7 @@ pub fn init_dialogue_box(mut commands: Commands) {
                         DialogueText,
                         TextBundle {
                             style: Style {
-                                size: Size::height(Val::Percent(100.0)),
+                                height: Val::Percent(100.0),
                                 ..Default::default()
                             },
                             ..Default::default()
@@ -207,7 +202,7 @@ pub fn init_dialogue_box(mut commands: Commands) {
         });
 }
 
-#[derive(Default, Clone, TypeUuid)]
+#[derive(Default, Clone, TypeUuid, TypePath)]
 #[uuid = "25fec548-b7dd-4664-be6c-ced090b2787f"]
 pub struct Dialogue {
     pub text: Text,
@@ -228,6 +223,7 @@ pub enum DialogueNext {
     Finish,
 }
 
+#[derive(Event)]
 pub enum DialogueEvent {
     Say(Handle<Dialogue>),
     Finish,
@@ -261,6 +257,7 @@ pub struct DialogueOption {
 #[derive(Component)]
 pub struct DialogueOptionIcon;
 
+#[derive(Event)]
 pub struct DialoguePortraitEvent {
     pub portrait: Portrait,
 }
@@ -340,9 +337,7 @@ pub fn speak_dialogue(
     mut commands: Commands,
     time: Res<Time>,
     stop_chars: Res<StopChars>,
-    audio: Res<Audio>,
-    mut sinks: ResMut<Assets<AudioSink>>,
-    mut active_blip: Local<Handle<AudioSink>>,
+    sink_query: Query<&AudioSink>,
     mut text_query: Query<(Entity, &mut Text, &mut TextMotor), With<DialogueText>>,
 ) {
     let Ok((e_text, mut text, mut motor)) = text_query.get_single_mut() else {
@@ -387,10 +382,13 @@ pub fn speak_dialogue(
 
     if spoke {
         // terminate the current blip since it's not looking for overlaps
-        if let Some(blip) = sinks.get_mut(&active_blip) {
+        if let Ok(blip) = sink_query.get(e_text) {
             blip.stop();
         }
-        *active_blip = sinks.get_handle(audio.play(motor.blip.clone()));
+        commands.entity(e_text).insert(AudioBundle {
+            source: motor.blip.clone(),
+            ..Default::default()
+        });
     }
 }
 
@@ -407,7 +405,7 @@ pub fn display_dialogue_options(
             parent
                 .spawn(NodeBundle {
                     style: Style {
-                        min_size: Size::height(Val::Px(40.0)),
+                        min_height: Val::Px(40.0),
                         padding: UiRect::all(Val::Px(4.0)),
                         ..Default::default()
                     },
@@ -418,7 +416,7 @@ pub fn display_dialogue_options(
                         IconContainer,
                         NodeBundle {
                             style: Style {
-                                size: Size::height(Val::Px(64.0)),
+                                height: Val::Px(64.0),
                                 aspect_ratio: Some(1.5),
                                 ..Default::default()
                             },
@@ -435,6 +433,7 @@ pub fn display_dialogue_options(
     });
 }
 
+#[derive(Event)]
 pub struct SelectedDialogueOptionEvent {
     pub option: DialogueOption,
     pub selected: usize,
@@ -442,14 +441,14 @@ pub struct SelectedDialogueOptionEvent {
 }
 
 pub fn select_dialogue_options(
+    mut commands: Commands,
     input: Res<Input<KeyCode>>,
-    audio: Res<Audio>,
     dialogue_map: Res<DialogueMap>,
     dialogue_assets: Res<Assets<Dialogue>>,
-    mut options_query: Query<&mut DialogueOptions, With<DialogueSelector>>,
+    mut options_query: Query<(Entity, &mut DialogueOptions), With<DialogueSelector>>,
     mut events: EventWriter<SelectedDialogueOptionEvent>,
 ) {
-    let Ok(mut options) = options_query.get_single_mut() else {
+    let Ok((e_options, mut options)) = options_query.get_single_mut() else {
         return;
     };
 
@@ -475,7 +474,10 @@ pub fn select_dialogue_options(
     if changed {
         let handle = &dialogue_map.0[&option.dialogue].clone();
         let dialogue = dialogue_assets.get(handle).unwrap();
-        audio.play(dialogue.blip.clone());
+        commands.entity(e_options).insert(AudioBundle {
+            source: dialogue.blip.clone(),
+            ..Default::default()
+        });
     }
 
     if options.selected != pre_selected {

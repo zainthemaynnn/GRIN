@@ -40,14 +40,22 @@ pub struct BWStaticPlugin;
 
 impl Plugin for BWStaticPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(UniformComponentPlugin::<BWStaticUniform>::default())
+        app.add_plugins(UniformComponentPlugin::<BWStaticUniform>::default())
             .get_sub_app_mut(RenderApp)
             .expect("Failed to get render app.")
-            .init_resource::<BWStaticPipeline>()
             .init_resource::<SpecializedMeshPipelines<BWStaticPipeline>>()
             .add_render_command::<Opaque3d, DrawBWStatic>()
-            .add_system(extract_bw_static_uniforms.in_schedule(ExtractSchedule))
-            .add_systems((queue_bind_group, queue_phase_item).in_set(RenderSet::Queue));
+            .add_systems(ExtractSchedule, extract_bw_static_uniforms)
+            .add_systems(
+                Update,
+                (queue_bind_group, queue_phase_item).in_set(RenderSet::Queue),
+            );
+    }
+
+    fn finish(&self, app: &mut App) {
+        app.get_sub_app_mut(RenderApp)
+            .unwrap()
+            .init_resource::<BWStaticPipeline>();
     }
 }
 

@@ -1,6 +1,10 @@
 use bevy::{
-    asset::LoadState, ecs::query::QuerySingleError, prelude::*, reflect::TypeUuid,
-    render::view::RenderLayers, utils::HashMap,
+    asset::LoadState,
+    ecs::query::QuerySingleError,
+    prelude::*,
+    reflect::{TypePath, TypeUuid},
+    render::view::RenderLayers,
+    utils::HashMap,
 };
 use bevy_asset_loader::prelude::*;
 use html_parser::{Dom, Node};
@@ -199,7 +203,7 @@ pub fn add_dialogue_assets(
 }
 
 // these are raw replacements for some of the structs in `super`
-#[derive(Debug, Deserialize, Clone, TypeUuid)]
+#[derive(Debug, Deserialize, Clone, TypeUuid, TypePath)]
 #[uuid = "892b1e02-e963-4f09-a38f-ff02793aa915"]
 pub struct DialogueMap(pub HashMap<String, Dialogue>);
 

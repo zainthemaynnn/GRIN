@@ -5,7 +5,13 @@ pub struct CollisionsPlugin;
 
 impl Plugin for CollisionsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems((assign_collider_ref_transforms, assign_collider_ref_collision_groups));
+        app.add_systems(
+            Update,
+            (
+                assign_collider_ref_transforms,
+                assign_collider_ref_collision_groups,
+            ),
+        );
     }
 }
 
@@ -118,9 +124,7 @@ pub fn assign_collider_ref_transforms(
     mut collider_ref_query: Query<(&ColliderRef, Option<&Parent>, &mut Transform)>,
     g_transform_query: Query<&GlobalTransform>,
 ) {
-    for (ColliderRef(e_collider), parent, mut transform) in
-        collider_ref_query.iter_mut()
-    {
+    for (ColliderRef(e_collider), parent, mut transform) in collider_ref_query.iter_mut() {
         let g_parent_transform = match parent {
             Some(parent) => *g_transform_query.get(parent.get()).unwrap(),
             None => GlobalTransform::default(),

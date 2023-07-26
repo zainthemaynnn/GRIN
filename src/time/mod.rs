@@ -30,16 +30,15 @@ impl Default for RewindPlugin {
 impl Plugin for RewindPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Frame>()
-            .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP_SECS))
-            .add_systems(
-                (update_frame_index, update_rewind_frames, propagate_rewinds)
-                    .in_base_set(CoreSet::First)
-                    .in_schedule(if self.fixed_timestep {
-                        CoreSchedule::FixedUpdate
-                    } else {
-                        CoreSchedule::Main
-                    }),
-            );
+            .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP_SECS));
+
+        let systems = (update_frame_index, update_rewind_frames, propagate_rewinds);
+
+        if self.fixed_timestep {
+            app.add_systems(FixedUpdate, systems);
+        } else {
+            app.add_systems(First, systems);
+        }
     }
 }
 
@@ -61,24 +60,25 @@ impl<T: Component + Clone> Default for RewindComponentPlugin<T> {
 impl<T: Component + Clone> Plugin for RewindComponentPlugin<T> {
     fn build(&self, app: &mut App) {
         assert!(app.is_plugin_added::<RewindPlugin>());
-        app.init_resource::<EntityHistories<T>>().add_systems(
-            (
-                add_new_histories::<T>,
-                retire_frame::<T>,
-                save_frame::<T>,
-                initialize_rewinds::<T>.after(propagate_rewinds),
-                rewind::<T>.after(update_rewind_frames),
-                clear_unused_histories::<T>,
-            )
-                .chain()
-                .before(update_frame_index)
-                .in_base_set(CoreSet::First)
-                .in_schedule(if self.fixed_timestep {
-                    CoreSchedule::FixedUpdate
-                } else {
-                    CoreSchedule::Main
-                }),
-        );
+
+        app.init_resource::<EntityHistories<T>>();
+
+        let systems = (
+            add_new_histories::<T>,
+            retire_frame::<T>,
+            save_frame::<T>,
+            initialize_rewinds::<T>.after(propagate_rewinds),
+            rewind::<T>.after(update_rewind_frames),
+            clear_unused_histories::<T>,
+        )
+            .chain()
+            .before(update_frame_index);
+
+        if self.fixed_timestep {
+            app.add_systems(FixedUpdate, systems);
+        } else {
+            app.add_systems(First, systems);
+        }
     }
 }
 
@@ -134,7 +134,7 @@ pub struct SetTimeParent {
 // NOTE: I don't see why in the world switching or removing time relations would ever happen
 // outside of despawning, so I'm not going to implement any of the sort until then
 impl EntityCommand for SetTimeParent {
-    fn write(self, entity: Entity, world: &mut World) {
+    fn apply(self, entity: Entity, world: &mut World) {
         let mut parent = world.entity_mut(self.parent);
         let mut children = match parent.get_mut::<TimeChildren>() {
             Some(c) => c,
@@ -154,7 +154,7 @@ impl EntityCommand for SetTimeParent {
 pub struct Despawn;
 
 impl EntityCommand for Despawn {
-    fn write(self, entity: Entity, world: &mut World) {
+    fn apply(self, entity: Entity, world: &mut World) {
         if let Some(TimeParent(e_parent)) = world.entity_mut(entity).take::<TimeParent>() {
             let mut parent = world.entity_mut(e_parent);
             parent.get_mut::<TimeChildren>().unwrap().0.remove(&entity);
@@ -302,7 +302,7 @@ pub enum Timestamp {
 
 /// Forgets the oldest frame in a `History` if it's out of memory space.
 pub fn retire_frame<T: Component>(mut timestamps: ResMut<EntityHistories<T>>) {
-    for mut history in timestamps
+    for history in timestamps
         .0
         .values_mut()
         .filter(|h| h.frames.len() == History::<T>::MAX_STORAGE_FRAMES)

@@ -2,15 +2,17 @@ use crate::{
     asset::AssetLoadState,
     character::Player,
     collisions::{CollisionGroupExt, CollisionGroupsExt},
-    damage::{Damage, DamageVariant, ProjectileBundle},
+    damage::{
+        projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
+        Damage, DamageVariant,
+    },
     humanoid::Humanoid,
-    render::sketched::NoOutline,
 };
 
 use super::{
     aim_single,
     firing::{self, AutoFireBundle, FireRate, FiringPlugin, FiringType, ItemSfx, ShotFired},
-    set_local_mouse_target, insert_on_lmb, insert_on_rmb, Accuracy, Aiming, Item, ItemEquipEvent,
+    insert_on_lmb, insert_on_rmb, set_local_mouse_target, Accuracy, Aiming, Item, ItemEquipEvent,
     ItemPlugin, ItemSet, ItemSpawnEvent, Muzzle, MuzzleBundle, ProjectileAssets, Sfx, WeaponBundle,
 };
 pub use super::{Active, Target};
@@ -29,31 +31,38 @@ pub enum SMGSystemSet {
 
 impl Plugin for SMGPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ItemPlugin::<SMG>::default())
-            .add_plugin(FiringPlugin::<SMG>::from(FiringType::Automatic))
-            .configure_sets(
-                (
-                    SMGSystemSet::Input
-                        .run_if(in_state(AssetLoadState::Success))
-                        .before(firing::auto_fire::<SMG>),
-                    SMGSystemSet::Fire
-                        .run_if(in_state(AssetLoadState::Success))
-                        .after(firing::auto_fire::<SMG>),
-                    SMGSystemSet::Effects.run_if(in_state(AssetLoadState::Success)),
-                )
-                    .chain(),
+        app.add_plugins((
+            ItemPlugin::<SMG>::default(),
+            FiringPlugin::<SMG>::from(FiringType::Automatic),
+        ))
+        .configure_sets(
+            Update,
+            (
+                SMGSystemSet::Input
+                    .run_if(in_state(AssetLoadState::Success))
+                    .before(firing::auto_fire::<SMG>),
+                SMGSystemSet::Fire
+                    .run_if(in_state(AssetLoadState::Success))
+                    .after(firing::auto_fire::<SMG>),
+                SMGSystemSet::Effects.run_if(in_state(AssetLoadState::Success)),
             )
-            .add_system(spawn.in_set(ItemSet::Spawn))
-            .add_systems(
-                (
-                    set_local_mouse_target::<SMG>,
-                    insert_on_lmb::<SMG, Active>,
-                    insert_on_rmb::<SMG, Aiming>,
-                )
-                    .chain()
-                    .in_set(SMGSystemSet::Input),
+                .chain(),
+        )
+        .add_systems(Update, spawn.in_set(ItemSet::Spawn))
+        .add_systems(
+            Update,
+            (
+                set_local_mouse_target::<SMG>,
+                insert_on_lmb::<SMG, Active>,
+                insert_on_rmb::<SMG, Aiming>,
             )
-            .add_systems((spawn_bullet, aim_single::<SMG>).in_set(SMGSystemSet::Fire));
+                .chain()
+                .in_set(SMGSystemSet::Input),
+        )
+        .add_systems(
+            Update,
+            (spawn_bullet, aim_single::<SMG>).in_set(SMGSystemSet::Fire),
+        );
     }
 }
 

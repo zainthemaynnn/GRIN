@@ -5,7 +5,7 @@ use bevy::{
     asset::load_internal_asset,
     pbr::{MaterialPipeline, MaterialPipelineKey, StandardMaterialFlags},
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::{
         mesh::MeshVertexBufferLayout,
         render_asset::RenderAssets,
@@ -24,6 +24,8 @@ pub const PBR_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2639946666486272300);
 pub const PBR_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2639946666486272301);
+pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2639946666486272302);
 
 pub struct SketchEffectPlugin {
     pub outline: GlobalMeshOutline,
@@ -34,6 +36,13 @@ impl Plugin for SketchEffectPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
+            PBR_TYPES_HANDLE,
+            "../../assets/shaders/pbr_types.wgsl",
+            Shader::from_wgsl
+        );
+
+        load_internal_asset!(
+            app,
             PBR_BINDINGS_HANDLE,
             "../../assets/shaders/pbr_bindings.wgsl",
             Shader::from_wgsl
@@ -41,24 +50,33 @@ impl Plugin for SketchEffectPlugin {
 
         load_internal_asset!(
             app,
-            PBR_TYPES_HANDLE,
-            "../../assets/shaders/pbr_types.wgsl",
+            PBR_FUNCTIONS_HANDLE,
+            "../../assets/shaders/pbr_functions.wgsl",
             Shader::from_wgsl
         );
 
         let autofill_enabled = self.autofill_sketch_effect;
         app.add_asset::<SketchUiImage>()
-            .add_plugin(OutlinePlugin)
-            .add_plugin(AutoGenerateOutlineNormalsPlugin)
-            .add_plugin(MaterialPlugin::<SketchMaterial>::default())
-            .insert_resource(self.outline.clone())
-            .add_systems((
-                init_sketched_ui_images,
-                animate_sketched_materials,
-                animate_sketched_outlines,
-                animate_sketched_ui_images.after(init_sketched_ui_images),
+            .add_plugins((
+                OutlinePlugin,
+                AutoGenerateOutlineNormalsPlugin,
+                MaterialPlugin::<SketchMaterial>::default(),
             ))
-            .add_system(autofill_sketch_effect.run_if(move || autofill_enabled == true));
+            .insert_resource(self.outline.clone())
+            .add_systems(
+                Update,
+                (
+                    scale_outlines,
+                    init_sketched_ui_images,
+                    animate_sketched_materials,
+                    animate_sketched_outlines,
+                    animate_sketched_ui_images.after(init_sketched_ui_images),
+                ),
+            )
+            .add_systems(
+                Update,
+                autofill_sketch_effect.run_if(move || autofill_enabled == true),
+            );
     }
 }
 
@@ -106,7 +124,7 @@ pub fn animate_sketched_materials(
     mut material_handle_query: Query<(&mut Handle<SketchMaterial>, &SketchAnimation)>,
 ) {
     for (material_handle, sketch) in material_handle_query.iter_mut() {
-        if let Some(mut material) = materials.get_mut(&material_handle) {
+        if let Some(material) = materials.get_mut(&material_handle) {
             if let Some(max_layers) = material.base_color_texture_layers(&textures) {
                 material.layer = (time.elapsed_seconds_wrapped() / sketch.rate) as u32 % max_layers;
             }
@@ -216,7 +234,7 @@ pub fn autofill_sketch_effect(
     }
 }
 
-#[derive(TypeUuid)]
+#[derive(TypeUuid, TypePath)]
 #[uuid = "150d5b43-9699-41b8-9586-6536af4fed99"]
 pub struct SketchUiImage {
     pub images: Vec<Handle<Image>>,
@@ -243,7 +261,7 @@ pub struct SketchUiImage {
 ///
 /// Use `layer` to set the array texture layer for `base_color_texture`.
 /// Textures not using arrays should be set to `0`.
-#[derive(AsBindGroup, Reflect, FromReflect, Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Reflect, Debug, Clone, TypeUuid)]
 #[uuid = "7494888b-c082-aaaa-aacf-517228cc0c22"]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]

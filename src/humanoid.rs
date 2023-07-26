@@ -1,4 +1,4 @@
-use bevy::{gltf::Gltf, prelude::*};
+use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
 use rand::{distributions::Uniform, Rng};
@@ -6,7 +6,7 @@ use rand::{distributions::Uniform, Rng};
 use crate::{
     asset::AssetLoadState,
     collider,
-    collisions::{ColliderRef, CollisionGroupExt, CollisionGroupsExt},
+    collisions::{CollisionGroupExt, CollisionGroupsExt},
     damage::Dead,
     render::sketched::SketchMaterial,
     time::CommandsExt,
@@ -19,14 +19,20 @@ pub struct HumanoidPlugin;
 impl Plugin for HumanoidPlugin {
     fn build(&self, app: &mut App) {
         app.add_collection_to_loading_state::<_, HumanoidAssets>(AssetLoadState::Loading)
-            .add_system(dash.before(PhysicsSet::StepSimulation))
-            .add_systems((
-                shatter_on_death.run_if(in_state(AssetLoadState::Success)),
-                // since scenes render in preupdate this'll actually have to wait a frame
-                // so ordering doesn't really matter
-                init_shattered_fragments.run_if(in_state(AssetLoadState::Success)),
-            ))
-            .add_system(process_skeletons.in_set(OnUpdate(AssetLoadState::Success)));
+            .add_systems(Update, dash.before(PhysicsSet::StepSimulation))
+            .add_systems(
+                Update,
+                (
+                    shatter_on_death.run_if(in_state(AssetLoadState::Success)),
+                    // since scenes render in preupdate this'll actually have to wait a frame
+                    // so ordering doesn't really matter
+                    init_shattered_fragments.run_if(in_state(AssetLoadState::Success)),
+                ),
+            )
+            .add_systems(
+                Update,
+                process_skeletons.run_if(in_state(AssetLoadState::Success)),
+            );
     }
 }
 
@@ -63,11 +69,31 @@ pub struct Humanoid {
 }
 
 impl Humanoid {
+    #[inline]
     pub fn dominant_hand(&self) -> Entity {
         match &self.dominant_hand_type {
             HumanoidDominantHand::Left => self.lhand,
             HumanoidDominantHand::Right => self.rhand,
         }
+    }
+
+    #[inline]
+    pub fn part(&self, part: HumanoidPartType) -> Entity {
+        match part {
+            HumanoidPartType::Body => self.body,
+            HumanoidPartType::Head => self.head,
+            HumanoidPartType::LeftHand => self.lhand,
+            HumanoidPartType::RightHand => self.rhand,
+        }
+    }
+
+    #[inline]
+    pub fn parts<'a, I>(&'a self, parts: I) -> impl Iterator<Item = Entity> + 'a
+    where
+        I: IntoIterator<Item = HumanoidPartType>,
+        I::IntoIter: 'a,
+    {
+        parts.into_iter().map(|p| self.part(p))
     }
 }
 
@@ -268,7 +294,12 @@ pub fn shatter_on_death(
     assets: Res<HumanoidAssets>,
     humanoid_query: Query<(Entity, &Humanoid, &Velocity), (With<Dead>, Without<Shattered>)>,
     shatter_query: Query<(&GlobalTransform, &Handle<SketchMaterial>)>,
-    child_query: Query<(&GlobalTransform, &Handle<Mesh>, &Handle<SketchMaterial>, &Collider)>,
+    child_query: Query<(
+        &GlobalTransform,
+        &Handle<Mesh>,
+        &Handle<SketchMaterial>,
+        &Collider,
+    )>,
     children_query: Query<&Children>,
 ) {
     for (e_humanoid, humanoid, velocity) in humanoid_query.iter() {
@@ -428,6 +459,10 @@ pub enum HumanoidPartType {
 }
 
 impl HumanoidPartType {
+    pub const HITBOX: [Self; 2] = [Self::Head, Self::Body];
+    pub const HANDS: [Self; 2] = [Self::LeftHand, Self::RightHand];
+    pub const ALL: [Self; 4] = [Self::Body, Self::Head, Self::LeftHand, Self::RightHand];
+
     /// The name of the corresponding mesh in GLTF file.
     pub fn node_id(&self) -> &str {
         match self {
@@ -531,7 +566,7 @@ pub fn process_skeletons(
                     let mesh = match race {
                         HumanoidRace::Round => match build {
                             HumanoidBuild::Male => assets.mbody.clone(),
-                            HumanoidBuild::Female => assets.fbody.clone(),
+                            HumanoidBuild::Female => assets.mbody.clone(),
                         },
                         HumanoidRace::Square => todo!(),
                     };

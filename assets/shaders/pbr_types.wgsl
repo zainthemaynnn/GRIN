@@ -1,4 +1,4 @@
-#define_import_path grin::pbr_types
+#define_import_path grin::pbr_types // NOTE: changed from original!
 
 struct StandardMaterial {
     base_color: vec4<f32>,
@@ -12,8 +12,7 @@ struct StandardMaterial {
     parallax_depth_scale: f32,
     max_parallax_layer_count: f32,
     max_relief_mapping_search_steps: u32,
-
-    layer: i32,
+    layer: i32, // NOTE: changed from original!
 };
 
 struct Glitch {
@@ -64,7 +63,7 @@ fn standard_material_new() -> StandardMaterial {
     material.parallax_depth_scale = 0.1;
     material.max_parallax_layer_count = 16.0;
     material.max_relief_mapping_search_steps = 5u;
-    material.layer = 0;
+    material.layer = 0; // NOTE: changed from original!
 
     return material;
 }

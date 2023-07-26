@@ -222,5 +222,7 @@ pub fn target_trajectories(
     mut query: Query<(&Transform, &mut Velocity, &TargettedTrajectory)>,
     transform_query: Query<&GlobalTransform>,
 ) {
-    for (transform, mut velocity, curve) in query.iter_mut() {}
+    for (transform, velocity, curve) in query.iter_mut() {
+        todo!();
+    }
 }

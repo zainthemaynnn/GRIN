@@ -1,3 +1,8 @@
+//! This was supposed to make audio simpler.
+//! Apparently they did exactly that in bevy 0.11 like a month afterwards.
+//!
+//! Usually I check whether a feature is coming up soon so I don't redo something. I guess I forgot.
+//! Anyways, this is still a bit useful, so I'll give it a cute little module.
 use bevy::prelude::*;
 
 use crate::character::AvatarLoadState;
@@ -10,28 +15,11 @@ pub struct SoundPlugin;
 
 impl Plugin for SoundPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_sets(
-            (
-                SoundSet::Play.run_if(in_state(AvatarLoadState::Loaded)),
-                SoundSet::Translate.run_if(in_state(AvatarLoadState::Loaded)),
-            )
-                .chain(),
-        )
-        .add_systems(
-            (
-                play_localized_audio.in_set(SoundSet::Play),
-                apply_system_buffers,
-                move_localized_audio.in_set(SoundSet::Translate),
-            )
-                .chain(),
+        app.add_systems(
+            PostUpdate,
+            move_spatial_audio.run_if(in_state(AvatarLoadState::Loaded)),
         );
     }
-}
-
-#[derive(SystemSet, Debug, Hash, Eq, PartialEq, Copy, Clone)]
-pub enum SoundSet {
-    Play,
-    Translate,
 }
 
 /// Location to receive spatial audio. `0` is the distance between L/R ears.
@@ -39,55 +27,32 @@ pub enum SoundSet {
 #[derive(Component)]
 pub struct Ears(pub f32);
 
-/// Insert to begin playback of a `LocalizedSound`. Removed on use.
-#[derive(Component)]
-pub struct InitLocalizedSound(pub Handle<AudioSource>, pub PlaybackSettings);
+/// Automatically binds `SpatialAudioSink.listener` to the global transform of `character::Ears`,
+/// and `SpatialAudioSink.emitter` to the global transform of this entity.
+///
+/// It's essentially a simpler but more restrictive version of `SpatialSettings`.
+#[derive(Component, Default)]
+pub struct TrackedSpatialSettings;
 
-/// Spatial audio that updates positional data every frame.
-#[derive(Component)]
-pub struct LocalizedSound(pub Handle<SpatialAudioSink>);
-
-/// Uses `InitLocalizedSound` to play `LocalizedSound`.
-pub fn play_localized_audio(
-    mut commands: Commands,
-    emitter_query: Query<(Entity, &InitLocalizedSound, &GlobalTransform)>,
-    listener_query: Query<(&Ears, &GlobalTransform)>,
-    audio_sinks: Res<Assets<SpatialAudioSink>>,
-    audio: Res<Audio>,
-) {
-    let (Ears(gap), listener) = listener_query.single();
-    let listener_scaled = listener
-        .compute_transform()
-        .with_translation(listener.translation() / AUDIO_SCALE);
-    for (entity, sound, emitter) in emitter_query.iter() {
-        let handle = audio.play_spatial_with_settings(
-            sound.0.clone(),
-            sound.1,
-            listener_scaled,
-            *gap / AUDIO_SCALE,
-            emitter.translation() / AUDIO_SCALE,
-        );
-        commands
-            .get_or_spawn(entity)
-            .remove::<InitLocalizedSound>()
-            .insert(LocalizedSound(audio_sinks.get_handle(handle)));
-    }
+#[derive(Bundle, Default)]
+pub struct TrackedSpatialAudioBundle {
+    pub source: Handle<AudioSource>,
+    pub settings: PlaybackSettings,
+    pub spatial: TrackedSpatialSettings,
 }
 
 /// Updates the listeners/emitters of `LocalizedSound`.
-pub fn move_localized_audio(
-    emitter_query: Query<(&LocalizedSound, &GlobalTransform)>,
+pub fn move_spatial_audio(
+    emitter_query: Query<(&SpatialAudioSink, &GlobalTransform), With<TrackedSpatialSettings>>,
     listener_query: Query<(&Ears, &GlobalTransform)>,
-    audio_sinks: Res<Assets<SpatialAudioSink>>,
 ) {
     let (Ears(gap), listener) = listener_query.single();
-    let listener_scaled = listener
+    let listener = listener
         .compute_transform()
-        .with_translation(listener.translation() / AUDIO_SCALE);
-    for (sound, emitter) in emitter_query.iter() {
-        if let Some(sink) = audio_sinks.get(&sound.0) {
-            sink.set_listener_position(listener_scaled, *gap / AUDIO_SCALE);
-            sink.set_emitter_position(emitter.translation() / AUDIO_SCALE);
-        }
+        .with_scale(Vec3::splat(AUDIO_SCALE));
+    let gap = *gap / AUDIO_SCALE;
+    for (audio, emitter) in emitter_query.iter() {
+        audio.set_listener_position(listener, gap);
+        audio.set_emitter_position(emitter.compute_transform().translation / AUDIO_SCALE);
     }
 }

@@ -1,9 +1,9 @@
 // I'm never going to stop accidentally typing "dua" instead of "duo."
 // is this just a me thing or what?
-use std::f32::consts::TAU;
+use std::{f32::consts::TAU, marker::PhantomData};
 
 use bevy::prelude::{shape::Quad, *};
-use bevy_tweening::{Lens, component_animator_system};
+use bevy_tweening::{component_animator_system, Lens};
 
 use crate::{
     character::{camera::PlayerCamera, AvatarLoadState},
@@ -14,20 +14,26 @@ pub struct DuoQuadPlugin;
 
 impl Plugin for DuoQuadPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems((
-            init_duoquads,
-            render_duoquads,
-            inherit_materials,
-            component_animator_system::<DuoQuad>,
-            render_endpoint::<DuoQuadOrigin>.run_if(in_state(AvatarLoadState::Loaded)),
-            render_endpoint::<DuoQuadTarget>.run_if(in_state(AvatarLoadState::Loaded)),
-        ));
+        app.add_systems(
+            Update,
+            (
+                init_duoquads,
+                render_duoquads,
+                inherit_materials,
+                component_animator_system::<DuoQuad>,
+                component_animator_system::<DuoQuadOrigin>,
+                component_animator_system::<DuoQuadTarget>,
+                render_endpoint::<DuoQuadOrigin>.run_if(in_state(AvatarLoadState::Loaded)),
+                render_endpoint::<DuoQuadTarget>.run_if(in_state(AvatarLoadState::Loaded)),
+            ),
+        );
     }
 }
 
-/// [One of these good old guys.](https://answers.unity.com/storage/temp/61619-laser-bolt-instructions.jpg)
-///
+/// [One of these good old guys.](https://europe1.discourse-cdn.com/unity/original/3X/f/5/f59ebcb69f41239818c24faaf762124f791d6241.jpeg)
 /// Do they have an official name? I dunno. I made one up.
+///
+/// This is more efficient than `render::Beam`. However, it looks ugly with large volumes.
 #[derive(Component, Default)]
 pub struct DuoQuad {
     pub origin: Vec3,
@@ -99,9 +105,11 @@ pub fn render_duoquads(
         // maybe creating a quaternion from three axes is doing it wrong?
         // I'm not a good enough programmer or mathematician to figure that out
         // so I'm just gonna do it with a `Mat3`.
-        *transform = Transform::from_translation(mdpt).with_rotation(Quat::from_mat3(
-            &Mat3::from_cols(axis.normalize(), perp.0, perp.1),
-        ));
+        *transform = Transform {
+            translation: mdpt,
+            rotation: Quat::from_mat3(&Mat3::from_cols(axis.normalize(), perp.0, perp.1)),
+            scale: Vec3::ONE,
+        };
 
         commands
             .entity(*it.next().unwrap())
@@ -137,3 +145,92 @@ pub fn inherit_materials(
     }
 }
 
+/// One of the endpoints on a `DuoQuad`.
+pub trait DuoQuadEndpoint: Component + Clone {
+    /// Radius of the quad at this location.
+    fn radius(&self) -> f32;
+    /// Sets the radius of the quad at this location.
+    fn set_radius(&mut self, radius: f32);
+    /// Translation of this endpoint *in the reference frame of the parent.*
+    fn endpoint(&self, duoquad: &DuoQuad) -> Vec3;
+}
+
+/// Inserts a quad at the starting point of a `DuoQuad`.
+#[derive(Component, Clone)]
+pub struct DuoQuadOrigin {
+    pub radius: f32,
+}
+
+impl DuoQuadEndpoint for DuoQuadOrigin {
+    fn radius(&self) -> f32 {
+        self.radius
+    }
+
+    fn set_radius(&mut self, radius: f32) {
+        self.radius = radius;
+    }
+
+    fn endpoint(&self, duoquad: &DuoQuad) -> Vec3 {
+        duoquad.origin
+    }
+}
+
+/// Inserts a quad at the endpoint of a `DuoQuad`.
+#[derive(Component, Clone)]
+pub struct DuoQuadTarget {
+    pub radius: f32,
+}
+
+impl DuoQuadEndpoint for DuoQuadTarget {
+    fn radius(&self) -> f32 {
+        self.radius
+    }
+
+    fn set_radius(&mut self, radius: f32) {
+        self.radius = radius;
+    }
+
+    fn endpoint(&self, duoquad: &DuoQuad) -> Vec3 {
+        duoquad.origin
+    }
+}
+
+#[derive(Component, Default)]
+pub struct DuoQuadEndpointLens<E: DuoQuadEndpoint> {
+    pub start: f32,
+    pub end: f32,
+    pub phantom_data: PhantomData<E>,
+}
+
+impl<E: DuoQuadEndpoint> Lens<E> for DuoQuadEndpointLens<E> {
+    fn lerp(&mut self, target: &mut E, ratio: f32) {
+        target.set_radius(self.start + (self.end - self.start) * ratio);
+    }
+}
+
+pub fn render_endpoint<T: DuoQuadEndpoint>(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    duoquad_query: Query<(&DuoQuad, &Transform, &Children)>,
+    endpoint_query: Query<&T>,
+    camera_query: Query<&Transform, With<PlayerCamera>>,
+) {
+    let camera_transform = camera_query.single();
+    for (duoquad, transform, children) in duoquad_query.iter() {
+        for child in children.iter() {
+            if let Ok(endpoint) = endpoint_query.get(*child) {
+                let mesh_handle =
+                    meshes.add(Mesh::from(Quad::new(Vec2::splat(endpoint.radius() * 2.0))));
+                commands.entity(*child).insert((
+                    mesh_handle,
+                    // convert to local reference frame
+                    Transform::from_translation(endpoint.endpoint(duoquad) - transform.translation)
+                        // face camera
+                        .with_rotation(camera_transform.rotation),
+                    NoOutline,
+                ));
+                break;
+            }
+        }
+    }
+}

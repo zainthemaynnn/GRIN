@@ -99,7 +99,7 @@ pub struct DamageBuffer(pub Vec<Damage>);
 /// Applies resistance by scaling `Damage` values.
 pub fn apply_resist(mut query: Query<(&mut DamageBuffer, &Resist)>) {
     for (mut damage_buf, Resist(resist)) in query.iter_mut() {
-        for mut damage in damage_buf.0.iter_mut() {
+        for damage in damage_buf.0.iter_mut() {
             let r = resist.get(&damage.ty).unwrap_or(&0.0);
             damage.value *= 1.0 - r;
         }

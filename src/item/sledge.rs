@@ -15,7 +15,7 @@ use super::{
     firing::{self, FireRate, FiringPlugin, FiringType, SemiFireBundle, ShotFired},
     insert_on_lmb, insert_on_rmb,
     melee::{update_hammer_winds, Swinging, Wind, Winding},
-    set_local_mouse_target, Aiming, Item, ItemEquipEvent, ItemPlugin, ItemSet, ItemSpawnEvent, Sfx,
+    set_local_mouse_target, Aiming, Item, ItemEquipEvent, ItemPlugin, ItemSet, ItemSpawnEvent,
     WeaponBundle,
 };
 pub use super::{Active, Target};
@@ -50,38 +50,42 @@ pub enum SledgeSystemSet {
 
 impl Plugin for SledgePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ItemPlugin::<Sledge>::default())
-            .add_plugin(FiringPlugin::<Sledge>::from(FiringType::SemiAutomatic))
-            .add_collection_to_loading_state::<_, SledgeAssets>(AssetLoadState::Loading)
-            .configure_sets(
-                (
-                    SledgeSystemSet::Input
-                        .run_if(in_state(AssetLoadState::Success))
-                        .before(firing::semi_fire::<Sledge>),
-                    SledgeSystemSet::Fire
-                        .run_if(in_state(AssetLoadState::Success))
-                        .after(firing::semi_fire::<Sledge>),
-                    SledgeSystemSet::Effects.run_if(in_state(AssetLoadState::Success)),
-                )
-                    .chain(),
+        app.add_plugins((
+            ItemPlugin::<Sledge>::default(),
+            FiringPlugin::<Sledge>::from(FiringType::SemiAutomatic),
+        ))
+        .add_collection_to_loading_state::<_, SledgeAssets>(AssetLoadState::Loading)
+        .configure_sets(
+            Update,
+            (
+                SledgeSystemSet::Input
+                    .run_if(in_state(AssetLoadState::Success))
+                    .before(firing::semi_fire::<Sledge>),
+                SledgeSystemSet::Fire
+                    .run_if(in_state(AssetLoadState::Success))
+                    .after(firing::semi_fire::<Sledge>),
+                SledgeSystemSet::Effects.run_if(in_state(AssetLoadState::Success)),
             )
-            .add_system(spawn.in_set(ItemSet::Spawn))
-            .add_systems(
-                (
-                    set_local_mouse_target::<Sledge>,
-                    insert_on_lmb::<Sledge, Active>,
-                    insert_on_rmb::<Sledge, Aiming>,
-                    apply_system_buffers,
-                    wind,
-                    charge,
-                    apply_system_buffers,
-                    swing_or_cancel,
-                    unswing,
-                    update_hammer_winds,
-                )
-                    .chain()
-                    .in_set(SledgeSystemSet::Input),
-            );
+                .chain(),
+        )
+        .add_systems(Update, spawn.in_set(ItemSet::Spawn))
+        .add_systems(
+            Update,
+            (
+                set_local_mouse_target::<Sledge>,
+                insert_on_lmb::<Sledge, Active>,
+                insert_on_rmb::<Sledge, Aiming>,
+                apply_deferred,
+                wind,
+                charge,
+                apply_deferred,
+                swing_or_cancel,
+                unswing,
+                update_hammer_winds,
+            )
+                .chain()
+                .in_set(SledgeSystemSet::Input),
+        );
     }
 }
 
@@ -127,6 +131,7 @@ pub fn spawn(
                     value: 20.0,
                     source: None,
                 },
+                Ccd::enabled(),
             ))
             .set_parent(humanoid.dominant_hand())
             .id();
@@ -222,6 +227,11 @@ pub fn swing_or_cancel(
                 commands.entity(e_item).insert((
                     CollisionGroups::from_group_default(group),
                     ContactDamage,
+                    Damage {
+                        ty: DamageVariant::Ballistic,
+                        value: 20.0,
+                        source: None,
+                    },
                     Swinging {
                         duration: swing_clip.duration(),
                     },
@@ -254,7 +264,9 @@ pub fn unswing(
             };
 
             if animator.elapsed() >= swing.duration {
-                commands.entity(e_item).remove::<Swinging>();
+                commands
+                    .entity(e_item)
+                    .remove::<(Swinging, Damage, ContactDamage)>();
                 animator.start(sledge_assets.unswing_animation.clone());
             }
         }

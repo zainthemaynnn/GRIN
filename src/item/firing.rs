@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bevy::prelude::*;
 
-use crate::sound::{InitLocalizedSound, LocalizedSound};
+use crate::sound::TrackedSpatialAudioBundle;
 
 use super::{Active, MuzzleFlashEvent};
 
@@ -22,22 +22,28 @@ pub enum FiringType {
 impl<T: Component> Plugin for FiringPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_event::<ShotFired<T>>()
-            .add_systems((send_muzzle_flash::<T>, update_cooldown::<T>));
+            .add_systems(Update, (send_muzzle_flash::<T>, update_cooldown::<T>));
 
         match self.ty {
             FiringType::SemiAutomatic => {
-                app.add_systems((
-                    semi_fire::<T>.after(update_cooldown::<T>),
-                    play_sfx_discrete::<T>,
-                ));
+                app.add_systems(
+                    Update,
+                    (
+                        semi_fire::<T>.after(update_cooldown::<T>),
+                        play_sfx_discrete::<T>,
+                    ),
+                );
             }
             FiringType::Automatic => {
                 app.add_event::<ShotsBegan<T>>()
                     .add_event::<ShotsEnded<T>>()
-                    .add_systems((
-                        auto_fire::<T>.after(update_cooldown::<T>),
-                        play_sfx_continuous::<T>,
-                    ));
+                    .add_systems(
+                        Update,
+                        (
+                            auto_fire::<T>.after(update_cooldown::<T>),
+                            play_sfx_continuous::<T>,
+                        ),
+                    );
             }
         }
     }
@@ -56,7 +62,6 @@ impl<T: Component> From<FiringType> for FiringPlugin<T> {
 pub struct SemiFireBundle {
     pub fire_rate: FireRate,
     pub cooldown: Cooldown,
-    pub active: Active,
 }
 
 #[derive(Bundle, Default)]
@@ -64,7 +69,6 @@ pub struct AutoFireBundle {
     pub fire_rate: FireRate,
     pub cooldown: Cooldown,
     pub firing: AutoFire,
-    pub active: Active,
 }
 
 #[derive(Component)]
@@ -87,16 +91,19 @@ pub struct ItemSfx {
     pub on_fire: Handle<AudioSource>,
 }
 
+#[derive(Event)]
 pub struct ShotFired<T: Component> {
     pub entity: Entity,
     pub phantom_data: PhantomData<T>,
 }
 
+#[derive(Event)]
 pub struct ShotsBegan<T: Component> {
     pub entity: Entity,
     pub phantom_data: PhantomData<T>,
 }
 
+#[derive(Event)]
 pub struct ShotsEnded<T: Component> {
     pub entity: Entity,
     pub phantom_data: PhantomData<T>,
@@ -197,44 +204,44 @@ pub fn play_sfx_discrete<T: Component>(
             continue;
         };
 
-        commands.get_or_spawn(*entity).insert(InitLocalizedSound(
-            on_fire.clone(),
-            PlaybackSettings::default(),
-        ));
+        commands.get_or_spawn(*entity).with_children(|parent| {
+            parent.spawn(TrackedSpatialAudioBundle {
+                source: on_fire.clone(),
+                settings: PlaybackSettings::default(),
+                ..Default::default()
+            });
+        });
     }
 }
 
 pub fn play_sfx_continuous<T: Component>(
     mut commands: Commands,
-    audio_sinks: Res<Assets<SpatialAudioSink>>,
-    audio_query: Query<&ItemSfx, With<T>>,
-    sound_query: Query<&mut LocalizedSound>,
+    sfx_query: Query<&ItemSfx, With<T>>,
+    sink_query: Query<&mut AudioSink>,
     mut shots_began: EventReader<ShotsBegan<T>>,
     mut shots_ended: EventReader<ShotsEnded<T>>,
 ) {
     for ShotsBegan { entity, .. } in shots_began.iter() {
-        let Ok(ItemSfx { on_fire }) = audio_query.get(*entity) else {
+        let Ok(ItemSfx { on_fire }) = sfx_query.get(*entity) else {
             continue;
         };
 
-        if let Ok(sound) = sound_query.get(*entity) {
-            if let Some(sound_sink) = audio_sinks.get(&sound.0) {
-                sound_sink.stop();
-            }
+        if let Ok(sound) = sink_query.get(*entity) {
+            sound.stop();
         }
 
         commands
             .get_or_spawn(*entity)
-            .insert(InitLocalizedSound(on_fire.clone(), PlaybackSettings::LOOP));
+            .insert(TrackedSpatialAudioBundle {
+                source: on_fire.clone(),
+                settings: PlaybackSettings::LOOP,
+                ..Default::default()
+            });
     }
 
     for ShotsEnded { entity, .. } in shots_ended.iter() {
-        let Ok(sound) = sound_query.get(*entity) else {
-            return;
-        };
-
-        if let Some(sound_sink) = audio_sinks.get(&sound.0) {
-            sound_sink.stop();
+        if let Ok(sound) = sink_query.get(*entity) {
+            sound.stop();
         }
     }
 }

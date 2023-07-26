@@ -1,8 +1,6 @@
-use std::num::NonZeroU32;
-
 use bevy::{
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::render_resource::{Face, TextureViewDescriptor, TextureViewDimension},
     utils::HashMap,
 };
@@ -20,18 +18,19 @@ impl Plugin for DynamicAssetPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<AssetLoadState>()
             .init_resource::<FallbackImage>()
-            .add_plugin(
+            .add_plugins((
                 ProgressPlugin::new(AssetLoadState::Loading).continue_to(AssetLoadState::Success),
-            )
-            .add_plugin(RonAssetPlugin::<CustomDynamicAssetCollection>::new(&[
-                "assets.ron",
-            ]))
+                RonAssetPlugin::<CustomDynamicAssetCollection>::new(&["assets.ron"]),
+            ))
             .add_loading_state(
                 LoadingState::new(AssetLoadState::Loading)
                     .continue_to_state(AssetLoadState::Success)
                     .on_failure_continue_to_state(AssetLoadState::Failure),
             )
-            .add_system(log_load_progress)
+            .add_systems(
+                Update,
+                log_load_progress.run_if(in_state(AssetLoadState::Loading)),
+            )
             .add_dynamic_collection_to_loading_state::<_, CustomDynamicAssetCollection>(
                 AssetLoadState::Loading,
                 "test.assets.ron",
@@ -62,7 +61,7 @@ impl FromWorld for FallbackImage {
             label: Some("D2Array Texture View"),
             dimension: Some(TextureViewDimension::D2Array),
             format: Some(tex.texture_descriptor.format),
-            array_layer_count: Some(NonZeroU32::new(1).expect("PC is tripping.")),
+            array_layer_count: Some(1),
             ..Default::default()
         });
         Self {
@@ -225,9 +224,7 @@ impl DynamicAsset for CustomDynamicAsset {
                             label: Some("D2Array Texture View"),
                             dimension: Some(TextureViewDimension::D2Array),
                             format: Some(tex.texture_descriptor.format),
-                            array_layer_count: Some(
-                                NonZeroU32::new(layers).expect("Can't have zero layers."),
-                            ),
+                            array_layer_count: Some(layers),
                             ..Default::default()
                         });
                         tex_handle
@@ -276,7 +273,7 @@ impl DynamicAsset for CustomDynamicAsset {
     }
 }
 
-#[derive(Deserialize, TypeUuid)]
+#[derive(Deserialize, TypeUuid, TypePath)]
 #[uuid = "18dc82eb-d5f5-4d72-b0c4-e2b234367c35"]
 pub struct CustomDynamicAssetCollection(pub HashMap<String, CustomDynamicAsset>);
 

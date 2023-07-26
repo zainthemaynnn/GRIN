@@ -15,7 +15,7 @@ pub struct GoProPlugin;
 
 impl Plugin for GoProPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(unload_gopros);
+        app.add_systems(Update, unload_gopros);
     }
 }
 
@@ -103,7 +103,11 @@ pub fn add_gopro(
     let h_target = create_image_target(images, size);
 
     commands
-        .spawn(create_gopro(h_target.clone_weak(), transform, render_layers))
+        .spawn(create_gopro(
+            h_target.clone_weak(),
+            transform,
+            render_layers,
+        ))
         .set_parent(entity);
 
     h_target
@@ -124,7 +128,11 @@ pub fn add_gopro_world(world: &mut World, settings: GoProSettings) -> Handle<Ima
     let h_target = create_image_target(&mut images, size);
 
     world
-        .spawn(create_gopro(h_target.clone_weak(), transform, render_layers))
+        .spawn(create_gopro(
+            h_target.clone_weak(),
+            transform,
+            render_layers,
+        ))
         .set_parent(entity);
 
     h_target

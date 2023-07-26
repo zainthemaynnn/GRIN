@@ -1,5 +1,5 @@
 #import bevy_pbr::prepass_bindings
-#import grin::pbr_bindings
+#import grin::pbr_bindings // NOTE: changed from original!
 #ifdef NORMAL_PREPASS
 #import bevy_pbr::pbr_functions
 #endif // NORMAL_PREPASS

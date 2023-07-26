@@ -1,11 +1,8 @@
 use crate::{
     asset::AssetLoadState,
     collider,
-    humanoid::{
-        Humanoid, HumanoidAssets, HumanoidBuild, HumanoidBundle,
-        HumanoidDominantHand,
-    },
-    item::{smg::SMG, Item, sledge::Sledge},
+    humanoid::{Humanoid, HumanoidAssets, HumanoidBuild, HumanoidBundle, HumanoidDominantHand},
+    item::{smg::SMG, Item},
 };
 
 use super::{
@@ -19,13 +16,13 @@ pub struct EightBallPlugin;
 impl Plugin for EightBallPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<CharacterSpawnEvent<EightBall>>()
-            .add_system(
+            .add_systems(
+                OnEnter(AssetLoadState::Success),
                 spawn
                     .after(<EightBall as Character>::spawn)
-                    .in_set(CharacterSet::Spawn)
-                    .in_schedule(OnEnter(AssetLoadState::Success)),
+                    .in_set(CharacterSet::Spawn),
             )
-            .add_system(init_humanoid.in_set(CharacterSet::Init));
+            .add_systems(Update, init_humanoid.in_set(CharacterSet::Init));
     }
 }
 
@@ -36,7 +33,7 @@ pub struct EightBallUninit;
 pub struct EightBall;
 
 impl Character for EightBall {
-    type StartItem = Sledge;
+    type StartItem = SMG;
 }
 
 type ItemSpawnEvent = <<EightBall as Character>::StartItem as Item>::SpawnEvent;
@@ -48,19 +45,18 @@ pub fn spawn(
     mut events: EventReader<CharacterSpawnEvent<EightBall>>,
 ) {
     for _ in events.iter() {
-        commands
-            .spawn((
-                PlayerCharacter,
-                HumanoidBundle {
-                    skeleton_gltf: hum_assets.skeleton.clone(),
-                    face: assets.face_smirk.clone().into(),
-                    build: HumanoidBuild::Male,
-                    dominant_hand: HumanoidDominantHand::Right,
-                    transform: Transform::from_xyz(0.0, 1E-2, 0.0),
-                    ..Default::default()
-                },
-                EightBallUninit,
-            ));
+        commands.spawn((
+            PlayerCharacter,
+            HumanoidBundle {
+                skeleton_gltf: hum_assets.skeleton.clone(),
+                face: assets.face_smirk.clone().into(),
+                build: HumanoidBuild::Male,
+                dominant_hand: HumanoidDominantHand::Right,
+                transform: Transform::from_xyz(0.0, 1E-2, 0.0),
+                ..Default::default()
+            },
+            EightBallUninit,
+        ));
     }
 }
 

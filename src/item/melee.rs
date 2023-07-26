@@ -1,7 +1,5 @@
 use bevy::prelude::*;
 
-use super::Active;
-
 #[derive(Component)]
 pub struct SingleGrip {
     pub grip: Vec3,

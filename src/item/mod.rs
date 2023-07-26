@@ -20,9 +20,8 @@ use bevy_asset_loader::{asset_collection::AssetCollection, prelude::LoadingState
 
 use crate::{
     asset::AssetLoadState,
-    character::camera::LookInfo,
+    character::camera::{CameraAlignment, LookInfo, PlayerCamera},
     character::Player,
-    humanoid::{DominantHand, Hand},
     render::sketched::SketchMaterial,
 };
 
@@ -40,8 +39,11 @@ impl Plugin for ItemCommonPlugin {
         app.add_event::<MuzzleFlashEvent>()
             .add_collection_to_loading_state::<_, Sfx>(AssetLoadState::Loading)
             .add_collection_to_loading_state::<_, ProjectileAssets>(AssetLoadState::Loading)
-            .configure_set(ItemSet::Spawn.run_if(in_state(AssetLoadState::Success)))
-            .add_systems((fade_muzzle_flashes, ignite_muzzle_flashes).chain());
+            .configure_set(
+                Update,
+                ItemSet::Spawn.run_if(in_state(AssetLoadState::Success)),
+            )
+            .add_systems(Update, (fade_muzzle_flashes, ignite_muzzle_flashes).chain());
     }
 }
 
@@ -61,7 +63,7 @@ impl<I: Item + Send + Sync + 'static> Plugin for ItemPlugin<I> {
     fn build(&self, app: &mut App) {
         app.add_event::<<I as Item>::SpawnEvent>()
             .add_event::<<I as Item>::EquipEvent>()
-            .add_system(equip_items::<I>);
+            .add_systems(Update, equip_items::<I>);
     }
 }
 
@@ -100,6 +102,7 @@ pub struct Sfx {
     pub uzi: Handle<AudioSource>,
 }
 
+#[derive(Event)]
 pub struct ItemSpawnEvent<M> {
     pub parent_entity: Entity,
     pub phantom_data: PhantomData<M>,
@@ -114,6 +117,7 @@ impl<M> ItemSpawnEvent<M> {
     }
 }
 
+#[derive(Event)]
 pub struct ItemEquipEvent<M> {
     pub parent_entity: Entity,
     pub item_entity: Entity,
@@ -156,9 +160,9 @@ impl Target {
 }
 
 pub trait Item: Component + Sized {
-    // Sending this event should spawn the item.
+    /// Sending this event should spawn the item.
     type SpawnEvent: Event;
-    // Sending this event should equip the item.
+    /// Sending this event should equip the item.
     type EquipEvent: Event;
 }
 
@@ -210,6 +214,7 @@ struct WeaponBundle {
     pub accuracy: Accuracy,
 }
 
+#[derive(Event)]
 pub struct MuzzleFlashEvent(pub Entity);
 
 fn fade_muzzle_flashes(mut flash_query: Query<(&MuzzleFlash, &mut PointLight)>, time: Res<Time>) {
@@ -269,11 +274,21 @@ pub fn equip_items<M: Send + Sync + 'static>(
 /// On `(With<Player>, With<T>)`,
 /// sets the `Target` component to the user's mouse position.
 pub fn set_local_mouse_target<T: Component>(
+    camera_query: Query<&PlayerCamera>,
     mut item_query: Query<(&mut Target, &GlobalTransform), (With<Player>, With<T>)>,
     look_info: Res<LookInfo>,
 ) {
+    let Ok(camera) = camera_query.get_single() else {
+        return;
+    };
     for (mut target, g_transform) in item_query.iter_mut() {
-        *target = Target::from_pair(g_transform.translation(), look_info.target_point());
+        let target_pos = match camera.alignment {
+            CameraAlignment::FortyFive => look_info
+                .vertical_target_point(g_transform.translation(), g_transform.up())
+                .unwrap_or_default(),
+            CameraAlignment::Shooter => look_info.target_point(),
+        };
+        *target = Target::from_pair(g_transform.translation(), target_pos);
     }
 }
 

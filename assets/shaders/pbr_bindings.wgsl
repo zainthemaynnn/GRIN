@@ -1,6 +1,6 @@
-#define_import_path grin::pbr_bindings
+#define_import_path grin::pbr_bindings // NOTE: changed from original!
 
-#import grin::pbr_types
+#import grin::pbr_types  StandardMaterial // NOTE: changed from original!
 
 @group(1) @binding(0)
 var<uniform> material: StandardMaterial;
@@ -24,14 +24,7 @@ var occlusion_sampler: sampler;
 var normal_map_texture: texture_2d<f32>;
 @group(1) @binding(10)
 var normal_map_sampler: sampler;
-
-///@group(1) @binding(11)
-//var<uniform> time;
-//@group(1) @binding(12)
-//var<uniform> dissolve: Dissolve;
-//@group(1) @binding(13)
-//var dissolve_texture: texture_2d<f32>;
-//@group(1) @binding(14)
-//var dissolve_sampler: sampler;
-//@group(1) @binding(15)
-//var<uniform> glitch: Glitch;
+@group(1) @binding(11)
+var depth_map_texture: texture_2d<f32>;
+@group(1) @binding(12)
+var depth_map_sampler: sampler;

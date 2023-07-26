@@ -6,13 +6,18 @@ use bevy_rapier3d::{
     prelude::{CollisionGroups, Group, QueryFilter, RapierContext},
 };
 
+use crate::humanoid::Humanoid;
+
+use super::{AvatarLoadState, Player};
+
 pub struct PlayerCameraPlugin;
 
 impl Plugin for PlayerCameraPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<LookInfo>()
             .init_resource::<MouseOpts>()
-            .add_systems((handle_mouse, cam_update).chain());
+            .add_systems(Update, (handle_mouse, cam_update).chain())
+            .add_systems(OnEnter(AvatarLoadState::Loaded), spawn_camera);
     }
 }
 
@@ -203,7 +208,7 @@ pub struct DebugMouseTargetPlugin;
 
 impl Plugin for DebugMouseTargetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(add_debug_mouse_marker)
-            .add_system(update_debug_mouse_marker);
+        app.add_systems(Startup, add_debug_mouse_marker)
+            .add_systems(Update, update_debug_mouse_marker);
     }
 }

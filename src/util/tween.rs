@@ -5,7 +5,7 @@ pub struct TweenEventPlugin;
 
 impl Plugin for TweenEventPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(despawn_tweens.in_base_set(CoreSet::PostUpdate));
+        app.add_systems(PostUpdate, despawn_tweens);
     }
 }
 

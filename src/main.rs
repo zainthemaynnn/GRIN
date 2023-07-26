@@ -13,7 +13,7 @@ mod util;
 
 use std::{env, io};
 
-use ai::{dummy::Dummy, AIPlugins};
+use ai::{dummy_2d::Dummy, AIPlugins};
 use asset::FallbackImage;
 use bevy::{
     diagnostic::LogDiagnosticsPlugin,

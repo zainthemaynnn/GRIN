@@ -17,6 +17,8 @@ use bevy::{
 };
 pub(crate) use bevy_mod_outline::*;
 
+use crate::character::camera::PlayerCamera;
+
 // preloaded shaders to define import paths for other shaders
 pub const PBR_BINDINGS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2639946666486272300);
@@ -87,6 +89,16 @@ impl Default for SketchAnimation {
 #[derive(Component, Clone, Default)]
 pub struct NoOutline;
 
+/// Whether to scale outline width based on Z distance.
+#[derive(Component, Clone, Default)]
+pub enum OutlineScaleMode {
+    /// Scale where `0` is the apparent pixel width at a distance of `1.0` from the camera.
+    Scale(f32),
+    /// Outline has a consistent width.
+    #[default]
+    NoScale,
+}
+
 pub fn animate_sketched_materials(
     textures: Res<Assets<Image>>,
     mut materials: ResMut<Assets<SketchMaterial>>,
@@ -111,6 +123,26 @@ pub fn animate_sketched_outlines(
     for (mut deform, sketch) in outline_query.iter_mut() {
         let even = (time.elapsed_seconds_wrapped() / sketch.rate) as u32 % 2 == 0;
         deform.seed = if even { 0.0 } else { 1000.0 };
+    }
+}
+
+pub fn scale_outlines(
+    camera_query: Query<&GlobalTransform, With<PlayerCamera>>,
+    mut outline_query: Query<(&GlobalTransform, &mut OutlineVolume, &OutlineScaleMode)>,
+) {
+    let Ok(g_cam_transform) = camera_query.get_single() else {
+        return;
+    };
+
+    let inv_proj = g_cam_transform.compute_matrix().inverse();
+
+    for (g_outline_transform, mut outline, scale_mode) in outline_query.iter_mut() {
+        if let OutlineScaleMode::Scale(scale) = scale_mode {
+            let diff = Transform::from_matrix(g_outline_transform.compute_matrix() * inv_proj);
+            if diff.translation.z < 0.0 {
+                outline.width = scale / -diff.translation.z;
+            }
+        }
     }
 }
 
@@ -159,7 +191,7 @@ pub fn autofill_sketch_effect(
             Without<NoOutline>,
         ),
     >,
-    no_outline_depth_query: Query<Entity, (With<OutlineVolume>, Without<SetOutlineDepth>)>,
+    //no_outline_depth_query: Query<Entity, (With<OutlineVolume>, Without<SetOutlineDepth>)>,
     no_animation_query: Query<
         Entity,
         (
@@ -174,9 +206,9 @@ pub fn autofill_sketch_effect(
             .get_or_spawn(entity)
             .insert(outline.standard.clone());
     }
-    for entity in no_outline_depth_query.iter() {
+    /*for entity in no_outline_depth_query.iter() {
         commands.get_or_spawn(entity).insert(SetOutlineDepth::Real);
-    }
+    }*/
     for entity in no_animation_query.iter() {
         commands
             .get_or_spawn(entity)

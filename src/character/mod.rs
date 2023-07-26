@@ -19,7 +19,7 @@ use bevy::render::view::RenderLayers;
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-use self::camera::{LookInfo, PlayerCamera, PlayerCameraPlugin};
+use self::camera::{CameraAlignment, LookInfo, PlayerCamera, PlayerCameraPlugin};
 use self::eightball::{EightBall, EightBallPlugin};
 
 pub struct CharacterPlugin;
@@ -222,6 +222,7 @@ pub fn insert_status_viewport(
 
 pub fn input_walk(
     input: Res<Input<KeyCode>>,
+    camera_query: Query<(&GlobalTransform, &PlayerCamera), Without<PlayerCharacter>>,
     mut character: Query<
         (&mut KinematicCharacterController, &mut Transform),
         (With<PlayerCharacter>, Without<Dash>),
@@ -242,23 +243,38 @@ pub fn input_walk(
             head_transform.look_to(look.normalize(), (-look).normalize().cross(right));
         }*/
 
+        let (cam_transform, camera) = camera_query.single();
+
+        let normalize_xz = |v: Vec3| Vec3::new(v.x, 0.0, v.z);
+
         let mut movement = Vec3::ZERO;
         if input.pressed(KeyCode::W) {
-            movement += transform.forward();
+            movement += normalize_xz(cam_transform.forward());
         }
         if input.pressed(KeyCode::A) {
-            movement += transform.left();
+            movement += normalize_xz(cam_transform.left());
         }
         if input.pressed(KeyCode::S) {
-            movement += transform.back();
+            movement += normalize_xz(cam_transform.back());
         }
         if input.pressed(KeyCode::D) {
-            movement += transform.right();
+            movement += normalize_xz(cam_transform.right());
         }
 
         char_controller.translation =
             Some(movement.normalize_or_zero() * 3.0 * time.delta_seconds());
-        transform.rotation = Quat::from_rotation_y(look_info.yaw);
+        match camera.alignment {
+            CameraAlignment::FortyFive => {
+                if let Some(target) =
+                    look_info.vertical_target_point(transform.translation, transform.up())
+                {
+                    // normalizing the Y here, just want it to follow the XZ coords
+                    let target = Vec3::new(target.x, transform.translation.y, target.z);
+                    transform.look_at(target, Vec3::Y);
+                }
+            }
+            CameraAlignment::Shooter => transform.rotation = Quat::from_rotation_y(look_info.yaw),
+        }
     }
 }
 

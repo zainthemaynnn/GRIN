@@ -17,8 +17,19 @@ impl Plugin for PlayerCameraPlugin {
 }
 
 /// Camera for standard player character.
-#[derive(Component, Default)]
-pub struct PlayerCamera;
+#[derive(Component)]
+pub struct PlayerCamera {
+    pub target: Entity,
+    pub alignment: CameraAlignment,
+}
+
+#[derive(Default)]
+pub enum CameraAlignment {
+    /// Angled downwards.
+    #[default]
+    FortyFive,
+    Shooter,
+}
 
 #[derive(Resource, Default)]
 pub struct LookInfo {
@@ -26,12 +37,19 @@ pub struct LookInfo {
     pub pitch: f32,
     pub yaw: f32,
     pub viewport_ray: Ray,
+    pub y_ray: Ray,
     pub target_distance: f32,
 }
 
 impl LookInfo {
     pub fn target_point(&self) -> Vec3 {
         self.viewport_ray.get_point(self.target_distance)
+    }
+
+    pub fn vertical_target_point(&self, plane_origin: Vec3, plane_normal: Vec3) -> Option<Vec3> {
+        self.y_ray
+            .intersect_plane(plane_origin, plane_normal)
+            .map(|t| self.y_ray.get_point(t))
     }
 }
 
@@ -66,18 +84,16 @@ fn handle_mouse(
     mouse_opts: Res<MouseOpts>,
     motion: Res<Events<MouseMotion>>,
     camera_query: Query<(&Camera, &GlobalTransform), With<PlayerCamera>>,
-    mut window_query: Query<&mut Window>,
+    window_query: Query<&Window>,
     rapier_context: Res<RapierContext>,
 ) {
     if camera_query.get_single().is_err() {
         return;
     }
 
-    let mut window = window_query.single_mut();
-    let (x, y) = (window.resolution.width(), window.resolution.height());
-    window.set_cursor_position(Some(Vec2 { x, y } / 2.0));
+    let window = window_query.single();
 
-    let mut look_info = mouse_info.as_mut();
+    let look_info = mouse_info.as_mut();
     for event in look_info.reader_motion.iter(&motion) {
         look_info.yaw -= (event.delta.x * mouse_opts.sens_x).to_radians();
         look_info.pitch -= (event.delta.y * mouse_opts.sens_y).to_radians();
@@ -89,7 +105,13 @@ fn handle_mouse(
     if let Some(size) = camera.logical_viewport_size() {
         look_info.viewport_ray = camera
             .viewport_to_world(camera_transform, size / 2.0)
-            .unwrap_or(Ray::default());
+            .unwrap_or_default();
+
+        if let Some(cursor_pos) = window.cursor_position() {
+            look_info.y_ray = camera
+                .viewport_to_world(camera_transform, cursor_pos)
+                .unwrap_or_default();
+        }
 
         look_info.target_distance = rapier_context
             .cast_ray(
@@ -106,11 +128,45 @@ fn handle_mouse(
     }
 }
 
-fn cam_update(mut query: Query<&mut Transform, With<PlayerCamera>>, look_info: Res<LookInfo>) {
-    if let Ok(mut transform) = query.get_single_mut() {
-        transform.rotation = Quat::from_rotation_x(look_info.pitch);
-        transform.translation = Vec3::new(0.0, 3.0, 0.0)
-            + Vec3::new(0.0, -look_info.pitch.sin(), look_info.pitch.cos()) * 12.0;
+fn spawn_camera(mut commands: Commands, query: Query<Entity, (With<Humanoid>, With<Player>)>) {
+    let e_plr = query.single();
+    commands.spawn((
+        PlayerCamera {
+            target: e_plr,
+            alignment: CameraAlignment::FortyFive,
+        },
+        Camera3dBundle {
+            transform: Transform::from_xyz(0.0, 32.0, 0.0).looking_to(Vec3::NEG_Z, Vec3::Y),
+            ..Default::default()
+        },
+    ));
+}
+
+fn cam_update(
+    mut query: Query<(&mut Transform, &PlayerCamera)>,
+    transform_query: Query<&GlobalTransform, Without<PlayerCamera>>,
+    look_info: Res<LookInfo>,
+) {
+    if let Ok((mut transform, PlayerCamera { target, alignment })) = query.get_single_mut() {
+        let g_target_transform = transform_query.get(*target).unwrap();
+        match alignment {
+            CameraAlignment::FortyFive => {
+                let target = g_target_transform.translation();
+                let offset = Vec3::new(0.0, 24.0, 24.0);
+                let origin = target + offset;
+                let look = (-offset).normalize();
+                *transform =
+                    Transform::from_translation(origin).looking_to(look, look.cross(Vec3::NEG_X));
+            }
+            CameraAlignment::Shooter => {
+                transform.rotation =
+                    Quat::from_euler(EulerRot::YXZ, look_info.yaw, look_info.pitch, 0.0);
+                transform.translation = g_target_transform.transform_point(
+                    Vec3::new(0.0, 3.0, 0.0)
+                        + Vec3::new(0.0, -look_info.pitch.sin(), look_info.pitch.cos()) * 12.0,
+                );
+            }
+        }
     }
 }
 

@@ -5,3 +5,6 @@
 *.bfxrsound
 *.sfd
 trace-*.json
+*.txt
+*.dialogue.ron
+*.wav

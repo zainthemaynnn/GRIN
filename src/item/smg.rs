@@ -118,7 +118,6 @@ pub fn spawn_bullet(
     weapon_query: Query<(&Target, &Accuracy, &Children, Option<&Player>), With<SMG>>,
     muzzle_query: Query<&GlobalTransform, With<Muzzle>>,
     mut shot_events: EventReader<ShotFired<SMG>>,
-    projectile_assets: Res<ProjectileAssets>,
 ) {
     for ShotFired { entity, .. } in shot_events.iter() {
         let (target, accuracy, children, plr) = weapon_query.get(*entity).unwrap();
@@ -131,41 +130,36 @@ pub fn spawn_bullet(
             None => Group::ENEMY_PROJECTILE,
         };
         let distr = Uniform::new_inclusive(
-            (-5.0 / accuracy.0).to_radians(),
-            (5.0 / accuracy.0).to_radians(),
+            (-8.0 / accuracy.0).to_radians(),
+            (8.0 / accuracy.0).to_radians(),
         );
 
         let fwd = (target - origin).normalize();
         let mut bullet_transform =
             Transform::from_translation(origin).looking_to(fwd, fwd.any_orthogonal_vector());
         bullet_transform.rotate(Quat::from_euler(
-            EulerRot::XYZ,
+            EulerRot::YXZ,
             rand::thread_rng().sample(distr),
-            rand::thread_rng().sample(distr),
+            0.0,
             0.0,
         ));
         commands.spawn((
+            BulletProjectile,
             ProjectileBundle {
+                color: ProjectileColor::Orange,
                 damage: Damage {
                     ty: DamageVariant::Ballistic,
                     value: 5.0,
                     source: None,
                 },
+                velocity: Velocity::linear(bullet_transform.forward() * 64.0),
                 collision_groups: CollisionGroups::from_group_default(group),
-                material_mesh: MaterialMeshBundle {
-                    mesh: projectile_assets.bullet_5cm.clone(),
-                    material: projectile_assets.bullet_material.clone(),
-                    transform: bullet_transform,
-                    ..Default::default()
-                },
-                collider: Collider::ball(0.05),
-                velocity: Velocity::linear(bullet_transform.forward() * 100.0),
+                spatial: SpatialBundle::from_transform(
+                    bullet_transform.with_scale(Vec3::splat(0.15)),
+                ),
+                ccd: Ccd::enabled(),
                 ..Default::default()
             },
-            // you know you're new to making games
-            // when you spend an hour realizing this isn't enabled already
-            Ccd::enabled(),
-            NoOutline,
         ));
     }
 }

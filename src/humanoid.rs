@@ -31,7 +31,10 @@ impl Plugin for HumanoidPlugin {
             )
             .add_systems(
                 Update,
-                process_skeletons.run_if(in_state(AssetLoadState::Success)),
+                (
+                    process_skeletons.run_if(in_state(AssetLoadState::Success)),
+                    morph_moving_humanoids,
+                ),
             );
     }
 }
@@ -65,6 +68,7 @@ pub struct Humanoid {
     pub head: Entity,
     pub lhand: Entity,
     pub rhand: Entity,
+    pub armature: Entity,
     pub dominant_hand_type: HumanoidDominantHand,
 }
 
@@ -84,6 +88,7 @@ impl Humanoid {
             HumanoidPartType::Head => self.head,
             HumanoidPartType::LeftHand => self.lhand,
             HumanoidPartType::RightHand => self.rhand,
+            HumanoidPartType::Armature => self.armature,
         }
     }
 
@@ -100,39 +105,14 @@ impl Humanoid {
 #[derive(Component, Default)]
 pub struct Head;
 
-#[derive(Bundle, Default)]
-pub struct HeadBundle<M: Material> {
-    pub head: Head,
-    pub mesh: Handle<Mesh>,
-    pub material: Handle<M>,
-    pub collider: Collider,
-    pub velocity: Velocity,
-}
-
 #[derive(Component, Default)]
 pub struct Body;
-
-#[derive(Bundle, Default)]
-pub struct BodyBundle<M: Material> {
-    pub body: Body,
-    pub mesh: Handle<Mesh>,
-    pub material: Handle<M>,
-    pub collider: Collider,
-}
 
 #[derive(Component, Default)]
 pub struct Hand;
 
 #[derive(Component)]
 pub struct DominantHand;
-
-#[derive(Bundle, Default)]
-pub struct HandBundle<M: Material> {
-    pub hand: Hand,
-    pub mesh: Handle<Mesh>,
-    pub material: Handle<M>,
-    pub collider: Collider,
-}
 
 #[derive(Component, Default, Clone, Copy, Eq, PartialEq)]
 pub enum HumanoidRace {
@@ -294,12 +274,8 @@ pub fn shatter_on_death(
     assets: Res<HumanoidAssets>,
     humanoid_query: Query<(Entity, &Humanoid, &Velocity), (With<Dead>, Without<Shattered>)>,
     shatter_query: Query<(&GlobalTransform, &Handle<SketchMaterial>)>,
-    child_query: Query<(
-        &GlobalTransform,
-        &Handle<Mesh>,
-        &Handle<SketchMaterial>,
-        &Collider,
-    )>,
+    child_query: Query<(&GlobalTransform, &Collider)>,
+    mesh_query: Query<(Entity, &Handle<Mesh>, &Handle<SketchMaterial>)>,
     children_query: Query<&Children>,
 ) {
     for (e_humanoid, humanoid, velocity) in humanoid_query.iter() {
@@ -310,12 +286,12 @@ pub fn shatter_on_death(
         // so that it doesn't just fall straight down
         for (e_fragment, scene, speed) in [
             (
-                humanoid.body,
+                children_query.get(humanoid.body).unwrap()[0],
                 &assets.mbody_shatter,
                 Uniform::new_inclusive(0.0, 2.0),
             ),
             (
-                humanoid.head,
+                children_query.get(humanoid.head).unwrap()[0],
                 &assets.head_shatter,
                 Uniform::new_inclusive(64.0, 86.0),
             ),
@@ -341,31 +317,40 @@ pub fn shatter_on_death(
                 .remove::<(Handle<Mesh>, Handle<SketchMaterial>, Collider)>();
         }
 
-        // for everything else (hands, accessories), create debris copies in global space
+        // for everything else (hands, accessories), create debris copies in global space.
+        // TODO?: this only works on things with colliders. perhaps this is worth a modification.
         for e_child in children_query.iter_descendants(e_humanoid) {
             if e_child == humanoid.head || e_child == humanoid.body {
                 continue;
             }
 
-            if let Ok((g_transform, mesh, material, collider)) = child_query.get(e_child) {
-                commands
-                    .entity(e_child)
-                    .remove::<(Handle<Mesh>, Handle<SketchMaterial>, Collider)>();
-
-                commands
-                    .spawn((
-                        MaterialMeshBundle {
-                            mesh: mesh.clone(),
-                            material: material.clone(),
-                            transform: g_transform.compute_transform(),
-                            ..Default::default()
-                        },
-                        RigidBody::Dynamic,
-                        collider.clone(),
-                        CollisionGroups::from_group_default(Group::DEBRIS),
-                        velocity.clone(),
-                    ))
-                    .set_time_parent(e_humanoid);
+            if let Ok((g_transform, collider)) = child_query.get(e_child) {
+                // if the mesh is on the collider, use this entity
+                // if the mesh is a child, use that entity
+                if let Ok((e_mesh, mesh, material)) = mesh_query.get(e_child).or_else(|_| {
+                    children_query
+                        .get(e_child)
+                        .and_then(|c| mesh_query.get(c[0]))
+                }) {
+                    commands.entity(e_child).remove::<Collider>();
+                    commands
+                        .entity(e_mesh)
+                        .remove::<(Handle<Mesh>, Handle<SketchMaterial>)>();
+                    commands
+                        .spawn((
+                            MaterialMeshBundle {
+                                mesh: mesh.clone(),
+                                material: material.clone(),
+                                transform: g_transform.compute_transform(),
+                                ..Default::default()
+                            },
+                            RigidBody::Dynamic,
+                            collider.clone(),
+                            CollisionGroups::from_group_default(Group::DEBRIS),
+                            velocity.clone(),
+                        ))
+                        .set_time_parent(e_humanoid);
+                }
             };
         }
     }
@@ -426,6 +411,7 @@ pub struct HumanoidBuilder {
     pub head: Option<Entity>,
     pub lhand: Option<Entity>,
     pub rhand: Option<Entity>,
+    pub armature: Option<Entity>,
     pub dominant_hand_type: Option<HumanoidDominantHand>,
 }
 
@@ -444,6 +430,9 @@ impl HumanoidBuilder {
             rhand: self
                 .rhand
                 .ok_or(HumanoidLoadError::Missing(HumanoidPartType::RightHand))?,
+            armature: self
+                .armature
+                .ok_or(HumanoidLoadError::Missing(HumanoidPartType::Armature))?,
             dominant_hand_type: self
                 .dominant_hand_type
                 .ok_or(HumanoidLoadError::NoDominant)?,
@@ -456,6 +445,7 @@ pub enum HumanoidPartType {
     Head,
     LeftHand,
     RightHand,
+    Armature,
 }
 
 impl HumanoidPartType {
@@ -466,19 +456,21 @@ impl HumanoidPartType {
     /// The name of the corresponding mesh in GLTF file.
     pub fn node_id(&self) -> &str {
         match self {
-            HumanoidPartType::Body => "BodyMesh",
-            HumanoidPartType::Head => "HeadMesh",
-            HumanoidPartType::LeftHand => "LeftHandMesh",
-            HumanoidPartType::RightHand => "RightHandMesh",
+            HumanoidPartType::Body => "Body",
+            HumanoidPartType::Head => "Head",
+            HumanoidPartType::LeftHand => "LeftHand",
+            HumanoidPartType::RightHand => "RightHand",
+            HumanoidPartType::Armature => "Armature",
         }
     }
 
     pub fn from_node_id(id: &str) -> Option<Self> {
         Some(match id {
-            "BodyMesh" => HumanoidPartType::Body,
-            "HeadMesh" => HumanoidPartType::Head,
-            "LeftHandMesh" => HumanoidPartType::LeftHand,
-            "RightHandMesh" => HumanoidPartType::RightHand,
+            "Body" => HumanoidPartType::Body,
+            "Head" => HumanoidPartType::Head,
+            "LeftHand" => HumanoidPartType::LeftHand,
+            "RightHand" => HumanoidPartType::RightHand,
+            "Armature" => HumanoidPartType::Armature,
             _ => None?,
         })
     }
@@ -550,50 +542,59 @@ pub fn process_skeletons(
             match part_type {
                 HumanoidPartType::Head => {
                     builder.head = Some(e_node);
-                    let mesh = match race {
-                        HumanoidRace::Round => assets.head.clone(),
-                        HumanoidRace::Square => todo!(),
-                    };
-                    commands.entity(e_node).insert(HeadBundle {
-                        mesh,
-                        material: face.clone(),
-                        collider: Collider::ball(0.5),
-                        ..Default::default()
-                    });
+                    commands.entity(e_node).insert((
+                        Head,
+                        Collider::ball(0.5),
+                        Velocity::default(),
+                    ));
+
+                    let e_mesh = children_query.get(e_node).unwrap()[0];
+                    commands.entity(e_mesh).insert((
+                        face.clone(),
+                        match race {
+                            HumanoidRace::Round => assets.head.clone(),
+                            HumanoidRace::Square => todo!(),
+                        },
+                    ));
                 }
                 HumanoidPartType::Body => {
                     builder.body = Some(e_node);
-                    let mesh = match race {
-                        HumanoidRace::Round => match build {
-                            HumanoidBuild::Male => assets.mbody.clone(),
-                            HumanoidBuild::Female => assets.mbody.clone(),
+                    commands
+                        .entity(e_node)
+                        .insert((Body, Collider::capsule_y(0.375, 0.5)));
+
+                    let e_mesh = children_query.get(e_node).unwrap()[0];
+                    commands.entity(e_mesh).insert((
+                        clothing.clone(),
+                        match race {
+                            HumanoidRace::Round => match build {
+                                HumanoidBuild::Male => assets.mbody.clone(),
+                                HumanoidBuild::Female => assets.mbody.clone(),
+                            },
+                            HumanoidRace::Square => todo!(),
                         },
-                        HumanoidRace::Square => todo!(),
-                    };
-                    commands.entity(e_node).insert(BodyBundle {
-                        mesh,
-                        material: clothing.clone(),
-                        collider: Collider::capsule_y(0.375, 0.5),
-                        ..Default::default()
-                    });
+                    ));
                 }
                 HumanoidPartType::LeftHand => {
                     builder.lhand = Some(e_node);
-                    commands.entity(e_node).insert(HandBundle {
-                        mesh: hand_mesh.clone(),
-                        material: assets.skin.clone(),
-                        collider: Collider::ball(0.15),
-                        ..Default::default()
-                    });
+                    commands.entity(e_node).insert((Hand, Collider::ball(0.15)));
+
+                    let e_mesh = children_query.get(e_node).unwrap()[0];
+                    commands
+                        .entity(e_mesh)
+                        .insert((assets.skin.clone(), hand_mesh.clone()));
                 }
                 HumanoidPartType::RightHand => {
                     builder.rhand = Some(e_node);
-                    commands.entity(e_node).insert(HandBundle {
-                        mesh: hand_mesh.clone(),
-                        material: assets.skin.clone(),
-                        collider: Collider::ball(0.15),
-                        ..Default::default()
-                    });
+                    commands.entity(e_node).insert((Hand, Collider::ball(0.15)));
+
+                    let e_mesh = children_query.get(e_node).unwrap()[0];
+                    commands
+                        .entity(e_mesh)
+                        .insert((assets.skin.clone(), hand_mesh.clone()));
+                }
+                HumanoidPartType::Armature => {
+                    builder.armature = Some(e_node);
                 }
             }
         }
@@ -614,5 +615,96 @@ pub fn process_skeletons(
             }
             Err(e) => error!("{}", e),
         }
+    }
+}
+
+/// Correspond to shape keys on the head and torso.
+///
+/// As far as I know, keys with the same name use the same weights in Unreal.
+/// This would be nice for bevy. I haven't complained about it yet.
+#[repr(usize)]
+pub enum HumanoidMorph {
+    Front = 0,
+    Back = 1,
+    Left = 2,
+    Right = 3,
+}
+
+/// Scales the torso's morph weights relative to the humanoid's speed in one direction.
+///
+/// Note that at a weight of `1.0` the humanoid's head will have translated about `1.0` units.
+/// This is the hard cap, and should probably never happen, unless they're going at an extreme speed
+/// for whatever reason.
+pub const SPEED_MORPH_CONSTANT: f32 = 0.1;
+
+/// Maximum rate of change for morph weights.
+pub const MORPH_EASE_CONSTANT: f32 = 4.0;
+
+/// Morphs humanoids according to their movement.
+///
+/// This'll make them "slant" towards their effective direction of movement, which increases
+/// in intensity based on their speed. The slant is based on
+/// `KinematicCharacterControllerOutput.effective_translation`, so movement from other causes
+/// other than the character controller have no effect on morphing.
+
+// god, I could have made a 2d game and just ran a spritesheet
+pub fn morph_moving_humanoids(
+    time: Res<Time>,
+    humanoid_query: Query<(&Humanoid, &Transform, &KinematicCharacterControllerOutput)>,
+    mut transform_query: Query<&mut Transform, Without<Humanoid>>,
+    mut morph_query: Query<&mut MorphWeights>,
+) {
+    for (humanoid, transform, movement) in humanoid_query.iter() {
+        let speed = movement.effective_translation.length() / time.delta_seconds();
+        let translation_norm = movement.desired_translation.normalize_or_zero();
+
+        // this should ease into the target weight smoothly
+        let weight = |w0: f32, w1: f32| {
+            let w1 = w1 * speed * SPEED_MORPH_CONSTANT;
+            let d = w1 - w0;
+            (w0 + d.abs().min(MORPH_EASE_CONSTANT * time.delta_seconds()) * d.signum())
+                .clamp(-1.0, 1.0)
+        };
+
+        let Ok(mut morph_weights) = morph_query.get_mut(humanoid.body) else {
+            error!("Missing morph targets on humanoid part: {:?}.", humanoid.body);
+            continue;
+        };
+
+        let weights = morph_weights.weights_mut();
+
+        let weight_x = weight(
+            weights[HumanoidMorph::Right as usize] - weights[HumanoidMorph::Left as usize],
+            transform.right().dot(translation_norm),
+        );
+        let weight_z = weight(
+            weights[HumanoidMorph::Front as usize] - weights[HumanoidMorph::Back as usize],
+            transform.forward().dot(translation_norm),
+        );
+
+        // weights need to be converted to [0.0, 1.0]
+        // the sign is just used to determine the correct key
+
+        // front/back weights
+        if weight_z > 0.0 {
+            weights[HumanoidMorph::Front as usize] = weight_z;
+            weights[HumanoidMorph::Back as usize] = 0.0;
+        } else {
+            weights[HumanoidMorph::Front as usize] = 0.0;
+            weights[HumanoidMorph::Back as usize] = -weight_z;
+        }
+
+        // right/left weights
+        if weight_z > 0.0 {
+            weights[HumanoidMorph::Right as usize] = weight_x;
+            weights[HumanoidMorph::Left as usize] = 0.0;
+        } else {
+            weights[HumanoidMorph::Right as usize] = 0.0;
+            weights[HumanoidMorph::Left as usize] = -weight_x;
+        }
+
+        let mut armature_transform = transform_query.get_mut(humanoid.armature).unwrap();
+        armature_transform.translation =
+            Vec3::new(weight_x, armature_transform.translation.y, weight_z);
     }
 }

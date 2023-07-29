@@ -1,7 +1,7 @@
 #![enable(implicit_some)]
 CustomDynamicAssetCollection({
      "mesh.mbody": File (
-          path: "meshes/mbody.glb#Mesh0/Primitive0",
+          path: "meshes/skeleton.glb#Mesh3/Primitive0",
      ),
      "mesh.fbody": File (
           path: "meshes/fbody.glb#Mesh0/Primitive0",

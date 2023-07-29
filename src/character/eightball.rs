@@ -3,13 +3,14 @@ use crate::{
     collider,
     humanoid::{Humanoid, HumanoidAssets, HumanoidBuild, HumanoidBundle, HumanoidDominantHand},
     item::{smg::SMG, Item},
+    render::RenderLayer,
 };
 
 use super::{
-    AvatarAssets, AvatarLoadEvent, AvatarSimulationBundle, Character, CharacterSet,
-    CharacterSpawnEvent, PlayerCharacter,
+    AvatarAssets, AvatarLoadEvent, Character, CharacterSet, CharacterSpawnEvent, Player,
+    PlayerCharacter,
 };
-use bevy::prelude::*;
+use bevy::{prelude::*, render::view::RenderLayers};
 
 pub struct EightBallPlugin;
 
@@ -74,13 +75,14 @@ pub fn init_humanoid(
 
     commands
         .spawn((
+            Player,
             MaterialMeshBundle {
                 mesh: assets.pizza_shades.clone(),
                 material: assets.matte_shades.clone(),
                 transform: Transform::from_xyz(0.0, 0.0, -0.525),
                 ..Default::default()
             },
-            AvatarSimulationBundle::default(),
+            RenderLayers::from_layers(&[RenderLayer::STANDARD as u8, RenderLayer::AVATAR as u8]),
             collider!(meshes, &assets.pizza_shades),
         ))
         .set_parent(humanoid.head);

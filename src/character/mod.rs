@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 
 use crate::asset::AssetLoadState;
 use crate::damage::{DamageBuffer, Health, HealthBundle};
-use crate::humanoid::{Dash, Humanoid};
+use crate::humanoid::{Dash, Humanoid, HumanoidPartType};
 use crate::render::gopro::{add_gopro, GoProSettings};
 use crate::render::sketched::SketchMaterial;
 use crate::sound::Ears;
@@ -121,29 +121,10 @@ pub struct PlayerCharacter;
 #[derive(Component, Copy, Clone, Default)]
 pub struct Player;
 
-#[derive(Bundle)]
-pub struct AvatarSimulationBundle {
-    pub render_layers: RenderLayers,
-    pub collision_groups: CollisionGroups,
-    pub player: Player,
-}
-
-impl Default for AvatarSimulationBundle {
-    fn default() -> Self {
-        Self {
-            render_layers: RenderLayers::from_layers(&[
-                RenderLayer::STANDARD as u8,
-                RenderLayer::AVATAR as u8,
-            ]),
-            collision_groups: CollisionGroups::from_group_default(Group::PLAYER),
-            player: Player::default(),
-        }
-    }
-}
-
 pub fn init_character_model(
     mut commands: Commands,
     player_query: Query<(Entity, &Humanoid), (With<PlayerCharacter>, Without<Player>)>,
+    children_query: Query<&Children>,
 ) {
     let Ok((e_humanoid, humanoid)) = player_query.get_single() else {
         return;
@@ -152,6 +133,8 @@ pub fn init_character_model(
     let mut controller_collision_groups = CollisionGroups::from_group_default(Group::PLAYER);
     // body parts can still hit projectiles, but the controller shouldn't detect them at all
     controller_collision_groups.filters -= Group::ENEMY_PROJECTILE;
+    let render_layers =
+        RenderLayers::from_layers(&[RenderLayer::STANDARD as u8, RenderLayer::AVATAR as u8]);
 
     commands.entity(e_humanoid).insert((
         Player,
@@ -162,20 +145,22 @@ pub fn init_character_model(
         },
         controller_collision_groups,
     ));
-    commands.entity(humanoid.head).insert((
-        Ears(0.5),
-        DamageBuffer::default(),
-        AvatarSimulationBundle::default(),
-    ));
-    commands
-        .get_or_spawn(humanoid.body)
-        .insert((DamageBuffer::default(), AvatarSimulationBundle::default()));
-    commands
-        .get_or_spawn(humanoid.lhand)
-        .insert(AvatarSimulationBundle::default());
-    commands
-        .get_or_spawn(humanoid.rhand)
-        .insert(AvatarSimulationBundle::default());
+
+    commands.entity(humanoid.head).insert(Ears(0.5));
+
+    for e_part in humanoid.parts(HumanoidPartType::ALL) {
+        commands.entity(e_part).insert(Player);
+        commands
+            .entity(children_query.get(e_part).unwrap()[0])
+            .insert(render_layers);
+    }
+
+    for e_part in humanoid.parts(HumanoidPartType::HITBOX) {
+        commands.entity(e_part).insert((
+            DamageBuffer::default(),
+            CollisionGroups::from_group_default(Group::PLAYER),
+        ));
+    }
 }
 
 pub fn insert_status_viewport(

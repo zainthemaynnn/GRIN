@@ -1017,7 +1017,7 @@ dependencies = [
 [[package]]
 name = "bevy_mod_outline"
 version = "0.5.0"
-source = "git+https://github.com/zainthemaynnn/bevy_mod_outline.git#864243b60f45ed7f050206b1452204ef150ef7fe"
+source = "git+https://github.com/zainthemaynnn/bevy_mod_outline.git#7e4878e45e31ba21753512a27a9406907b42684b"
 dependencies = [
  "bevy",
  "bitfield",
@@ -2616,7 +2616,7 @@ dependencies = [
 
 [[package]]
 name = "grin"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "approx",
  "bevy",

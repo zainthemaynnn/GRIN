@@ -5,7 +5,7 @@
 
 #import grin::pbr_functions as pbr_functions // NOTE: changed from original!
 #import grin::pbr_bindings as pbr_bindings // NOTE: changed from original!
-#import bevy_pbr::pbr_types as pbr_types
+#import grin::pbr_types as pbr_types // NOTE: changed from original!
 #import bevy_pbr::prepass_utils
 
 #import bevy_pbr::mesh_vertex_output       MeshVertexOutput

@@ -53,7 +53,7 @@ pub fn spawn(
                 face: assets.face_smirk.clone().into(),
                 build: HumanoidBuild::Male,
                 dominant_hand: HumanoidDominantHand::Right,
-                transform: Transform::from_xyz(0.0, 1E-2, 0.0),
+                spatial: SpatialBundle::from_transform(Transform::from_xyz(0.0, 1E-2, 0.0)),
                 ..Default::default()
             },
             EightBallUninit,

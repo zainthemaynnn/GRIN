@@ -13,6 +13,7 @@ use crate::{
 };
 
 pub const HUMANOID_HEIGHT: f32 = 2.625;
+pub const HUMANOID_RADIUS: f32 = 0.5;
 
 pub struct HumanoidPlugin;
 
@@ -183,7 +184,7 @@ impl From<Handle<SketchMaterial>> for HumanoidClothing {
     }
 }
 
-#[derive(Bundle, Clone)]
+#[derive(Bundle, Default)]
 pub struct HumanoidBundle {
     pub skeleton_gltf: Handle<Scene>,
     pub skeleton: Skeleton,
@@ -192,34 +193,7 @@ pub struct HumanoidBundle {
     pub race: HumanoidRace,
     pub build: HumanoidBuild,
     pub dominant_hand: HumanoidDominantHand,
-    pub rigid_body: RigidBody,
-    pub controller: KinematicCharacterController,
-    pub velocity: Velocity,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub visibility: Visibility,
-    pub computed_visibility: ComputedVisibility,
-}
-
-impl Default for HumanoidBundle {
-    fn default() -> Self {
-        Self {
-            skeleton_gltf: Handle::default(),
-            skeleton: Skeleton::default(),
-            face: HumanoidFace::default(),
-            clothing: HumanoidClothing::default(),
-            race: HumanoidRace::default(),
-            build: HumanoidBuild::default(),
-            dominant_hand: HumanoidDominantHand::default(),
-            rigid_body: RigidBody::KinematicPositionBased, // SCREW YOU
-            controller: KinematicCharacterController::default(),
-            velocity: Velocity::default(),
-            transform: Transform::default(),
-            global_transform: GlobalTransform::default(),
-            visibility: Visibility::default(),
-            computed_visibility: ComputedVisibility::default(),
-        }
-    }
+    pub spatial: SpatialBundle,
 }
 
 #[derive(Component)]
@@ -501,6 +475,7 @@ impl std::fmt::Display for HumanoidLoadError {
 /// - Updates meshes and textures to be in line with cosmetic components.
 /// - Assigns dominant hand.
 /// - Inserts colliders.
+/// - Inserts velocity, character controller.
 pub fn process_skeletons(
     mut commands: Commands,
     assets: Res<HumanoidAssets>,
@@ -603,14 +578,26 @@ pub fn process_skeletons(
             Ok(humanoid) => {
                 commands.entity(e_skeleton).insert((
                     humanoid,
-                    match race {
-                        HumanoidRace::Round => Collider::capsule(
-                            Vec3::new(0.0, 0.5, 0.0),
-                            Vec3::new(0.0, 2.125, 0.0),
-                            0.5,
-                        ),
-                        HumanoidRace::Square => todo!(),
+                    RigidBody::KinematicPositionBased,
+                    KinematicCharacterController {
+                        custom_shape: Some((
+                            match race {
+                                HumanoidRace::Round => Collider::capsule_y(
+                                    HUMANOID_HEIGHT / 2.0 - HUMANOID_RADIUS,
+                                    HUMANOID_RADIUS,
+                                ),
+                                HumanoidRace::Square => Collider::cuboid(
+                                    HUMANOID_RADIUS,
+                                    HUMANOID_HEIGHT / 2.0,
+                                    HUMANOID_RADIUS,
+                                ),
+                            },
+                            Vec3::Y * HUMANOID_HEIGHT / 2.0,
+                            Quat::default(),
+                        )),
+                        ..Default::default()
                     },
+                    Velocity::default(),
                 ));
             }
             Err(e) => error!("{}", e),
@@ -635,7 +622,7 @@ pub enum HumanoidMorph {
 /// Note that at a weight of `1.0` the humanoid's head will have translated about `1.0` units.
 /// This is the hard cap, and should probably never happen, unless they're going at an extreme speed
 /// for whatever reason.
-pub const SPEED_MORPH_CONSTANT: f32 = 0.1;
+pub const SPEED_MORPH_CONSTANT: f32 = 0.04;
 
 /// Maximum rate of change for morph weights.
 pub const MORPH_EASE_CONSTANT: f32 = 4.0;

@@ -242,6 +242,10 @@ pub fn play_sfx_continuous<T: Component>(
     for ShotsEnded { entity, .. } in shots_ended.iter() {
         if let Ok(sound) = sink_query.get(*entity) {
             sound.stop();
+            commands.get_or_spawn(*entity).remove::<AudioSink>();
         }
+        commands
+            .get_or_spawn(*entity)
+            .remove::<TrackedSpatialAudioBundle>();
     }
 }

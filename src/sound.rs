@@ -27,7 +27,7 @@ impl Plugin for SoundPlugin {
 #[derive(Component)]
 pub struct Ears(pub f32);
 
-/// Automatically binds `SpatialAudioSink.listener` to the global transform of `character::Ears`,
+/// Automatically binds `SpatialAudioSink.listener` to the global transform of `sound::Ears`,
 /// and `SpatialAudioSink.emitter` to the global transform of this entity.
 ///
 /// It's essentially a simpler but more restrictive version of `SpatialSettings`.

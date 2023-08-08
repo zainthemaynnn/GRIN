@@ -78,23 +78,20 @@ fn main() -> Result<(), io::Error> {
 
     #[cfg(debug_assertions)]
     let default_plugins = default_plugins.set(LogPlugin {
-        level: Level::INFO,
-        filter: "info,wgpu_core=warn,wgpu_hal=warn,grin=debug".into(),
+        level: Level::DEBUG,
+        filter: "info,wgpu_core=warn,wgpu_hal=warn,grin=debug,naga=warn".into(),
     });
 
     #[cfg(not(debug_assertions))]
     let default_plugins = default_plugins.set(LogPlugin {
-        level: Level::DEBUG,
-        filter: "info,wgpu_core=warn,wgpu_hal=warn,grin=info".into(),
+        level: Level::INFO,
+        filter: "info,wgpu_core=warn,wgpu_hal=warn,grin=info,naga=warn".into(),
     });
 
     app.add_plugins(default_plugins);
 
     app.init_resource::<Msaa>()
         .init_resource::<AmbientLight>()
-        // fun fact: I had so many plugins that they exceeded the tuple size of 15
-        // so now I have to do `add_plugins` twice.
-        // I would make a macro but this is more amusing.
         .add_plugins((
             DynamicAssetPlugin,
             RapierPhysicsPlugin::<NoUserData>::default(),
@@ -115,6 +112,7 @@ fn main() -> Result<(), io::Error> {
         .add_plugins((
             RewindPlugin::default(),
             RewindComponentPlugin::<Transform>::default(),
+            RapierDebugRenderPlugin::default(),
             WorldInspectorPlugin::new(),
         ))
         .insert_resource(RapierConfiguration {

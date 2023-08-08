@@ -24,6 +24,7 @@ use bevy::{
     window::CursorGrabMode,
 };
 use bevy_hanabi::HanabiPlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use bevy_tweening::TweeningPlugin;
 use character::{Character, CharacterPlugin, CharacterSet};
@@ -114,6 +115,7 @@ fn main() -> Result<(), io::Error> {
         .add_plugins((
             RewindPlugin::default(),
             RewindComponentPlugin::<Transform>::default(),
+            WorldInspectorPlugin::new(),
         ))
         .insert_resource(RapierConfiguration {
             gravity: Vec3::NEG_Y * 9.81 * (HUMANOID_HEIGHT / 1.8),

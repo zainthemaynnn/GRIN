@@ -22,6 +22,7 @@ pub trait CollisionGroupExt {
     const ENEMY_PROJECTILE: Group;
     const DEBRIS: Group;
     const MAP: Group;
+    const PROJECTILE: Group;
 }
 
 impl CollisionGroupExt for Group {
@@ -31,6 +32,9 @@ impl CollisionGroupExt for Group {
     const ENEMY_PROJECTILE: Group = Self::GROUP_4;
     const DEBRIS: Group = Self::GROUP_5;
     const MAP: Group = Self::GROUP_32;
+    // well this is weird... thanks rust
+    // https://github.com/bitflags/bitflags/issues/180
+    const PROJECTILE: Group = Self::PLAYER_PROJECTILE.union(Self::ENEMY_PROJECTILE);
 }
 
 pub trait CollisionGroupsExt {
@@ -41,15 +45,16 @@ impl CollisionGroupsExt for CollisionGroups {
     /// Creates `CollisionGroups` with "default" collision group filters from a `Group`.
     fn from_group_default(group: Group) -> Self {
         match group {
+            Group::NONE => CollisionGroups::new(Group::NONE, Group::NONE),
             Group::PLAYER => CollisionGroups::new(Group::PLAYER, Group::all() - Group::PLAYER),
             Group::ENEMY => CollisionGroups::new(Group::ENEMY, Group::all() - Group::ENEMY),
             Group::PLAYER_PROJECTILE => CollisionGroups::new(
                 Group::PLAYER_PROJECTILE,
-                Group::all() - Group::PLAYER - Group::PLAYER_PROJECTILE,
+                Group::all() - Group::PLAYER - Group::PROJECTILE,
             ),
             Group::ENEMY_PROJECTILE => CollisionGroups::new(
                 Group::ENEMY_PROJECTILE,
-                Group::all() - Group::ENEMY - Group::ENEMY_PROJECTILE,
+                Group::all() - Group::ENEMY - Group::PROJECTILE,
             ),
             Group::DEBRIS => CollisionGroups::new(Group::DEBRIS, Group::MAP),
             Group::MAP => CollisionGroups::new(Group::MAP, Group::all()),
@@ -101,7 +106,8 @@ macro_rules! convex_collider {
     }};
 }
 
-// TODO: optimize MAYBE
+// NOTE: it turns out that this was unnecessary
+// but hell, I wrote it, and might need it in my belt later, so it'll sit for now
 
 /// Matches the transform of an adjacent `Collider` to this entity.
 ///

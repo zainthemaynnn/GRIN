@@ -57,8 +57,14 @@ CustomDynamicAssetCollection({
      "anim.idle": File (
           path: "meshes/skeleton.glb#Animation5",
      ),
-     "anim.stretch": File (
+     "anim.pistol.left": File (
           path: "meshes/skeleton.glb#Animation6",
+     ),
+     "anim.pistol.right": File (
+          path: "meshes/skeleton.glb#Animation7",
+     ),
+     "anim.stretch": File (
+          path: "meshes/skeleton.glb#Animation8",
      ),
      "tex.skin": File (
           path: "textures/generated/skin.png",

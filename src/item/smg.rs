@@ -10,10 +10,11 @@ use crate::{
 };
 
 use super::{
-    aim_single,
+    aim_on_active,
     firing::{self, AutoFireBundle, FireRate, FiringPlugin, FiringType, ItemSfx, ShotFired},
-    insert_on_lmb, insert_on_rmb, set_local_mouse_target, Accuracy, Aiming, Item, ItemEquipEvent,
-    ItemPlugin, ItemSet, ItemSpawnEvent, Muzzle, MuzzleBundle, ProjectileAssets, Sfx, WeaponBundle,
+    insert_on_lmb, set_local_mouse_target, unaim_on_unactive, Accuracy, AimType, IdleType, Item,
+    ItemEquipEvent, ItemPlugin, ItemSet, ItemSpawnEvent, Muzzle, MuzzleBundle, ProjectileAssets,
+    Sfx, WeaponBundle,
 };
 pub use super::{Active, Target};
 use bevy::prelude::*;
@@ -51,17 +52,14 @@ impl Plugin for SMGPlugin {
         .add_systems(Update, spawn.in_set(ItemSet::Spawn))
         .add_systems(
             Update,
-            (
-                set_local_mouse_target::<SMG>,
-                insert_on_lmb::<SMG, Active>,
-                insert_on_rmb::<SMG, Aiming>,
-            )
+            (set_local_mouse_target::<SMG>, insert_on_lmb::<SMG, Active>)
                 .chain()
                 .in_set(SMGSystemSet::Input),
         )
         .add_systems(
             Update,
-            (spawn_bullet, aim_single::<SMG>).in_set(SMGSystemSet::Fire),
+            (spawn_bullet, aim_on_active::<SMG>, unaim_on_unactive::<SMG>)
+                .in_set(SMGSystemSet::Fire),
         );
     }
 }
@@ -80,8 +78,8 @@ impl Item for SMG {
 pub fn spawn(
     mut commands: Commands,
     assets: Res<ProjectileAssets>,
-    humanoid_query: Query<&Humanoid>,
     sfx: Res<Sfx>,
+    humanoid_query: Query<&Humanoid>,
     mut spawn_events: EventReader<ItemSpawnEvent<SMG>>,
     mut equip_events: EventWriter<ItemEquipEvent<SMG>>,
 ) {
@@ -108,6 +106,8 @@ pub fn spawn(
                 ItemSfx {
                     on_fire: sfx.uzi.clone(),
                 },
+                IdleType::Idle,
+                AimType::RangedSingle,
             ))
             .with_children(|parent| {
                 parent.spawn(MuzzleBundle {

@@ -13,9 +13,9 @@ use crate::{
 
 use super::{
     firing::{self, FireRate, FiringPlugin, FiringType, SemiFireBundle, ShotFired},
-    insert_on_lmb, insert_on_rmb,
+    insert_on_lmb,
     melee::{update_hammer_winds, Swinging, Wind, Winding},
-    set_local_mouse_target, Aiming, Item, ItemEquipEvent, ItemPlugin, ItemSet, ItemSpawnEvent,
+    set_local_mouse_target, Item, ItemEquipEvent, ItemPlugin, ItemSet, ItemSpawnEvent,
     WeaponBundle,
 };
 pub use super::{Active, Target};
@@ -74,7 +74,6 @@ impl Plugin for SledgePlugin {
             (
                 set_local_mouse_target::<Sledge>,
                 insert_on_lmb::<Sledge, Active>,
-                insert_on_rmb::<Sledge, Aiming>,
                 apply_deferred,
                 wind,
                 charge,

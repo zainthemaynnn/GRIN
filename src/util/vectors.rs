@@ -9,14 +9,21 @@ use itertools::Itertools;
 
 use super::distr::{self, closed_f32_distribution, open_f32_distribution};
 
-/// Sets `Vec3.y` to `0.0`.
-#[inline]
-pub fn normalize_y(v: Vec3) -> Vec3 {
-    Vec3::new(v.x, 0.0, v.z)
+pub trait Vec3Ext {
+    /// Sets `Vec3.y` to `0.0`.
+    fn xz(&self) -> Self;
+}
+
+impl Vec3Ext for Vec3 {
+    #[inline]
+    fn xz(&self) -> Vec3 {
+        Vec3::new(self.x, 0.0, self.z)
+    }
 }
 
 /// Distributes `n` points over `[p0, p1)`.
-pub fn segment<'a>(
+#[inline]
+pub fn open_segment<'a>(
     p0: Vec3,
     p1: Vec3,
     n: u32,
@@ -26,7 +33,8 @@ pub fn segment<'a>(
 }
 
 /// Distributes `n` points over `[p0, p1]`.
-pub fn filled_segment<'a>(
+#[inline]
+pub fn segment<'a>(
     p0: Vec3,
     p1: Vec3,
     n: u32,
@@ -37,7 +45,7 @@ pub fn filled_segment<'a>(
 
 /// Distributes a point `p0` around `axis` `n` times over `[0.0, angle)` radians.
 #[inline]
-pub fn arc<'a>(
+pub fn open_arc<'a>(
     p0: Vec3,
     axis: Vec3,
     n: u32,
@@ -47,9 +55,9 @@ pub fn arc<'a>(
     open_f32_distribution(n, distr).map(move |x| Quat::from_axis_angle(axis, angle * x) * p0)
 }
 
-/// Distributes a point `p0` around `axis` `n` times over `[0.0, angle]` radians.
+/// Distributes a point `p0` around `axis` `n` times over `[0.0, angle]` radians. CCW.
 #[inline]
-pub fn filled_arc<'a>(
+pub fn arc<'a>(
     p0: Vec3,
     axis: Vec3,
     n: u32,
@@ -59,7 +67,21 @@ pub fn filled_arc<'a>(
     closed_f32_distribution(n, distr).map(move |x| Quat::from_axis_angle(axis, angle * x) * p0)
 }
 
-/// Rotates a point `p0` around `axis` `n` times within tau radians. Includes `p1`.
+/// Distributes a point `p0` around `axis` `n` times over `[0.0, angle]` radians.
+/// CCW, equally distributed to left and right.
+#[inline]
+pub fn centered_arc<'a>(
+    p0: Vec3,
+    axis: Vec3,
+    n: u32,
+    angle: f32,
+    distr: &'a impl Fn(f32) -> f32,
+) -> impl Iterator<Item = Vec3> + 'a {
+    closed_f32_distribution(n, distr)
+        .map(move |x| Quat::from_axis_angle(axis, angle * x - angle / 2.0) * p0)
+}
+
+/// Rotates a point `p0` around `axis` `n` times within tau radians.
 #[inline]
 pub fn circle<'a>(
     p0: Vec3,
@@ -67,7 +89,7 @@ pub fn circle<'a>(
     n: u32,
     distr: &'a impl Fn(f32) -> f32,
 ) -> impl Iterator<Item = Vec3> + 'a {
-    arc(p0, axis, n, TAU, distr)
+    open_arc(p0, axis, n, TAU, distr)
 }
 
 /// Distributes `n` points between adjacent pairs from `vertices`.
@@ -83,7 +105,7 @@ where
         .into_iter()
         // look at that! itertools is like magic!
         .circular_tuple_windows()
-        .flat_map(move |(p0, p1)| segment(p0, p1, n, distr))
+        .flat_map(move |(p0, p1)| open_segment(p0, p1, n, distr))
 }
 
 /// Creates an equilateral `n`-gon with `segsize` points distributed per side.
@@ -109,7 +131,7 @@ mod tests {
     #[test]
     fn segment_test() {
         assert_eq!(
-            segment(Vec3::X, Vec3::NEG_X, 4, &distr::linear).collect::<Vec<_>>(),
+            open_segment(Vec3::X, Vec3::NEG_X, 4, &distr::linear).collect::<Vec<_>>(),
             vec![
                 Vec3::new(1.0, 0.0, 0.0),
                 Vec3::new(0.5, 0.0, 0.0),
@@ -118,7 +140,7 @@ mod tests {
             ],
         );
         assert_eq!(
-            filled_segment(Vec3::X, Vec3::NEG_X, 5, &distr::linear).collect::<Vec<_>>(),
+            segment(Vec3::X, Vec3::NEG_X, 5, &distr::linear).collect::<Vec<_>>(),
             vec![
                 Vec3::new(1.0, 0.0, 0.0),
                 Vec3::new(0.5, 0.0, 0.0),
@@ -132,14 +154,14 @@ mod tests {
     // floats... sigh... why can't you be like the segment test?
     #[test]
     fn arc_test() {
-        let a =
-            arc(Vec3::X, Vec3::Y, 3, 270.0_f32.to_radians(), &distr::linear).collect::<Vec<_>>();
+        let a = open_arc(Vec3::X, Vec3::Y, 3, 270.0_f32.to_radians(), &distr::linear)
+            .collect::<Vec<_>>();
         assert_relative_eq!(a[0].x, 1.0);
         assert_relative_eq!(a[1].z, -1.0);
         assert_relative_eq!(a[2].x, -1.0);
 
-        let a = filled_arc(Vec3::X, Vec3::Y, 3, 270.0_f32.to_radians(), &distr::linear)
-            .collect::<Vec<_>>();
+        let a =
+            arc(Vec3::X, Vec3::Y, 3, 270.0_f32.to_radians(), &distr::linear).collect::<Vec<_>>();
         assert_relative_eq!(a[2].z, 1.0);
     }
 

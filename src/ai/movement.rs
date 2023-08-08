@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-use crate::{damage::Dead, time::Rewind, util::vectors::normalize_y};
+use crate::{damage::Dead, time::Rewind, util::vectors::Vec3Ext};
 
 #[derive(Bundle, Default)]
 pub struct MovementBundle {
@@ -60,7 +60,7 @@ pub fn move_to_target<T: Component>(
 ) {
     for (mut controller, mut transform, MoveTarget(target), path_behavior) in query.iter_mut() {
         let t = time.delta_seconds();
-        let direction = normalize_y(target.translation - transform.translation);
+        let direction = (target.translation - transform.translation).xz();
         let translation = match *path_behavior {
             PathBehavior::Beeline { velocity } => {
                 (target.translation - transform.translation) * velocity * t

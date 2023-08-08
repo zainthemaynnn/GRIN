@@ -27,7 +27,7 @@ use bevy_hanabi::HanabiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use bevy_tweening::TweeningPlugin;
-use character::{Character, CharacterPlugin, CharacterSet};
+use character::{CharacterPlugin, CharacterSet};
 use collisions::CollisionsPlugin;
 use damage::DamagePlugin;
 use dialogue::{asset_gen::DialogueAssetLoadState, DialogueEvent, DialogueMap, DialoguePlugin};
@@ -119,7 +119,14 @@ fn main() -> Result<(), io::Error> {
             gravity: Vec3::NEG_Y * 9.81 * (HUMANOID_HEIGHT / 1.8),
             ..Default::default()
         })
-        .add_systems(OnEnter(AssetLoadState::Success), (load_scene, Dummy::spawn))
+        .add_systems(
+            OnEnter(AssetLoadState::Success),
+            (
+                load_scene,
+                Dummy::spawn_at(Transform::from_xyz(10.0, 1E-2, 0.0)),
+                Dummy::spawn_at(Transform::from_xyz(-10.0, 1E-2, 0.0)),
+            ),
+        )
         .add_systems(OnEnter(DialogueAssetLoadState::Success), test_dialogue)
         .add_systems(
             Update,

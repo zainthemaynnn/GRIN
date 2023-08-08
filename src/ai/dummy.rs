@@ -1,23 +1,31 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::{CollisionGroups, Group};
+use bevy_rapier3d::prelude::{Ccd, CollisionGroups, Group, Velocity};
 
 use crate::{
     asset::AssetLoadState,
-    character::{Character, CharacterSet, CharacterSpawnEvent, PlayerCharacter},
+    character::PlayerCharacter,
     collisions::{CollisionGroupExt, CollisionGroupsExt},
-    damage::{Dead, Health, HealthBundle},
+    damage::{
+        projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
+        Damage, DamageBuffer, DamageVariant, Dead, Health, HealthBundle,
+    },
     humanoid::{Humanoid, HumanoidAssets, HumanoidBundle, HumanoidPartType},
-    item::{smg::SMG, Active, Aiming, Equipped, Item, Target},
+    item::Target,
     time::Rewind,
+    util::{
+        distr,
+        vectors::{self, Vec3Ext},
+    },
 };
 
 use super::{
     movement::{move_to_target, CircularVelocity, MoveTarget, MovementBundle, PathBehavior},
-    propagate_item_target, propagate_move_target, set_closest_target,
+    propagate_move_target, set_closest_target,
 };
 
 #[derive(SystemSet, Hash, Debug, Eq, PartialEq, Copy, Clone)]
 pub enum DummySet {
+    Spawn,
     Setup,
     Propagate,
     Act,
@@ -27,7 +35,7 @@ pub struct DummyPlugin;
 
 impl Plugin for DummyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<CharacterSpawnEvent<Dummy>>()
+        app.add_event::<DummySpawnEvent>()
             .configure_sets(
                 Update,
                 (DummySet::Setup, DummySet::Propagate, DummySet::Act).chain(),
@@ -35,13 +43,12 @@ impl Plugin for DummyPlugin {
             .add_systems(
                 Update,
                 (
-                    spawn.in_set(CharacterSet::Spawn),
-                    init_humanoid.in_set(CharacterSet::Spawn),
+                    spawn.in_set(DummySet::Spawn),
+                    init_humanoid.in_set(DummySet::Spawn),
                     set_closest_target::<Dummy, PlayerCharacter>.in_set(DummySet::Setup),
                     propagate_move_target::<Dummy>.in_set(DummySet::Propagate),
-                    propagate_item_target::<Dummy>.in_set(DummySet::Propagate),
                     move_to_target::<Dummy>.in_set(DummySet::Act),
-                    //fire.in_set(DummySet::Act),
+                    fire.in_set(DummySet::Act),
                 )
                     .run_if(in_state(AssetLoadState::Success)),
             );
@@ -51,22 +58,30 @@ impl Plugin for DummyPlugin {
 #[derive(Component, Default)]
 pub struct Dummy;
 
-impl Character for Dummy {
-    type StartItem = SMG;
+#[derive(Event, Default)]
+pub struct DummySpawnEvent {
+    pub transform: Transform,
 }
 
-type SMGSpawnEvent = <<Dummy as Character>::StartItem as Item>::SpawnEvent;
+impl Dummy {
+    // how do I return impl IntoSystem??? too confusing???
+    pub fn spawn_at(transform: Transform) -> impl Fn(EventWriter<DummySpawnEvent>) {
+        move |mut events: EventWriter<DummySpawnEvent>| {
+            events.send(DummySpawnEvent { transform });
+        }
+    }
+}
 
-pub fn spawn<'w, 's>(
-    mut commands: Commands<'w, 's>,
+pub fn spawn(
+    mut commands: Commands,
     hum_assets: Res<HumanoidAssets>,
-    mut events: EventReader<CharacterSpawnEvent<Dummy>>,
+    mut events: EventReader<DummySpawnEvent>,
 ) {
-    for _ in events.iter() {
+    for DummySpawnEvent { transform } in events.iter() {
         commands.spawn((
             DummyUninit,
             Target::default(),
-            Equipped::default(),
+            ShotCooldown::default(),
             HealthBundle {
                 health: Health(100.0),
                 ..Default::default()
@@ -81,7 +96,7 @@ pub fn spawn<'w, 's>(
             CollisionGroups::from_group_default(Group::ENEMY),
             HumanoidBundle {
                 skeleton_gltf: hum_assets.skeleton.clone(),
-                transform: Transform::from_xyz(10.0, 0.0, 0.0),
+                spatial: SpatialBundle::from_transform(transform.clone()),
                 ..Default::default()
             },
         ));
@@ -95,40 +110,89 @@ pub struct DummyUninit;
 pub fn init_humanoid(
     mut commands: Commands,
     humanoid_query: Query<(Entity, &Humanoid), With<DummyUninit>>,
-    mut weapon_events: EventWriter<SMGSpawnEvent>,
 ) {
-    let Ok((e_humanoid, humanoid)) = humanoid_query.get_single() else {
-        return;
-    };
+    for (e_humanoid, humanoid) in humanoid_query.iter() {
+        commands.entity(e_humanoid).remove::<DummyUninit>().insert((
+            Dummy::default(),
+            HealthBundle {
+                health: Health(100.0),
+                ..Default::default()
+            },
+        ));
 
-    commands
-        .entity(e_humanoid)
-        .remove::<DummyUninit>()
-        .insert(Dummy::default());
+        for e_part in humanoid.parts(HumanoidPartType::HITBOX) {
+            commands.entity(e_part).insert((
+                DamageBuffer::default(),
+                CollisionGroups::from_group_default(Group::ENEMY),
+            ));
+        }
 
-    for e_part in humanoid.parts(HumanoidPartType::HITBOX) {
-        commands
-            .entity(e_part)
-            .insert(CollisionGroups::from_group_default(Group::ENEMY));
+        for e_part in humanoid.parts(HumanoidPartType::HANDS) {
+            commands
+                .entity(e_part)
+                .insert(CollisionGroups::new(Group::ENEMY, Group::empty()));
+        }
     }
-
-    weapon_events.send(SMGSpawnEvent::new(e_humanoid));
 }
+
+#[derive(Component, Default)]
+pub struct ShotCooldown(pub f32);
 
 pub fn fire(
     mut commands: Commands,
     time: Res<Time>,
-    dummy_query: Query<&Equipped, (With<Dummy>, Without<Rewind>, Without<Dead>)>,
-    weapon_query: Query<Entity>,
+    mut dummy_query: Query<
+        (Entity, &Humanoid, &Target, &mut ShotCooldown),
+        (With<Dummy>, Without<Rewind>, Without<Dead>),
+    >,
+    transform_query: Query<&GlobalTransform>,
 ) {
-    for Equipped(equipped) in dummy_query.iter() {
-        for item in equipped {
-            let e_item = weapon_query.get(*item).unwrap();
-            if (time.elapsed_seconds() / 5.0) as u32 % 2 == 0 {
-                commands.entity(e_item).insert((Active, Aiming));
-            } else {
-                commands.entity(e_item).remove::<(Active, Aiming)>();
-            }
+    for (
+        entity,
+        humanoid,
+        Target {
+            transform: target, ..
+        },
+        mut cooldown,
+    ) in dummy_query.iter_mut()
+    {
+        cooldown.0 += time.delta_seconds();
+        if cooldown.0 < 4.0 {
+            continue;
         }
+
+        cooldown.0 -= 4.0;
+        let origin = transform_query.get(humanoid.dominant_hand()).unwrap();
+        let fwd = (target.translation - origin.translation()).xz().normalize();
+        let bullet_transform = Transform::from_translation(origin.translation());
+
+        commands.spawn_batch(
+            vectors::centered_arc(fwd, Vec3::Y, 4, 30.0_f32.to_radians(), &distr::linear).map(
+                move |dir| {
+                    let bullet_transform =
+                        bullet_transform.looking_to(dir, dir.any_orthogonal_vector());
+                    (
+                        BulletProjectile,
+                        ProjectileBundle {
+                            color: ProjectileColor::Red,
+                            damage: Damage {
+                                ty: DamageVariant::Ballistic,
+                                value: 5.0,
+                                source: Some(entity),
+                            },
+                            velocity: Velocity::linear(bullet_transform.forward() * 10.0),
+                            collision_groups: CollisionGroups::from_group_default(
+                                Group::ENEMY_PROJECTILE,
+                            ),
+                            spatial: SpatialBundle::from_transform(
+                                bullet_transform.with_scale(Vec3::splat(0.5)),
+                            ),
+                            ccd: Ccd::enabled(),
+                            ..Default::default()
+                        },
+                    )
+                },
+            ),
+        );
     }
 }

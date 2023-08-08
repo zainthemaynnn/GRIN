@@ -123,16 +123,23 @@ pub struct Player;
 
 pub fn init_character_model(
     mut commands: Commands,
-    player_query: Query<(Entity, &Humanoid), (With<PlayerCharacter>, Without<Player>)>,
+    mut player_query: Query<
+        (Entity, &Humanoid, &mut KinematicCharacterController),
+        (With<PlayerCharacter>, Without<Player>),
+    >,
     children_query: Query<&Children>,
 ) {
-    let Ok((e_humanoid, humanoid)) = player_query.get_single() else {
+    let Ok((e_humanoid, humanoid, mut controller)) = player_query.get_single_mut() else {
         return;
     };
 
-    let mut controller_collision_groups = CollisionGroups::from_group_default(Group::PLAYER);
-    // body parts can still hit projectiles, but the controller shouldn't detect them at all
-    controller_collision_groups.filters -= Group::ENEMY_PROJECTILE;
+    controller.filter_groups = Some({
+        let mut groups = CollisionGroups::from_group_default(Group::PLAYER);
+        // body parts can still hit projectiles, but the controller shouldn't detect them at all
+        groups.filters -= Group::ENEMY_PROJECTILE;
+        groups
+    });
+
     let render_layers =
         RenderLayers::from_layers(&[RenderLayer::STANDARD as u8, RenderLayer::AVATAR as u8]);
 
@@ -143,7 +150,6 @@ pub fn init_character_model(
             health: Health(100.0),
             ..Default::default()
         },
-        controller_collision_groups,
     ));
 
     commands.entity(humanoid.head).insert(Ears(0.5));
@@ -160,6 +166,12 @@ pub fn init_character_model(
             DamageBuffer::default(),
             CollisionGroups::from_group_default(Group::PLAYER),
         ));
+    }
+
+    for e_part in humanoid.parts(HumanoidPartType::HANDS) {
+        commands
+            .entity(e_part)
+            .insert(CollisionGroups::from_group_default(Group::NONE));
     }
 }
 

@@ -122,7 +122,7 @@ pub fn spawn(
                     fire_rate: FireRate(2.0),
                     ..Default::default()
                 },
-                RigidBody::KinematicPositionBased,
+                RigidBody::Fixed,
                 collider!(meshes, &assets.sledge),
                 CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE),
                 Sensor,

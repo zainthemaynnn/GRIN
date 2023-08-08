@@ -1,6 +1,7 @@
 use crate::{
     asset::AssetLoadState,
     collider,
+    collisions::CollisionGroupsExt,
     humanoid::{Humanoid, HumanoidAssets, HumanoidBuild, HumanoidBundle, HumanoidDominantHand},
     item::{smg::SMG, Item},
     render::RenderLayer,
@@ -11,6 +12,7 @@ use super::{
     PlayerCharacter,
 };
 use bevy::{prelude::*, render::view::RenderLayers};
+use bevy_rapier3d::prelude::*;
 
 pub struct EightBallPlugin;
 
@@ -84,6 +86,8 @@ pub fn init_humanoid(
             },
             RenderLayers::from_layers(&[RenderLayer::STANDARD as u8, RenderLayer::AVATAR as u8]),
             collider!(meshes, &assets.pizza_shades),
+            RigidBody::Fixed,
+            CollisionGroups::from_group_default(Group::NONE),
         ))
         .set_parent(humanoid.head);
 

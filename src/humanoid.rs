@@ -550,6 +550,14 @@ pub fn process_skeletons(
                         },
                     ));
                 }
+                // TODO:
+                // hand colliders do not follow animations right now. not a huge deal,
+                // and this is usually fixed by adding `RigidBody::Fixed`, like most accessories and items.
+                // for some reason, though, this makes the hand drift off in some random direction.
+                // I will have to look at what causes this when I feel like it.
+
+                // in other news, you can read this conversation I fished up:
+                // https://discord.com/channels/691052431525675048/691052431974465548/1102366192129282139
                 HumanoidPartType::LeftHand => {
                     builder.lhand = Some(e_node);
                     commands.entity(e_node).insert((Hand, Collider::ball(0.15)));

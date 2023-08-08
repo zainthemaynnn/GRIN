@@ -1105,6 +1105,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_pathmesh"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fff3240881e17ce18cb088c06cdbc4f3c4d204df122824160885301460911843"
+dependencies = [
+ "bevy",
+ "itertools 0.11.0",
+ "polyanya",
+]
+
+[[package]]
 name = "bevy_pbr"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1766,6 +1777,15 @@ name = "bumpalo"
 version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d261e256854913907f67ed06efbc3338dfe6179796deefc1ff763fc1aee5535"
+
+[[package]]
+name = "bvh2d"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b21ce88b40438dfdd9ff26dbdb1bb7be8a33b4919c0ed985ccab98164587e89a"
+dependencies = [
+ "glam 0.24.1",
+]
 
 [[package]]
 name = "bytemuck"
@@ -2635,6 +2655,7 @@ version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42218cb640844e3872cc3c153dc975229e080a6c4733b34709ef445610550226"
 dependencies = [
+ "approx",
  "bytemuck",
  "serde",
 ]
@@ -2779,7 +2800,7 @@ dependencies = [
 
 [[package]]
 name = "grin"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "approx",
  "bevy",
@@ -2789,6 +2810,7 @@ dependencies = [
  "bevy_hanabi",
  "bevy_mod_debugdump",
  "bevy_mod_outline",
+ "bevy_pathmesh",
  "bevy_rapier3d",
  "bevy_tweening",
  "bitfield",
@@ -2796,7 +2818,7 @@ dependencies = [
  "env_logger",
  "html_parser",
  "image",
- "itertools",
+ "itertools 0.10.5",
  "iyes_progress",
  "log",
  "rand",
@@ -2831,6 +2853,15 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 dependencies = [
  "ahash 0.7.6",
  "serde",
+]
+
+[[package]]
+name = "hashbrown"
+version = "0.13.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43a3c133739dddd0d2990f9a4bdf8eb4b21ef50e4851ca85ab661199821d510e"
+dependencies = [
+ "ahash 0.8.3",
 ]
 
 [[package]]
@@ -3069,6 +3100,15 @@ name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
 dependencies = [
  "either",
 ]
@@ -4013,6 +4053,18 @@ dependencies = [
  "crc32fast",
  "flate2",
  "miniz_oxide",
+]
+
+[[package]]
+name = "polyanya"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "854f056d35f555f753a403b48bd1dd2c85f06e20401448fdc301a68d3e3f7c77"
+dependencies = [
+ "bvh2d",
+ "glam 0.24.1",
+ "hashbrown 0.13.2",
+ "smallvec",
 ]
 
 [[package]]

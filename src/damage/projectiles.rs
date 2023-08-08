@@ -115,16 +115,17 @@ pub struct ProjectileBundle {
     pub damage: Damage,
     pub contact_damage: ContactDamage,
     pub ccd: Ccd,
+    pub mass_properties: ColliderMassProperties,
+    pub spatial_constraints: LockedAxes,
 }
 
 impl Default for ProjectileBundle {
     fn default() -> Self {
         Self {
-            #[rustfmt::skip]
             active_events: ActiveEvents::COLLISION_EVENTS,
             gravity: GravityScale(0.0),
             collision_groups: CollisionGroups::default(),
-            body: RigidBody::default(),
+            body: RigidBody::Dynamic,
             spatial: SpatialBundle::default(),
             collider: Collider::default(),
             velocity: Velocity::default(),
@@ -133,6 +134,8 @@ impl Default for ProjectileBundle {
             contact_damage: ContactDamage::default(),
             ccd: Ccd::default(),
             color: ProjectileColor::Red,
+            mass_properties: ColliderMassProperties::default(),
+            spatial_constraints: LockedAxes::TRANSLATION_LOCKED_Y,
         }
     }
 }
@@ -182,7 +185,7 @@ pub fn spawn_bullet_projectiles(
 ) {
     for (e_projectile, color) in query.iter() {
         let color = color.copied().unwrap_or_default();
-        commands.entity(e_projectile).insert((
+        commands.get_or_spawn(e_projectile).insert((
             meshes.add(Mesh::from(shape::UVSphere {
                 radius: 0.5,
                 ..Default::default()
@@ -190,8 +193,8 @@ pub fn spawn_bullet_projectiles(
             assets.solid_color(ProjectileColor::White).clone(),
             {
                 let mut outline = outline.standard.clone();
-                outline.outline.colour = Color::ORANGE;
-                outline.outline.width = 3.0;
+                outline.outline.colour = Color::RED;
+                //outline.outline.width = 3.0;
                 outline
             },
             Collider::default(),

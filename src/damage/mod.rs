@@ -194,7 +194,7 @@ mod tests {
     #[test]
     fn damage() {
         let mut app = App::new();
-        app.add_system(apply_damage_buffers);
+        app.add_systems(Update, apply_damage_buffers);
 
         let damage_dst = app
             .world
@@ -253,7 +253,7 @@ mod tests {
     #[test]
     fn resist() {
         let mut app = App::new();
-        app.add_systems((apply_resist, apply_damage_buffers).chain());
+        app.add_systems(Update, (apply_resist, apply_damage_buffers).chain());
 
         let damage_dst = app
             .world
@@ -280,7 +280,7 @@ mod tests {
     #[test]
     fn propagation() {
         let mut app = App::new();
-        app.add_system(propagate_damage_buffers);
+        app.add_systems(Update, propagate_damage_buffers);
 
         let child = app.world.spawn(DamageBuffer(vec![Damage::default()])).id();
 
@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn death() {
         let mut app = App::new();
-        app.add_system(die);
+        app.add_systems(Update, die);
 
         let e = app.world.spawn(Health(0.0)).id();
 

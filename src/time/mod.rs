@@ -528,21 +528,22 @@ mod tests {
 
     fn mock_app() -> App {
         let mut app = App::new();
-        app.add_plugin(RewindPlugin {
-            fixed_timestep: false,
-        })
-        .add_plugin(RewindComponentPlugin::<MockComponent> {
-            fixed_timestep: false,
-            ..Default::default()
-        });
+        app.add_plugins((
+            RewindPlugin {
+                fixed_timestep: false,
+            },
+            RewindComponentPlugin::<MockComponent> {
+                fixed_timestep: false,
+                ..Default::default()
+            },
+        ));
         app
     }
 
     fn add_mutations(app: &mut App) {
-        app.add_system(
-            mutate_component
-                .before(add_new_histories::<MockComponent>)
-                .in_base_set(CoreSet::First),
+        app.add_systems(
+            First,
+            mutate_component.before(add_new_histories::<MockComponent>),
         );
     }
 

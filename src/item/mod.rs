@@ -22,7 +22,7 @@ use crate::{
     asset::AssetLoadState,
     character::camera::{CameraAlignment, LookInfo, PlayerCamera},
     character::Player,
-    humanoid::{Hand, HumanoidDominantHand},
+    humanoid::HumanoidDominantHand,
     render::sketched::SketchMaterial,
 };
 
@@ -45,10 +45,7 @@ impl Plugin for ItemCommonPlugin {
                 Update,
                 ItemSet::Spawn.run_if(in_state(AssetLoadState::Success)),
             )
-            .add_systems(
-                Update,
-                (fade_muzzle_flashes, ignite_muzzle_flashes, log_transform).chain(),
-            );
+            .add_systems(Update, (fade_muzzle_flashes, ignite_muzzle_flashes).chain());
     }
 }
 
@@ -361,13 +358,6 @@ pub struct AimAssets {
     pub ranged_single_lt: Handle<AnimationClip>,
 }
 
-fn log_transform(transform_query: Query<&GlobalTransform, With<Hand>>) {
-    debug!(
-        "{:?}",
-        transform_query.iter().next().map(|t| t.translation())
-    );
-}
-
 /// Plays the aim animations on `item::Active`.
 pub fn aim_on_active<T: Component>(
     mut commands: Commands,
@@ -384,7 +374,6 @@ pub fn aim_on_active<T: Component>(
             .unwrap();
 
         for e_parent in parent_query.iter_ancestors(e_item) {
-            debug!("y");
             let Ok(mut animator) = animator_query.get_mut(e_parent) else {
                 continue;
             };
@@ -414,7 +403,6 @@ pub fn unaim_on_unactive<T: Component>(
 ) {
     for (e_item, idle_type) in item_query.iter() {
         for e_parent in parent_query.iter_ancestors(e_item) {
-            debug!("n");
             let Ok(mut animator) = animator_query.get_mut(e_parent) else {
                 continue;
             };

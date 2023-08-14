@@ -109,7 +109,7 @@ macro_rules! convex_collider {
 #[cfg(test)]
 /// Creates an app with a one second timestep and the plugins needed for rapier physics.
 pub fn new_physics_app() -> App {
-    use bevy::{time::TimePlugin, render::mesh::MeshPlugin, scene::ScenePlugin};
+    use bevy::{render::mesh::MeshPlugin, scene::ScenePlugin, time::TimePlugin};
 
     let mut app = App::new();
     app.insert_resource(RapierConfiguration {

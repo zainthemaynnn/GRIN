@@ -39,7 +39,7 @@ use render::{
     RenderFXPlugins,
 };
 use sound::SoundPlugin;
-use time::{RewindComponentPlugin, RewindPlugin};
+use time::{scaling::TimeScalePlugin, RewindComponentPlugin, RewindPlugin};
 use util::tween::TweenEventPlugin;
 
 use crate::asset::{AssetLoadState, DynamicAssetPlugin};
@@ -110,6 +110,7 @@ fn main() -> Result<(), io::Error> {
             DialoguePlugin,
         ))
         .add_plugins((
+            TimeScalePlugin,
             RewindPlugin::default(),
             RewindComponentPlugin::<Transform>::default(),
             RapierDebugRenderPlugin::default(),

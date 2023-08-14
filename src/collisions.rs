@@ -106,6 +106,24 @@ macro_rules! convex_collider {
     }};
 }
 
+#[cfg(test)]
+/// Creates an app with a one second timestep and the plugins needed for rapier physics.
+pub fn new_physics_app() -> App {
+    use bevy::{time::TimePlugin, render::mesh::MeshPlugin, scene::ScenePlugin};
+
+    let mut app = App::new();
+    app.insert_resource(RapierConfiguration {
+        timestep_mode: TimestepMode::Fixed {
+            dt: 1.0,
+            substeps: 1,
+        },
+        ..Default::default()
+    })
+    .add_plugins((TimePlugin, AssetPlugin::default(), MeshPlugin, ScenePlugin))
+    .add_plugins(RapierPhysicsPlugin::<NoUserData>::default());
+    app
+}
+
 // NOTE: it turns out that this was unnecessary
 // but hell, I wrote it, and might need it in my belt later, so it'll sit for now
 

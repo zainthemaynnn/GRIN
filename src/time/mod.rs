@@ -3,6 +3,8 @@
 //!
 //! https://youtu.be/8dinUbg2h70
 
+pub mod scaling;
+
 use std::{collections::vec_deque::VecDeque, marker::PhantomData};
 
 use bevy::{

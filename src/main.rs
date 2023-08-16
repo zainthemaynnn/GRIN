@@ -13,7 +13,7 @@ mod util;
 
 use std::{env, io, time::Duration};
 
-use ai::{dummy::Dummy, AIPlugins};
+use ai::{boombox::BoomBox, dummy::Dummy, AIPlugins};
 use asset::FallbackImage;
 use bevy::{
     asset::ChangeWatcher,
@@ -125,7 +125,7 @@ fn main() -> Result<(), io::Error> {
             (
                 load_scene,
                 Dummy::spawn_at(Transform::from_xyz(10.0, 1E-2, 0.0)),
-                Dummy::spawn_at(Transform::from_xyz(-10.0, 1E-2, 0.0)),
+                BoomBox::spawn_at(Transform::from_xyz(-10.0, 1E-2, 0.0)),
             ),
         )
         .add_systems(OnEnter(DialogueAssetLoadState::Success), test_dialogue)

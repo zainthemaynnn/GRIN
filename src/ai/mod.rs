@@ -1,3 +1,4 @@
+pub mod boombox;
 pub mod dummy;
 pub mod movement;
 
@@ -5,13 +6,15 @@ use bevy::{app::PluginGroupBuilder, prelude::*};
 
 use crate::{damage::Dead, humanoid::HUMANOID_HEIGHT, item::Target, time::Rewind};
 
-use self::{dummy::DummyPlugin, movement::MoveTarget};
+use self::{boombox::BoomBoxPlugin, dummy::DummyPlugin, movement::MoveTarget};
 
 pub struct AIPlugins;
 
 impl PluginGroup for AIPlugins {
     fn build(self) -> PluginGroupBuilder {
-        PluginGroupBuilder::start::<Self>().add(DummyPlugin)
+        PluginGroupBuilder::start::<Self>()
+            .add(DummyPlugin)
+            .add(BoomBoxPlugin)
     }
 }
 

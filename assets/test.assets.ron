@@ -21,6 +21,15 @@ CustomDynamicAssetCollection({
      "mesh.pizza_shades": File (
           path: "meshes/pizza_shades.glb#Mesh0/Primitive0",
      ),
+     "mesh.square_shades": File (
+          path: "meshes/square_shades.glb#Mesh0/Primitive0",
+     ),
+     "mesh.boombox": File (
+          path: "meshes/boombox.glb#Mesh0/Primitive0",
+     ),
+     "mesh.headphones": File (
+          path: "meshes/headphones.glb#Mesh0/Primitive0",
+     ),
      "mesh.gun": UVSphereMesh ( // TODO: make like, an actual gun
           radius: 0.15,
      ),
@@ -39,6 +48,7 @@ CustomDynamicAssetCollection({
      "rig.humanoid_skeleton": File (
           path: "meshes/skeleton.glb#Scene0",
      ),
+     // yikes. I'll have to split files or find a better way to index soon.
      "anim.hammer.charge": File (
           path: "meshes/skeleton.glb#Animation0",
      ),
@@ -57,14 +67,20 @@ CustomDynamicAssetCollection({
      "anim.idle": File (
           path: "meshes/skeleton.glb#Animation5",
      ),
-     "anim.pistol.left": File (
+     "anim.idle.boombox.left": File (
           path: "meshes/skeleton.glb#Animation6",
      ),
-     "anim.pistol.right": File (
+     "anim.idle.boombox.right": File (
           path: "meshes/skeleton.glb#Animation7",
      ),
-     "anim.stretch": File (
+     "anim.pistol.left": File (
           path: "meshes/skeleton.glb#Animation8",
+     ),
+     "anim.pistol.right": File (
+          path: "meshes/skeleton.glb#Animation9",
+     ),
+     "anim.stretch": File (
+          path: "meshes/skeleton.glb#Animation10",
      ),
      "tex.skin": File (
           path: "textures/generated/skin.png",
@@ -96,8 +112,16 @@ CustomDynamicAssetCollection({
      "mat.gun": SketchMaterial (
           base_color: (0.0, 0.0, 0.0, 0.0),
      ),
+     "mat.grin": SketchMaterial (
+          base_color_texture: "textures/generated/grin.png",
+          layers: 2,
+     ),
      "mat.smirk": SketchMaterial (
           base_color_texture: "textures/generated/smirk.png",
+          layers: 2,
+     ),
+     "mat.grizz": SketchMaterial (
+          base_color_texture: "textures/generated/grizz.png",
           layers: 2,
      ),
      "mat.meh": SketchMaterial (

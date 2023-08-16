@@ -11,12 +11,12 @@ use super::distr::{self, closed_f32_distribution, open_f32_distribution};
 
 pub trait Vec3Ext {
     /// Sets `Vec3.y` to `0.0`.
-    fn xz(&self) -> Self;
+    fn xz_flat(&self) -> Self;
 }
 
 impl Vec3Ext for Vec3 {
     #[inline]
-    fn xz(&self) -> Vec3 {
+    fn xz_flat(&self) -> Vec3 {
         Vec3::new(self.x, 0.0, self.z)
     }
 }

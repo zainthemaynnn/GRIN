@@ -163,7 +163,9 @@ pub fn fire(
 
         cooldown.0 -= 4.0;
         let origin = transform_query.get(humanoid.dominant_hand()).unwrap();
-        let fwd = (target.translation - origin.translation()).xz().normalize();
+        let fwd = (target.translation - origin.translation())
+            .xz_flat()
+            .normalize();
         let bullet_transform = Transform::from_translation(origin.translation());
 
         commands.spawn_batch(

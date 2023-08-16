@@ -112,13 +112,10 @@ pub fn init_humanoid(
     humanoid_query: Query<(Entity, &Humanoid), With<DummyUninit>>,
 ) {
     for (e_humanoid, humanoid) in humanoid_query.iter() {
-        commands.entity(e_humanoid).remove::<DummyUninit>().insert((
-            Dummy::default(),
-            HealthBundle {
-                health: Health(100.0),
-                ..Default::default()
-            },
-        ));
+        commands
+            .entity(e_humanoid)
+            .remove::<DummyUninit>()
+            .insert(Dummy::default());
 
         for e_part in humanoid.parts(HumanoidPartType::HITBOX) {
             commands.entity(e_part).insert((

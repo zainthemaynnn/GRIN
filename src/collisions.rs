@@ -1,17 +1,24 @@
-use bevy::prelude::*;
+use std::time::Duration;
+
+use bevy::{prelude::*, time::TimeSystem};
 use bevy_rapier3d::prelude::*;
+
+use crate::time::scaling::TimeScale;
 
 pub struct CollisionsPlugin;
 
 impl Plugin for CollisionsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                assign_collider_ref_transforms,
-                assign_collider_ref_collision_groups,
-            ),
-        );
+        app.init_resource::<PhysicsTime>()
+            .add_systems(
+                Update,
+                (
+                    assign_collider_ref_transforms,
+                    assign_collider_ref_collision_groups,
+                ),
+            )
+            .add_systems(First, write_physics_time.after(TimeSystem))
+            .add_systems(Last, (update_force_timers, kill_timed_forces).chain());
     }
 }
 
@@ -106,8 +113,8 @@ macro_rules! convex_collider {
     }};
 }
 
-#[cfg(test)]
 /// Creates an app with a one second timestep and the plugins needed for rapier physics.
+#[cfg(test)]
 pub fn new_physics_app() -> App {
     use bevy::{render::mesh::MeshPlugin, scene::ScenePlugin, time::TimePlugin};
 
@@ -122,6 +129,86 @@ pub fn new_physics_app() -> App {
     .add_plugins((TimePlugin, AssetPlugin::default(), MeshPlugin, ScenePlugin))
     .add_plugins(RapierPhysicsPlugin::<NoUserData>::default());
     app
+}
+
+/// While `Time` represents actual real world time, `PhysicsTime` records
+/// physics simulation time, which might change during frame lag.
+#[derive(Resource, Default)]
+pub struct PhysicsTime(pub Time);
+
+/// Updates `PhysicsTime`.
+pub fn write_physics_time(
+    time: Res<Time>,
+    mut physics_time: ResMut<PhysicsTime>,
+    rapier_config: Res<RapierConfiguration>,
+) {
+    // just found out about `SimulationToRenderTime`. hm. whoops.
+    let dt = match rapier_config.timestep_mode {
+        TimestepMode::Fixed { dt, .. } => dt,
+        // as far as I'm concerned here, they're the same.
+        TimestepMode::Variable {
+            max_dt, time_scale, ..
+        }
+        | TimestepMode::Interpolated {
+            dt: max_dt,
+            time_scale,
+            ..
+        } => f32::min(max_dt, time.delta_seconds() * time_scale),
+    };
+    let last_update = physics_time
+        .0
+        .last_update()
+        .unwrap_or_else(|| time.last_update().unwrap());
+    physics_time
+        .0
+        .update_with_instant(last_update + Duration::from_secs_f32(dt));
+}
+
+/// Add to an `ExternalForce`. At the end of this component's duration,
+/// the `ExternalForce` is stopped and this component is removed.
+#[derive(Component)]
+pub struct ForceTimer {
+    pub timer: Timer,
+}
+
+impl ForceTimer {
+    pub fn new(duration: Duration) -> Self {
+        Self {
+            timer: Timer::new(duration, TimerMode::Once),
+        }
+    }
+
+    pub fn from_seconds(duration: f32) -> Self {
+        Self {
+            timer: Timer::from_seconds(duration, TimerMode::Once),
+        }
+    }
+}
+
+/// Updates `ForceTimer` durations.
+pub fn update_force_timers(
+    time: Res<PhysicsTime>,
+    mut timer_query: Query<(&mut ForceTimer, &TimeScale)>,
+) {
+    for (mut timer, time_scale) in timer_query.iter_mut() {
+        timer
+            .timer
+            .tick(time.0.delta().mul_f32(f32::from(time_scale)));
+    }
+}
+
+/// Removes `ForceTimer`s and stops `ExternalForce`s.
+pub fn kill_timed_forces(
+    mut commands: Commands,
+    mut timer_query: Query<(Entity, &ForceTimer, &mut ExternalForce)>,
+) {
+    for (e_timer, timer, mut force) in timer_query.iter_mut() {
+        if timer.timer.just_finished() {
+            force.force = Vec3::ZERO;
+            force.torque = Vec3::ZERO;
+            commands.entity(e_timer).remove::<ForceTimer>();
+        }
+    }
 }
 
 // NOTE: it turns out that this was unnecessary
@@ -167,5 +254,90 @@ pub fn assign_collider_ref_collision_groups(
         if let Ok(new_collision_groups) = collision_groups_query.get(*e_collider) {
             *collision_groups = *new_collision_groups;
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::f32::consts::TAU;
+
+    use super::*;
+
+    #[test]
+    fn physics_time() {
+        let mut app = new_physics_app();
+        app.add_plugins(CollisionsPlugin)
+            .insert_resource(RapierConfiguration {
+                timestep_mode: TimestepMode::Variable {
+                    max_dt: 1.0 / 60.0,
+                    time_scale: 1.0,
+                    substeps: 1,
+                },
+                ..Default::default()
+            })
+            .add_systems(
+                First,
+                (|mut time: ResMut<Time>| {
+                    let latest = time.last_update().unwrap();
+                    time.update_with_instant(latest + Duration::from_secs(1));
+                })
+                .after(TimeSystem)
+                .before(write_physics_time),
+            );
+
+        // first update just syncs the `last_update` so delta is zero
+        // gotta do it twice
+        app.update();
+        app.update();
+
+        let time = app.world.resource::<Time>();
+        let physics_time = app.world.resource::<PhysicsTime>();
+        assert_eq!(time.delta_seconds(), 1.0);
+        assert_eq!(
+            physics_time.0.delta_seconds(),
+            1.0 / 60.0,
+            "`PhysicsTime` wasn't capped.",
+        );
+    }
+
+    #[test]
+    fn force_timer() {
+        let mut app = new_physics_app();
+        app.add_plugins(CollisionsPlugin);
+
+        let e_force = app
+            .world
+            .spawn((
+                TimeScale::default(),
+                ExternalForce {
+                    force: Vec3::new(1.0, 0.0, 0.0),
+                    torque: Vec3::new(TAU, 0.0, 0.0),
+                },
+                ForceTimer::from_seconds(1.0),
+            ))
+            .id();
+
+        app.update();
+
+        let mut time = app.world.resource_mut::<Time>();
+        let latest = time.last_update().unwrap();
+        time.update_with_instant(latest + Duration::from_secs(2));
+
+        app.update();
+
+        let force_timer = app.world.entity(e_force).get::<ForceTimer>();
+        let force = app.world.entity(e_force).get::<ExternalForce>().unwrap();
+
+        assert!(force_timer.is_none(), "`ForceTimer` wasn't removed.");
+        assert_eq!(
+            force.force,
+            Vec3::ZERO,
+            "`ExternalForce.force` wasn't reset.",
+        );
+        assert_eq!(
+            force.torque,
+            Vec3::ZERO,
+            "`ExternalForce.torque` wasn't reset.",
+        );
     }
 }

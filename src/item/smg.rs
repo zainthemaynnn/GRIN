@@ -1,12 +1,12 @@
 use crate::{
     asset::AssetLoadState,
     character::Player,
-    collisions::{CollisionGroupExt, CollisionGroupsExt},
     damage::{
         projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
         Damage, DamageVariant,
     },
     humanoid::Humanoid,
+    physics::{CollisionGroupExt, CollisionGroupsExt},
 };
 
 use super::{

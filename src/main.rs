@@ -1,11 +1,11 @@
 mod ai;
 mod asset;
 mod character;
-mod collisions;
 mod damage;
 mod dialogue;
 mod humanoid;
 mod item;
+mod physics;
 mod render;
 mod sound;
 mod time;
@@ -28,12 +28,12 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rapier3d::prelude::*;
 use bevy_tweening::TweeningPlugin;
 use character::{CharacterPlugin, CharacterSet};
-use collisions::CollisionsPlugin;
 use damage::DamagePlugin;
 use dialogue::{asset_gen::DialogueAssetLoadState, DialogueEvent, DialogueMap, DialoguePlugin};
 use humanoid::{HumanoidPlugin, HUMANOID_HEIGHT};
 use image::io::Reader as ImageReader;
 use item::{ItemPlugins, ItemSet};
+use physics::GrinPhysicsPlugin;
 use render::{
     sketched::{NoOutline, SketchMaterial},
     RenderFXPlugins,
@@ -99,7 +99,7 @@ fn main() -> Result<(), io::Error> {
             TweeningPlugin,
             TweenEventPlugin,
             HanabiPlugin,
-            CollisionsPlugin,
+            GrinPhysicsPlugin,
             RenderFXPlugins,
             HumanoidPlugin,
             ItemPlugins,

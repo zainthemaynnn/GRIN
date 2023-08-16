@@ -4,13 +4,13 @@ use bevy_rapier3d::prelude::{Ccd, CollisionGroups, Group, Velocity};
 use crate::{
     asset::AssetLoadState,
     character::PlayerCharacter,
-    collisions::{CollisionGroupExt, CollisionGroupsExt},
     damage::{
         projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
         Damage, DamageBuffer, DamageVariant, Dead, Health, HealthBundle,
     },
     humanoid::{Humanoid, HumanoidAssets, HumanoidBundle, HumanoidPartType},
     item::Target,
+    physics::{CollisionGroupExt, CollisionGroupsExt},
     time::Rewind,
     util::{
         distr,

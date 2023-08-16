@@ -1,9 +1,9 @@
 use crate::{
     asset::AssetLoadState,
     collider,
-    collisions::CollisionGroupsExt,
     humanoid::{Humanoid, HumanoidAssets, HumanoidBuild, HumanoidBundle, HumanoidDominantHand},
     item::{smg::SMG, Item},
+    physics::CollisionGroupsExt,
     render::RenderLayer,
 };
 

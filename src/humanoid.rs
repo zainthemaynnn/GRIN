@@ -6,8 +6,8 @@ use rand::{distributions::Uniform, Rng};
 use crate::{
     asset::AssetLoadState,
     collider,
-    collisions::{CollisionGroupExt, CollisionGroupsExt},
     damage::Dead,
+    physics::{CollisionGroupExt, CollisionGroupsExt},
     render::sketched::SketchMaterial,
     time::CommandsExt,
 };

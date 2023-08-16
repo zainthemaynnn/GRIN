@@ -5,9 +5,9 @@ use bevy_rapier3d::prelude::*;
 
 use crate::time::scaling::TimeScale;
 
-pub struct CollisionsPlugin;
+pub struct GrinPhysicsPlugin;
 
-impl Plugin for CollisionsPlugin {
+impl Plugin for GrinPhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PhysicsTime>()
             .add_systems(
@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn physics_time() {
         let mut app = new_physics_app();
-        app.add_plugins(CollisionsPlugin)
+        app.add_plugins(GrinPhysicsPlugin)
             .insert_resource(RapierConfiguration {
                 timestep_mode: TimestepMode::Variable {
                     max_dt: 1.0 / 60.0,
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn force_timer() {
         let mut app = new_physics_app();
-        app.add_plugins(CollisionsPlugin);
+        app.add_plugins(GrinPhysicsPlugin);
 
         let e_force = app
             .world

@@ -4,10 +4,10 @@ use crate::{
     asset::AssetLoadState,
     character::Player,
     collider,
-    collisions::{CollisionGroupExt, CollisionGroupsExt},
     damage::{ContactDamage, Damage, DamageVariant},
     humanoid::Humanoid,
     item::melee::Charging,
+    physics::{CollisionGroupExt, CollisionGroupsExt},
     render::sketched::SketchMaterial,
 };
 

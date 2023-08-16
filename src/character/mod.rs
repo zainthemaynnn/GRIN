@@ -11,8 +11,8 @@ use crate::render::gopro::{add_gopro, GoProSettings};
 use crate::render::sketched::SketchMaterial;
 use crate::sound::Ears;
 
-use crate::collisions::{CollisionGroupExt, CollisionGroupsExt};
 use crate::item::{Equipped, Item};
+use crate::physics::{CollisionGroupExt, CollisionGroupsExt};
 use crate::render::RenderLayer;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;

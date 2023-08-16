@@ -200,7 +200,7 @@ mod tests {
     use bevy::{audio::AudioPlugin, time::TimePlugin};
     use bevy_rapier3d::prelude::*;
 
-    use crate::collisions::new_physics_app;
+    use crate::physics::new_physics_app;
 
     use super::*;
 

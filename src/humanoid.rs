@@ -9,7 +9,7 @@ use crate::{
     damage::Dead,
     physics::{CollisionGroupExt, CollisionGroupsExt},
     render::sketched::SketchMaterial,
-    time::CommandsExt,
+    time::{scaling::RawVelocity, CommandsExt},
 };
 
 pub const HUMANOID_HEIGHT: f32 = 2.625;
@@ -246,7 +246,7 @@ pub struct Shatter {
 pub fn shatter_on_death(
     mut commands: Commands,
     assets: Res<HumanoidAssets>,
-    humanoid_query: Query<(Entity, &Humanoid, &Velocity), (With<Dead>, Without<Shattered>)>,
+    humanoid_query: Query<(Entity, &Humanoid, &RawVelocity), (With<Dead>, Without<Shattered>)>,
     shatter_query: Query<(&GlobalTransform, &Handle<SketchMaterial>)>,
     child_query: Query<(&GlobalTransform, &Collider)>,
     mesh_query: Query<(Entity, &Handle<Mesh>, &Handle<SketchMaterial>)>,
@@ -275,7 +275,7 @@ pub fn shatter_on_death(
                 .spawn((
                     Shatter {
                         material: material.clone(),
-                        inherited_velocity: velocity.linvel,
+                        inherited_velocity: velocity.0.linvel,
                         speed,
                     },
                     SceneBundle {
@@ -321,7 +321,7 @@ pub fn shatter_on_death(
                             RigidBody::Dynamic,
                             collider.clone(),
                             CollisionGroups::from_group_default(Group::DEBRIS),
-                            velocity.clone(),
+                            velocity.0.clone(),
                         ))
                         .set_time_parent(e_humanoid);
                 }

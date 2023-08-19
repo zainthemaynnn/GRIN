@@ -1,8 +1,10 @@
 //! Common `Vec3` calculations.
 
+// this module is proof that I am no good at math...
+
 #![allow(dead_code)]
 
-use std::f32::consts::TAU;
+use std::{cmp::Ordering, f32::consts::TAU};
 
 use bevy::prelude::{Quat, Vec3};
 use itertools::Itertools;
@@ -12,12 +14,30 @@ use super::distr::{self, closed_f32_distribution, open_f32_distribution};
 pub trait Vec3Ext {
     /// Sets `Vec3.y` to `0.0`.
     fn xz_flat(&self) -> Self;
+
+    /// Returns the lexographic comparison of the two vectors.
+    /// In baby words: comparison by priority of individual components `x`, `y`, `z`.
+    fn lexographic_cmp(&self, other: &Vec3) -> std::cmp::Ordering;
 }
 
 impl Vec3Ext for Vec3 {
     #[inline]
     fn xz_flat(&self) -> Vec3 {
         Vec3::new(self.x, 0.0, self.z)
+    }
+
+    fn lexographic_cmp(&self, other: &Vec3) -> std::cmp::Ordering {
+        for i in 0..3 {
+            match self[i].total_cmp(&other[i]) {
+                std::cmp::Ordering::Equal => {
+                    continue;
+                }
+                ord => {
+                    return ord;
+                }
+            }
+        }
+        std::cmp::Ordering::Equal
     }
 }
 
@@ -120,6 +140,79 @@ pub fn polygon_eq<'a>(
     // whatever, I doubt `vertices` is getting that big
     let vertices = circle(p0, axis, n, &distr::linear).collect::<Vec<_>>();
     link_vertices(vertices, segsize, distr)
+}
+
+// courtesy of the people who write convex hulls in every language. I love you.
+// https://github.com/TheAlgorithms/Rust/blob/master/src/general/convex_hull.rs
+
+/// For every point, compares to `min`; sorted by angle difference, then distance difference.
+pub fn sort_by_min_angle(pts: &[Vec3], min: &Vec3) -> Vec<Vec3> {
+    let mut points: Vec<((f32, f32), Vec3)> = pts
+        .iter()
+        .map(|x| {
+            (
+                (
+                    // angle
+                    (x.z - min.z).atan2(x.x - min.x),
+                    // distance (we want the closest to be first)
+                    (x.z - min.z).hypot(x.x - min.x),
+                ),
+                *x,
+            )
+        })
+        .collect();
+    points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+    points.into_iter().map(|x| x.1).collect()
+}
+
+/// Calculates the z coordinate of the vector product of vectors ab and ac.
+pub fn calc_z_coord_vector_product(a: &Vec3, b: &Vec3, c: &Vec3) -> f32 {
+    (b.x - a.x) * (c.z - a.z) - (c.x - a.x) * (b.z - a.z)
+}
+
+/// Convex hull. Points should be y-normalized.
+///
+/// If three points are aligned and are part of the convex hull then the three are kept.
+/// If one doesn't want to keep those points, it is easy to iterate the answer and remove them.
+///
+/// The first point is the one with the lowest y-coordinate and the lowest x-coordinate.
+/// Points are then given counter-clockwise, and the closest one is given first if needed.
+pub fn convex_hull_2d(pts: &[Vec3]) -> Vec<Vec3> {
+    if pts.is_empty() {
+        return vec![];
+    }
+
+    let mut stack: Vec<Vec3> = vec![];
+    let min = pts.iter().min_by(|a, b| a.lexographic_cmp(&b)).unwrap();
+
+    let points = sort_by_min_angle(pts, min);
+
+    if points.len() <= 3 {
+        return points;
+    }
+
+    for point in points {
+        while stack.len() > 1
+            && calc_z_coord_vector_product(&stack[stack.len() - 2], &stack[stack.len() - 1], &point)
+                < 0.
+        {
+            stack.pop();
+        }
+        stack.push(point);
+    }
+
+    stack
+}
+
+// https://stackoverflow.com/a/16906278
+/// Points should be CCW and y-normalized. Edges included.
+pub fn lies_within_convex_hull(hull: &Vec<Vec3>, p: &Vec3) -> bool {
+    for (a, b) in hull.iter().circular_tuple_windows() {
+        if calc_z_coord_vector_product(a, b, p) < 0.0 {
+            return false;
+        }
+    }
+    true
 }
 
 #[cfg(test)]

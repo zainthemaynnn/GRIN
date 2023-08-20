@@ -10,7 +10,10 @@ use crate::{
     util::vectors::{self, Vec3Ext},
 };
 
-pub struct MapPlugin;
+#[derive(Default)]
+pub struct MapPlugin {
+    pub navmesh_debugging: bool,
+}
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
@@ -18,11 +21,15 @@ impl Plugin for MapPlugin {
             Update,
             (
                 check_map_existence.run_if(in_state(MapLoadState::NotLoaded)),
-                add_map_collider
+                setup_map_navigation
                     .pipe(finish_navmesh_generation)
                     .run_if(in_state(MapLoadState::Loading)),
             ),
         );
+
+        if self.navmesh_debugging {
+            app.add_systems(Update, draw_navmesh.run_if(in_state(MapLoadState::Success)));
+        }
     }
 }
 
@@ -33,6 +40,7 @@ pub struct Map;
 pub struct NavMeshStatistics {
     pub hulls: usize,
     pub edges: usize,
+    pub constraints: usize,
     pub verts: usize,
     pub raw_polys: usize,
     pub culled_polys: usize,
@@ -59,7 +67,7 @@ pub fn check_map_existence(
 
 // NOTE: I don't actually know if it's possible for this to run twice or not
 // I need to check the logs on a more complex map
-pub fn add_map_collider(
+pub fn setup_map_navigation(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
     map_query: Query<Entity, (With<Map>, With<Children>)>,
@@ -164,6 +172,15 @@ pub fn add_map_collider(
         .collect_vec();
     let culled_polys = polygons.len();
 
+    let mut edges = Vec::new();
+
+    for edge in triangulation.undirected_edges() {
+        edges.push(
+            edge.vertices()
+                .map(|p| Vec3::new(p.position().x, 0.0, p.position().y)),
+        );
+    }
+
     let navmesh = landmass::NavigationMesh {
         mesh_bounds: None,
         vertices,
@@ -180,9 +197,17 @@ pub fn add_map_collider(
 
     commands.insert_resource(NavMesh { archipelago });
 
+    // TODO: yes, this is a big waste of memory if debugging is disabled.
+    // there's not really a clean way to toggle debugging while putting this line here
+    // because at the end of the system I lose access to edges if I don't copy them.
+    // this would be solved if `Archipelago.archipelago.nav_data` was pub, but it isn't.
+    // either I'll fork it or cook up a solution, but this should definitely be fixed.
+    commands.insert_resource(NavMeshEdges(edges));
+
     Ok(NavMeshStatistics {
         hulls: hulls.len(),
-        edges: triangulation.num_constraints(),
+        edges: triangulation.num_undirected_edges(),
+        constraints: triangulation.num_constraints(),
         verts: triangulation.num_vertices(),
         raw_polys: triangulation.num_inner_faces(),
         culled_polys,
@@ -208,6 +233,15 @@ pub fn finish_navmesh_generation(
 #[derive(Resource)]
 pub struct NavMesh {
     pub archipelago: Entity,
+}
+
+#[derive(Resource)]
+pub struct NavMeshEdges(Vec<[Vec3; 2]>);
+
+pub fn draw_navmesh(mut gizmos: Gizmos, edges: Res<NavMeshEdges>) {
+    for [p0, p1] in edges.0.iter() {
+        gizmos.line(*p0, *p1, Color::WHITE);
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]

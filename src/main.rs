@@ -122,7 +122,9 @@ fn main() -> Result<(), io::Error> {
             RapierDebugRenderPlugin::default(),
             WorldInspectorPlugin::new(),
             LandmassPlugin,
-            MapPlugin,
+            MapPlugin {
+                navmesh_debugging: true,
+            },
         ))
         .insert_resource(RapierConfiguration {
             gravity: Vec3::NEG_Y * 9.81 * (HUMANOID_HEIGHT / 1.8),

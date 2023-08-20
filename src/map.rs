@@ -85,12 +85,15 @@ pub fn setup_map_navigation(
             continue;
         };
 
-        match name.as_str() {
-            "Plane" => (),
-            _ => {
-                obstacles.push((*g_transform, mesh.clone()));
-            }
-        }
+        // polygons within "restricted" hulls are excluded
+        // I don't want this to include the larger, all-encompassing floor
+        // which will define the navmesh boundary
+        let restricted = match name.as_str() {
+            "Plane" => false,
+            _ => true,
+        };
+
+        obstacles.push((restricted, *g_transform, mesh.clone()));
 
         commands.entity(e_node).insert(collider!(&meshes, mesh));
     }
@@ -111,7 +114,7 @@ pub fn setup_map_navigation(
     let mut triangulation = ConstrainedDelaunayTriangulation::<Point2<f32>>::new();
     let mut hulls = Vec::new();
 
-    for (g_transform, h_mesh) in obstacles.iter() {
+    for (restricted, g_transform, h_mesh) in obstacles.iter() {
         let mesh = meshes.get(h_mesh).unwrap();
 
         let mut positions = match mesh
@@ -134,12 +137,12 @@ pub fn setup_map_navigation(
         positions.dedup();
 
         let hull = vectors::convex_hull_2d(positions.as_slice());
-        hulls.push(hull);
+        hulls.push((*restricted, hull));
     }
 
     // using convex hull edges as constraints
     // it should be accurate enough
-    for hull in hulls.iter() {
+    for (_, hull) in hulls.iter() {
         for (p0, p1) in hull.iter().circular_tuple_windows() {
             let (from, to) = (Point2::new(p0.x, p0.z), Point2::new(p1.x, p1.z));
             triangulation
@@ -162,7 +165,8 @@ pub fn setup_map_navigation(
         .inner_faces()
         .filter_map(|f| {
             let center = f.center();
-            for hull in hulls.iter() {
+            // exclude non-restricted hulls
+            for hull in hulls.iter().filter_map(|v| v.0.then_some(&v.1)) {
                 if vectors::lies_within_convex_hull(hull, &Vec3::new(center.x, 0.0, center.y)) {
                     return None;
                 }

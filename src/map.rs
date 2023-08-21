@@ -2,17 +2,26 @@ use std::array::IntoIter;
 
 use bevy::{prelude::*, render::mesh::VertexAttributeValues};
 use bevy_landmass::Archipelago;
+use geo::{
+    BooleanOps, Contains, ConvexHull, Coord, Line, LineString, LinesIter, MultiPolygon, OpType,
+};
+use geo_offset::Offset;
 use itertools::Itertools;
 use spade::{ConstrainedDelaunayTriangulation, Point2, Triangulation};
 
 use crate::{
-    collider,
-    util::vectors::{self, Vec3Ext},
+    collider, humanoid::HUMANOID_RADIUS, render::sketched::NoOutline, util::vectors::Vec3Ext,
 };
+
+/// How much to offset navmesh from obstacles.
+//
+// TODO: odds are I will need multiple navmeshes for agents of similar radii
+// right now there are only humanoids, but this needs to be done when I add others
+pub const NAVMESH_EROSION: f64 = (HUMANOID_RADIUS as f64) + 1.0;
 
 #[derive(Default)]
 pub struct MapPlugin {
-    pub navmesh_debugging: bool,
+    pub navmesh_debugging: Option<Color>,
 }
 
 impl Plugin for MapPlugin {
@@ -27,8 +36,11 @@ impl Plugin for MapPlugin {
             ),
         );
 
-        if self.navmesh_debugging {
-            app.add_systems(Update, draw_navmesh.run_if(in_state(MapLoadState::Success)));
+        if let Some(color) = self.navmesh_debugging {
+            app.add_systems(
+                Update,
+                draw_navmesh_system_with_color(color).run_if(in_state(MapLoadState::Success)),
+            );
         }
     }
 }
@@ -38,7 +50,10 @@ pub struct Map;
 
 #[derive(Debug)]
 pub struct NavMeshStatistics {
-    pub hulls: usize,
+    pub simple_boundaries: usize,
+    pub simple_obstacles: usize,
+    pub merged_boundaries: usize,
+    pub merged_obstacles: usize,
     pub edges: usize,
     pub constraints: usize,
     pub verts: usize,
@@ -78,7 +93,7 @@ pub fn setup_map_navigation(
         .get_single()
         .map_err(|_| NavMeshGenerationError::MapNotFound)?;
 
-    let mut obstacles = Vec::default();
+    let mut map_meshes = Vec::default();
 
     for e_node in children_query.iter_descendants(e_map) {
         let Ok((g_transform, mesh, name)) = mesh_query.get(e_node) else {
@@ -93,9 +108,12 @@ pub fn setup_map_navigation(
             _ => true,
         };
 
-        obstacles.push((restricted, *g_transform, mesh.clone()));
+        map_meshes.push((restricted, *g_transform, mesh.clone()));
 
         commands.entity(e_node).insert(collider!(&meshes, mesh));
+        if !restricted {
+            commands.entity(e_node).insert(NoOutline);
+        }
     }
 
     // https://skatgame.net/mburo/ps/thesis_demyen_2006.pdf
@@ -103,18 +121,13 @@ pub fn setup_map_navigation(
     //
     // I would like to thank this guy. touched it up a little, but it is basically their's.
     // https://discord.com/channels/691052431525675048/1138102751444877333/1138136084895772682
-    //
-    // NOTE: it's important that none of the primitives in the scene are overlapping.
-    // otherwise there's a good chance of overlapping triangulation constraints.
-    // it is probably possible to merge these into the same hull or use a completely different approach.
-    // however, this doesn't really make the map all that more difficult to make.
-    // just need to keep it in mind.
     info!("Begin navmesh generation...");
 
     let mut triangulation = ConstrainedDelaunayTriangulation::<Point2<f32>>::new();
-    let mut hulls = Vec::new();
+    let mut boundaries = Vec::new(); // boundary hulls (allow contained polygons)
+    let mut obstacles = Vec::new(); // obstacle hulls (cull contained polygons)
 
-    for (restricted, g_transform, h_mesh) in obstacles.iter() {
+    for (restricted, g_transform, h_mesh) in map_meshes.iter() {
         let mesh = meshes.get(h_mesh).unwrap();
 
         let mut positions = match mesh
@@ -136,62 +149,94 @@ pub fn setup_map_navigation(
         positions.sort_unstable_by(Vec3::lexographic_cmp);
         positions.dedup();
 
-        let hull = vectors::convex_hull_2d(positions.as_slice());
-        hulls.push((*restricted, hull));
+        // when quantum computers become mainstream
+        // I hope there's no such thing as f32 vs f64
+        let hull = LineString::from_iter(positions.iter().map(|v| Coord {
+            x: v.x as f64,
+            y: v.z as f64,
+        }))
+        .convex_hull();
+        match restricted {
+            false => &mut boundaries,
+            true => &mut obstacles,
+        }
+        .push(hull);
     }
 
-    // using convex hull edges as constraints
-    // it should be accurate enough
-    for (_, hull) in hulls.iter() {
-        for (p0, p1) in hull.iter().circular_tuple_windows() {
-            let (from, to) = (Point2::new(p0.x, p0.z), Point2::new(p1.x, p1.z));
-            triangulation
-                .add_constraint_edge(from, to)
-                .map_err(|e| NavMeshGenerationError::BadVertex(e))?;
-        }
+    let n_boundaries = boundaries.len();
+    let n_obstacles = obstacles.len();
+
+    let boundaries = boundaries
+        .into_iter()
+        // combine intersecting zones into a single shape
+        .fold(MultiPolygon::new(Vec::default()), |acc, hull| {
+            // erode the boundary area
+            match hull.offset_with_arc_segments(-NAVMESH_EROSION, 1) {
+                Ok(hull) => acc.boolean_op(&hull, OpType::Union),
+                Err(..) => acc,
+            }
+        });
+
+    let obstacles = obstacles
+        .into_iter()
+        // combine intersecting obstacles into a single shape
+        .fold(MultiPolygon::new(Vec::default()), |acc, hull| {
+            // increase obstacle radius
+            match hull.offset_with_arc_segments(NAVMESH_EROSION, 1) {
+                Ok(hull) => acc.boolean_op(&hull, OpType::Union),
+                Err(..) => acc,
+            }
+        })
+        // remove edges outside of the map bounds
+        .boolean_op(&boundaries, OpType::Intersection);
+
+    // use all hull edges as constraints
+    for Line { start, end } in obstacles.lines_iter().chain(boundaries.lines_iter()) {
+        triangulation
+            .add_constraint_edge(
+                Point2::new(start.x as f32, start.y as f32),
+                Point2::new(end.x as f32, end.y as f32),
+            )
+            .map_err(|e| NavMeshGenerationError::BadVertex(e))?;
     }
 
     // all vertices are included
     let vertices = triangulation
         .vertices()
-        .map(|v| {
-            let p = v.position();
-            Vec3::new(p.x, 0.0, p.y)
-        })
+        .map(|v| Vec3::new(v.position().x, 0.0, v.position().y))
         .collect_vec();
 
     // for polygons, check if each face lies within the obstacle hulls to omit them
     let polygons = triangulation
         .inner_faces()
         .filter_map(|f| {
-            let center = f.center();
-            // exclude non-restricted hulls
-            for hull in hulls.iter().filter_map(|v| v.0.then_some(&v.1)) {
-                if vectors::lies_within_convex_hull(hull, &Vec3::new(center.x, 0.0, center.y)) {
+            let Point2 { x, y } = f.center();
+            for hull in obstacles.iter() {
+                if hull.contains(&Coord {
+                    x: x as f64,
+                    y: y as f64,
+                }) {
                     return None;
                 }
             }
             Some(f.vertices().map(|v| v.index()).to_vec())
         })
         .collect_vec();
-    let culled_polys = polygons.len();
+    let n_culled_polys = polygons.len();
 
-    let mut edges = Vec::new();
-
-    for edge in triangulation.undirected_edges() {
-        edges.push(
-            edge.vertices()
-                .map(|p| Vec3::new(p.position().x, 0.0, p.position().y)),
-        );
-    }
-
-    let navmesh = landmass::NavigationMesh {
+    let navmesh_geometry = landmass::NavigationMesh {
         mesh_bounds: None,
         vertices,
         polygons,
-    }
-    .validate()
-    .map_err(|_| NavMeshGenerationError::Validation)?;
+    };
+
+    // TODO: unfortunately the nav mesh data is not pub.
+    // is there a good way to not copy this when debug is off?
+    commands.insert_resource(NavMeshGeometry(navmesh_geometry.clone()));
+
+    let navmesh = navmesh_geometry
+        .validate()
+        .map_err(|_| NavMeshGenerationError::Validation)?;
 
     let archipelago = commands
         .spawn(Archipelago::new(
@@ -201,20 +246,16 @@ pub fn setup_map_navigation(
 
     commands.insert_resource(NavMesh { archipelago });
 
-    // TODO: yes, this is a big waste of memory if debugging is disabled.
-    // there's not really a clean way to toggle debugging while putting this line here
-    // because at the end of the system I lose access to edges if I don't copy them.
-    // this would be solved if `Archipelago.archipelago.nav_data` was pub, but it isn't.
-    // either I'll fork it or cook up a solution, but this should definitely be fixed.
-    commands.insert_resource(NavMeshEdges(edges));
-
     Ok(NavMeshStatistics {
-        hulls: hulls.len(),
+        simple_boundaries: n_boundaries,
+        simple_obstacles: n_obstacles,
+        merged_boundaries: boundaries.0.len(),
+        merged_obstacles: obstacles.0.len(),
         edges: triangulation.num_undirected_edges(),
         constraints: triangulation.num_constraints(),
         verts: triangulation.num_vertices(),
         raw_polys: triangulation.num_inner_faces(),
-        culled_polys,
+        culled_polys: n_culled_polys,
     })
 }
 
@@ -240,11 +281,15 @@ pub struct NavMesh {
 }
 
 #[derive(Resource)]
-pub struct NavMeshEdges(Vec<[Vec3; 2]>);
+pub struct NavMeshGeometry(pub landmass::NavigationMesh);
 
-pub fn draw_navmesh(mut gizmos: Gizmos, edges: Res<NavMeshEdges>) {
-    for [p0, p1] in edges.0.iter() {
-        gizmos.line(*p0, *p1, Color::WHITE);
+fn draw_navmesh_system_with_color(color: Color) -> impl Fn(Gizmos, Res<NavMeshGeometry>) {
+    move |mut gizmos: Gizmos, navmesh: Res<NavMeshGeometry>| {
+        for poly in navmesh.0.polygons.iter() {
+            for (p0, p1) in poly.iter().copied().circular_tuple_windows() {
+                gizmos.line(navmesh.0.vertices[p0], navmesh.0.vertices[p1], color);
+            }
+        }
     }
 }
 

@@ -15,16 +15,12 @@ mod util;
 use std::{env, io, time::Duration};
 
 use ai::{boombox::BoomBox, dummy::Dummy, AIPlugins};
-use asset::FallbackImage;
+use asset::{AssetLoadState, DynamicAssetPlugin};
 use bevy::{
     asset::ChangeWatcher,
     diagnostic::LogDiagnosticsPlugin,
     log::{Level, LogPlugin},
     prelude::*,
-    render::{
-        mesh::VertexAttributeValues,
-        render_resource::{Extent3d, PrimitiveTopology},
-    },
     window::CursorGrabMode,
 };
 use bevy_hanabi::HanabiPlugin;
@@ -40,15 +36,10 @@ use image::io::Reader as ImageReader;
 use item::{ItemPlugins, ItemSet};
 use map::{Map, MapPlugin};
 use physics::GrinPhysicsPlugin;
-use render::{
-    sketched::{NoOutline, SketchMaterial},
-    RenderFXPlugins,
-};
+use render::RenderFXPlugins;
 use sound::SoundPlugin;
 use time::{scaling::TimeScalePlugin, RewindComponentPlugin, RewindPlugin};
 use util::tween::TweenEventPlugin;
-
-use crate::asset::{AssetLoadState, DynamicAssetPlugin};
 
 fn main() -> Result<(), io::Error> {
     let mut app = App::new();
@@ -119,11 +110,11 @@ fn main() -> Result<(), io::Error> {
             TimeScalePlugin,
             RewindPlugin::default(),
             RewindComponentPlugin::<Transform>::default(),
-            RapierDebugRenderPlugin::default(),
+            //RapierDebugRenderPlugin::default(),
             WorldInspectorPlugin::new(),
             LandmassPlugin,
             MapPlugin {
-                navmesh_debugging: true,
+                navmesh_debugging: Some(Color::WHITE),
             },
         ))
         .insert_resource(RapierConfiguration {

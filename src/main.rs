@@ -34,7 +34,7 @@ use dialogue::{asset_gen::DialogueAssetLoadState, DialogueEvent, DialogueMap, Di
 use humanoid::{HumanoidPlugin, HUMANOID_HEIGHT};
 use image::io::Reader as ImageReader;
 use item::{ItemPlugins, ItemSet};
-use map::{Map, MapPlugin};
+use map::{Map, MapLoadState, MapPlugin};
 use physics::GrinPhysicsPlugin;
 use render::RenderFXPlugins;
 use sound::SoundPlugin;
@@ -121,12 +121,12 @@ fn main() -> Result<(), io::Error> {
             gravity: Vec3::NEG_Y * 9.81 * (HUMANOID_HEIGHT / 1.8),
             ..Default::default()
         })
+        .add_systems(OnEnter(AssetLoadState::Success), load_scene)
         .add_systems(
-            OnEnter(AssetLoadState::Success),
+            OnEnter(MapLoadState::Success),
             (
-                load_scene,
                 Dummy::spawn_at(Transform::from_xyz(10.0, 1E-2, 0.0)),
-                BoomBox::spawn_at(Transform::from_xyz(-10.0, 1E-2, 0.0)),
+                BoomBox::spawn_at(Transform::from_xyz(0.0, 1E-2, 10.0)),
             ),
         )
         .add_systems(OnEnter(DialogueAssetLoadState::Success), test_dialogue)

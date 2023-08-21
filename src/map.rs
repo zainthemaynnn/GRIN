@@ -17,7 +17,7 @@ use crate::{
 //
 // TODO: odds are I will need multiple navmeshes for agents of similar radii
 // right now there are only humanoids, but this needs to be done when I add others
-pub const NAVMESH_EROSION: f64 = (HUMANOID_RADIUS as f64) + 1.0;
+pub const NAVMESH_EROSION: f64 = HUMANOID_RADIUS as f64;
 
 #[derive(Default)]
 pub struct MapPlugin {

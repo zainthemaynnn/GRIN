@@ -1,5 +1,9 @@
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
+use bevy_landmass::{
+    Agent, AgentBundle, AgentDesiredVelocity, AgentTarget, AgentVelocity, ArchipelagoRef,
+    LandmassSystemSet,
+};
 use bevy_mod_outline::SetOutlineDepth;
 use bevy_rapier3d::prelude::*;
 
@@ -10,8 +14,12 @@ use crate::{
         projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
         Damage, DamageBuffer, DamageVariant, Dead, Health, HealthBundle,
     },
-    humanoid::{Humanoid, HumanoidAssets, HumanoidBundle, HumanoidDominantHand, HumanoidPartType},
+    humanoid::{
+        Humanoid, HumanoidAssets, HumanoidBundle, HumanoidDominantHand, HumanoidPartType,
+        HUMANOID_RADIUS,
+    },
     item::Target,
+    map::{MapLoadState, NavMesh},
     physics::{CollisionGroupExt, CollisionGroupsExt, ForceTimer},
     render::sketched::SketchMaterial,
     time::Rewind,
@@ -22,8 +30,9 @@ use crate::{
 };
 
 use super::{
-    movement::{move_to_target, CircularVelocity, MoveTarget, MovementBundle, PathBehavior},
-    propagate_move_target, set_closest_target,
+    dummy::DummySet,
+    movement::{follow_velocity, move_to_target, CircularVelocity, MovementBundle, PathBehavior},
+    propagate_attack_target_to_weapon, set_closest_attack_target,
 };
 
 #[derive(SystemSet, Hash, Debug, Eq, PartialEq, Copy, Clone)]
@@ -52,12 +61,21 @@ impl Plugin for BoomBoxPlugin {
             .add_systems(
                 Update,
                 (
-                    spawn.in_set(BoomBoxSet::Spawn),
+                    apply_deferred
+                        .before(LandmassSystemSet::SyncExistence)
+                        .after(DummySet::Spawn),
+                    spawn
+                        .in_set(BoomBoxSet::Spawn)
+                        .run_if(in_state(MapLoadState::Success)),
                     init_humanoid.in_set(BoomBoxSet::Spawn),
-                    set_closest_target::<BoomBox, PlayerCharacter>.in_set(BoomBoxSet::Setup),
-                    propagate_move_target::<BoomBox>.in_set(BoomBoxSet::Propagate),
+                    set_closest_attack_target::<BoomBox, PlayerCharacter>.in_set(BoomBoxSet::Setup),
+                    propagate_attack_target_to_weapon::<BoomBox>.in_set(BoomBoxSet::Propagate),
                     move_to_target::<BoomBox>.in_set(BoomBoxSet::Act),
                     fire.in_set(BoomBoxSet::Act),
+                    fire.in_set(BoomBoxSet::Act),
+                    follow_velocity::<BoomBox>
+                        .in_set(BoomBoxSet::Act)
+                        .after(LandmassSystemSet::Output),
                 )
                     .run_if(in_state(AssetLoadState::Success)),
             );
@@ -100,6 +118,7 @@ impl BoomBox {
 pub fn spawn(
     mut commands: Commands,
     hum_assets: Res<HumanoidAssets>,
+    nav_mesh: Res<NavMesh>,
     mut events: EventReader<BoomBoxSpawnEvent>,
 ) {
     for BoomBoxSpawnEvent { transform } in events.iter() {
@@ -112,11 +131,7 @@ pub fn spawn(
                 ..Default::default()
             },
             MovementBundle {
-                path_behavior: PathBehavior::Strafe {
-                    radial_velocity: 0.0,
-                    circular_velocity: CircularVelocity::Linear(1.0),
-                },
-                target: MoveTarget::default(),
+                path_behavior: PathBehavior::Beeline { velocity: 2.0 },
             },
             CollisionGroups::from_group_default(Group::ENEMY),
             HumanoidBundle {
@@ -124,6 +139,17 @@ pub fn spawn(
                 spatial: SpatialBundle::from_transform(transform.clone()),
                 ..Default::default()
             },
+            AgentBundle {
+                archipelago_ref: ArchipelagoRef(nav_mesh.archipelago),
+                agent: Agent {
+                    radius: HUMANOID_RADIUS,
+                    max_velocity: 2.0,
+                },
+                velocity: AgentVelocity::default(),
+                desired_velocity: AgentDesiredVelocity::default(),
+                target: AgentTarget::None,
+            },
+            RigidBody::KinematicPositionBased,
         ));
     }
 }

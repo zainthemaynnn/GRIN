@@ -1,12 +1,11 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::*;
+use bevy_landmass::{Agent, AgentDesiredVelocity, AgentTarget, AgentVelocity};
 
-use crate::{damage::Dead, time::Rewind, util::vectors::Vec3Ext};
+use crate::{damage::Dead, physics::PhysicsTime, time::Rewind, util::vectors::Vec3Ext};
 
 #[derive(Bundle, Default)]
 pub struct MovementBundle {
     pub path_behavior: PathBehavior,
-    pub target: MoveTarget,
 }
 
 /// Describes how an agent moves towards the target.
@@ -43,44 +42,74 @@ pub enum CircularVelocity {
     Angular(f32),
 }
 
-#[derive(Component, Default)]
-pub struct MoveTarget(pub Transform);
+#[derive(Component, Clone, Copy, Debug)]
+pub struct AttackTarget(pub Entity);
 
 pub fn move_to_target<T: Component>(
-    mut query: Query<
+    time: Res<PhysicsTime>,
+    mut agent_query: Query<
         (
-            &mut KinematicCharacterController,
             &mut Transform,
-            &MoveTarget,
+            &mut Agent,
+            &mut AgentTarget,
+            &AttackTarget,
             &PathBehavior,
         ),
         (With<T>, Without<Rewind>, Without<Dead>),
     >,
-    time: Res<Time>,
+    transform_query: Query<&Transform, Without<T>>,
 ) {
-    for (mut controller, mut transform, MoveTarget(target), path_behavior) in query.iter_mut() {
-        let t = time.delta_seconds();
-        let direction = (target.translation - transform.translation).xz();
-        let translation = match *path_behavior {
+    for (mut transform, mut agent, mut agent_target, AttackTarget(e_target), path_behavior) in
+        agent_query.iter_mut()
+    {
+        let target = transform_query.get(*e_target).unwrap();
+
+        let direction = (target.translation - transform.translation).xz_flat();
+        *agent_target = match *path_behavior {
             PathBehavior::Beeline { velocity } => {
-                (target.translation - transform.translation) * velocity * t
+                agent.max_velocity = velocity;
+                AgentTarget::Entity(*e_target)
             }
             PathBehavior::Strafe {
                 circular_velocity,
                 radial_velocity,
             } => {
-                let mut new_transform = transform.clone();
-                new_transform.translation += direction.normalize() * radial_velocity * t;
                 let angular = match circular_velocity {
                     CircularVelocity::Linear(v) => v / direction.length(),
                     CircularVelocity::Angular(v) => v,
                 };
-                new_transform
-                    .translate_around(target.translation, Quat::from_rotation_y(angular * t));
-                new_transform.translation - transform.translation
+                agent.max_velocity = radial_velocity.hypot(angular);
+
+                let mut new_transform = transform.clone();
+                new_transform.translation +=
+                    direction.normalize() * radial_velocity * time.0.delta_seconds();
+                new_transform.translate_around(
+                    target.translation,
+                    Quat::from_rotation_y(angular * time.0.delta_seconds()),
+                );
+
+                // I'm extending the target point by an arbitrary length tangent to the circle
+                // the real fix would be to add an `AgentTarget::Velocity`,
+                // but I'm not that responsible
+                let ofst = (new_transform.translation - transform.translation).normalize_or_zero();
+
+                AgentTarget::Point(transform.translation + ofst * 64.0)
             }
         };
-        controller.translation = Some(translation);
+
         transform.look_to(direction, Vec3::Y);
+    }
+}
+
+pub fn follow_velocity<T: Component>(
+    time: Res<PhysicsTime>,
+    mut agent_query: Query<
+        (&mut Transform, &mut AgentVelocity, &AgentDesiredVelocity),
+        (With<T>, Without<Rewind>, Without<Dead>),
+    >,
+) {
+    for (mut transform, mut velocity, desired_velocity) in agent_query.iter_mut() {
+        velocity.0 = desired_velocity.velocity();
+        transform.translation += desired_velocity.velocity() * time.0.delta_seconds();
     }
 }

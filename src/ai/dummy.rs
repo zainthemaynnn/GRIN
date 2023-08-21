@@ -1,5 +1,9 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::{Ccd, CollisionGroups, Group, Velocity};
+use bevy_landmass::{
+    Agent, AgentBundle, AgentDesiredVelocity, AgentTarget, AgentVelocity, ArchipelagoRef,
+    LandmassSystemSet,
+};
+use bevy_rapier3d::prelude::{Ccd, CollisionGroups, Group, RigidBody, Velocity};
 
 use crate::{
     asset::AssetLoadState,
@@ -8,8 +12,9 @@ use crate::{
         projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
         Damage, DamageBuffer, DamageVariant, Dead, Health, HealthBundle,
     },
-    humanoid::{Humanoid, HumanoidAssets, HumanoidBundle, HumanoidPartType},
+    humanoid::{Humanoid, HumanoidAssets, HumanoidBundle, HumanoidPartType, HUMANOID_RADIUS},
     item::Target,
+    map::{MapLoadState, NavMesh},
     physics::{CollisionGroupExt, CollisionGroupsExt},
     time::Rewind,
     util::{
@@ -19,8 +24,8 @@ use crate::{
 };
 
 use super::{
-    movement::{move_to_target, CircularVelocity, MoveTarget, MovementBundle, PathBehavior},
-    propagate_move_target, set_closest_target,
+    movement::{follow_velocity, move_to_target, MovementBundle, PathBehavior},
+    propagate_attack_target_to_weapon, set_closest_attack_target,
 };
 
 #[derive(SystemSet, Hash, Debug, Eq, PartialEq, Copy, Clone)]
@@ -43,12 +48,20 @@ impl Plugin for DummyPlugin {
             .add_systems(
                 Update,
                 (
-                    spawn.in_set(DummySet::Spawn),
+                    apply_deferred
+                        .before(LandmassSystemSet::SyncExistence)
+                        .after(DummySet::Spawn),
+                    spawn
+                        .in_set(DummySet::Spawn)
+                        .run_if(in_state(MapLoadState::Success)),
                     init_humanoid.in_set(DummySet::Spawn),
-                    set_closest_target::<Dummy, PlayerCharacter>.in_set(DummySet::Setup),
-                    propagate_move_target::<Dummy>.in_set(DummySet::Propagate),
+                    set_closest_attack_target::<Dummy, PlayerCharacter>.in_set(DummySet::Setup),
+                    propagate_attack_target_to_weapon::<Dummy>.in_set(DummySet::Propagate),
                     move_to_target::<Dummy>.in_set(DummySet::Act),
                     fire.in_set(DummySet::Act),
+                    follow_velocity::<Dummy>
+                        .in_set(DummySet::Act)
+                        .after(LandmassSystemSet::Output),
                 )
                     .run_if(in_state(AssetLoadState::Success)),
             );
@@ -75,6 +88,7 @@ impl Dummy {
 pub fn spawn(
     mut commands: Commands,
     hum_assets: Res<HumanoidAssets>,
+    nav_mesh: Res<NavMesh>,
     mut events: EventReader<DummySpawnEvent>,
 ) {
     for DummySpawnEvent { transform } in events.iter() {
@@ -87,11 +101,7 @@ pub fn spawn(
                 ..Default::default()
             },
             MovementBundle {
-                path_behavior: PathBehavior::Strafe {
-                    radial_velocity: 0.0,
-                    circular_velocity: CircularVelocity::Linear(1.0),
-                },
-                target: MoveTarget::default(),
+                path_behavior: PathBehavior::Beeline { velocity: 2.0 },
             },
             CollisionGroups::from_group_default(Group::ENEMY),
             HumanoidBundle {
@@ -99,6 +109,17 @@ pub fn spawn(
                 spatial: SpatialBundle::from_transform(transform.clone()),
                 ..Default::default()
             },
+            AgentBundle {
+                archipelago_ref: ArchipelagoRef(nav_mesh.archipelago),
+                agent: Agent {
+                    radius: HUMANOID_RADIUS,
+                    max_velocity: 2.0,
+                },
+                velocity: AgentVelocity::default(),
+                desired_velocity: AgentDesiredVelocity::default(),
+                target: AgentTarget::None,
+            },
+            RigidBody::KinematicPositionBased,
         ));
     }
 }

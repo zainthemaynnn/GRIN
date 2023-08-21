@@ -22,6 +22,8 @@ use bevy_rapier3d::prelude::*;
 use self::camera::{CameraAlignment, LookInfo, PlayerCamera, PlayerCameraPlugin};
 use self::eightball::{EightBall, EightBallPlugin};
 
+pub const CHARACTER_WALKSPEED: f32 = 3.0;
+
 pub struct CharacterPlugin;
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -216,29 +218,29 @@ pub fn input_walk(
         (With<PlayerCharacter>, Without<Dash>),
     >,
     look_info: Res<LookInfo>,
-    time: Res<Time>,
+    time: Res<PhysicsTime>,
 ) {
     if let Ok((mut char_controller, mut transform)) = character.get_single_mut() {
         let (cam_transform, camera) = camera_query.single();
 
-        let normalize_xz = |v: Vec3| Vec3::new(v.x, 0.0, v.z);
-
         let mut movement = Vec3::ZERO;
         if input.pressed(KeyCode::W) {
-            movement += normalize_xz(cam_transform.forward());
+            movement += cam_transform.forward().xz_flat();
         }
         if input.pressed(KeyCode::A) {
-            movement += normalize_xz(cam_transform.left());
+            movement += cam_transform.left().xz_flat();
         }
         if input.pressed(KeyCode::S) {
-            movement += normalize_xz(cam_transform.back());
+            movement += cam_transform.back().xz_flat();
         }
         if input.pressed(KeyCode::D) {
-            movement += normalize_xz(cam_transform.right());
+            movement += cam_transform.right().xz_flat();
         }
 
-        char_controller.translation =
-            Some(movement.normalize_or_zero() * 3.0 * time.delta_seconds());
+        char_controller.translation = Some(
+            char_controller.translation.unwrap_or_default()
+                + movement.normalize_or_zero() * CHARACTER_WALKSPEED * time.0.delta_seconds(),
+        );
         match camera.alignment {
             CameraAlignment::FortyFive => {
                 if let Some(target) =

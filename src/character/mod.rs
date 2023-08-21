@@ -6,14 +6,17 @@ use std::marker::PhantomData;
 
 use crate::asset::AssetLoadState;
 use crate::damage::{DamageBuffer, Health, HealthBundle};
-use crate::humanoid::{Dash, Humanoid, HumanoidPartType};
+use crate::humanoid::{
+    Dash, Humanoid, HumanoidPartType, HumanoidRace, HUMANOID_HEIGHT, HUMANOID_RADIUS,
+};
 use crate::render::gopro::{add_gopro, GoProSettings};
 use crate::render::sketched::SketchMaterial;
 use crate::sound::Ears;
 
 use crate::item::{Equipped, Item};
-use crate::physics::{CollisionGroupExt, CollisionGroupsExt};
+use crate::physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
 use crate::render::RenderLayer;
+use crate::util::vectors::Vec3Ext;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy_asset_loader::prelude::*;
@@ -126,21 +129,14 @@ pub struct Player;
 pub fn init_character_model(
     mut commands: Commands,
     mut player_query: Query<
-        (Entity, &Humanoid, &mut KinematicCharacterController),
+        (Entity, &Humanoid, &HumanoidRace),
         (With<PlayerCharacter>, Without<Player>),
     >,
     children_query: Query<&Children>,
 ) {
-    let Ok((e_humanoid, humanoid, mut controller)) = player_query.get_single_mut() else {
+    let Ok((e_humanoid, humanoid, race)) = player_query.get_single_mut() else {
         return;
     };
-
-    controller.filter_groups = Some({
-        let mut groups = CollisionGroups::from_group_default(Group::PLAYER);
-        // body parts can still hit projectiles, but the controller shouldn't detect them at all
-        groups.filters -= Group::ENEMY_PROJECTILE;
-        groups
-    });
 
     let render_layers =
         RenderLayers::from_layers(&[RenderLayer::STANDARD as u8, RenderLayer::AVATAR as u8]);
@@ -150,6 +146,29 @@ pub fn init_character_model(
         Equipped::default(),
         HealthBundle {
             health: Health(100.0),
+            ..Default::default()
+        },
+        RigidBody::KinematicPositionBased,
+        KinematicCharacterController {
+            custom_shape: Some((
+                match race {
+                    HumanoidRace::Round => Collider::capsule_y(
+                        HUMANOID_HEIGHT / 2.0 - HUMANOID_RADIUS,
+                        HUMANOID_RADIUS,
+                    ),
+                    HumanoidRace::Square => {
+                        Collider::cuboid(HUMANOID_RADIUS, HUMANOID_HEIGHT / 2.0, HUMANOID_RADIUS)
+                    }
+                },
+                Vec3::Y * HUMANOID_HEIGHT / 2.0,
+                Quat::default(),
+            )),
+            filter_groups: Some({
+                let mut groups = CollisionGroups::from_group_default(Group::PLAYER);
+                // body parts can still hit projectiles, but the controller shouldn't detect them at all
+                groups.filters -= Group::ENEMY_PROJECTILE;
+                groups
+            }),
             ..Default::default()
         },
     ));

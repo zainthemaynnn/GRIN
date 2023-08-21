@@ -194,6 +194,7 @@ pub struct HumanoidBundle {
     pub build: HumanoidBuild,
     pub dominant_hand: HumanoidDominantHand,
     pub spatial: SpatialBundle,
+    pub velocity: Velocity,
 }
 
 #[derive(Component)]
@@ -584,29 +585,7 @@ pub fn process_skeletons(
 
         match builder.build() {
             Ok(humanoid) => {
-                commands.entity(e_skeleton).insert((
-                    humanoid,
-                    RigidBody::KinematicPositionBased,
-                    KinematicCharacterController {
-                        custom_shape: Some((
-                            match race {
-                                HumanoidRace::Round => Collider::capsule_y(
-                                    HUMANOID_HEIGHT / 2.0 - HUMANOID_RADIUS,
-                                    HUMANOID_RADIUS,
-                                ),
-                                HumanoidRace::Square => Collider::cuboid(
-                                    HUMANOID_RADIUS,
-                                    HUMANOID_HEIGHT / 2.0,
-                                    HUMANOID_RADIUS,
-                                ),
-                            },
-                            Vec3::Y * HUMANOID_HEIGHT / 2.0,
-                            Quat::default(),
-                        )),
-                        ..Default::default()
-                    },
-                    Velocity::default(),
-                ));
+                commands.entity(e_skeleton).insert(humanoid);
             }
             Err(e) => error!("{}", e),
         }
@@ -645,13 +624,13 @@ pub const MORPH_EASE_CONSTANT: f32 = 4.0;
 // god, I could have made a 2d game and just ran a spritesheet
 pub fn morph_moving_humanoids(
     time: Res<Time>,
-    humanoid_query: Query<(&Humanoid, &Transform, &KinematicCharacterControllerOutput)>,
+    humanoid_query: Query<(&Humanoid, &Transform, &Velocity)>,
     mut transform_query: Query<&mut Transform, Without<Humanoid>>,
     mut morph_query: Query<&mut MorphWeights>,
 ) {
-    for (humanoid, transform, movement) in humanoid_query.iter() {
-        let speed = movement.effective_translation.length() / time.delta_seconds();
-        let translation_norm = movement.desired_translation.normalize_or_zero();
+    for (humanoid, transform, velocity) in humanoid_query.iter() {
+        let speed = velocity.linvel.length();
+        let translation_norm = velocity.linvel.normalize_or_zero();
 
         // this should ease into the target weight smoothly
         let weight = |w0: f32, w1: f32| {

@@ -34,7 +34,7 @@ impl Plugin for DummyPlugin {
             Update,
             (
                 spawn.in_set(AISet::Spawn),
-                configure_humanoid_physics.in_set(AISet::Spawn),
+                configure_humanoid_physics::<Dummy>.in_set(AISet::Spawn),
                 set_closest_attack_target::<Dummy, PlayerCharacter>.in_set(AISet::Target),
                 propagate_attack_target_to_weapon_target::<Dummy>.in_set(AISet::ActionStart),
                 propagate_attack_target_to_agent_target::<Dummy>.in_set(AISet::ActionStart),

@@ -43,7 +43,7 @@ impl Plugin for BoomBoxPlugin {
                 Update,
                 (
                     spawn.in_set(AISet::Spawn),
-                    configure_humanoid_physics.in_set(AISet::Spawn),
+                    configure_humanoid_physics::<BoomBox>.in_set(AISet::Spawn),
                     init_humanoid.in_set(AISet::Spawn),
                     set_closest_attack_target::<BoomBox, PlayerCharacter>.in_set(AISet::Target),
                     propagate_attack_target_to_weapon_target::<BoomBox>.in_set(AISet::ActionStart),

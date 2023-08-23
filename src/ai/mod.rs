@@ -122,9 +122,9 @@ pub fn propagate_attack_target_to_weapon_target<T: Component>(
     }
 }
 
-pub fn configure_humanoid_physics(
+pub fn configure_humanoid_physics<T: Component>(
     mut commands: Commands,
-    humanoid_query: Query<(Entity, &Humanoid), Added<Humanoid>>,
+    humanoid_query: Query<(Entity, &Humanoid), (Added<Humanoid>, With<T>)>,
 ) {
     for (e_humanoid, humanoid) in humanoid_query.iter() {
         commands

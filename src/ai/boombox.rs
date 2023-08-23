@@ -112,7 +112,10 @@ pub fn spawn(
 
 pub fn init_humanoid(
     mut commands: Commands,
-    humanoid_query: Query<(Entity, &Humanoid, &HumanoidDominantHand), Added<Humanoid>>,
+    humanoid_query: Query<
+        (Entity, &Humanoid, &HumanoidDominantHand),
+        (With<BoomBox>, Added<Humanoid>),
+    >,
     mut animator_query: Query<&mut AnimationPlayer>,
     children_query: Query<&Children>,
     boombox_assets: Res<BoomBoxAssets>,

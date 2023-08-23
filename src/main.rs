@@ -39,7 +39,7 @@ use physics::GrinPhysicsPlugin;
 use render::RenderFXPlugins;
 use sound::SoundPlugin;
 use time::{scaling::TimeScalePlugin, RewindComponentPlugin, RewindPlugin};
-use util::tween::TweenEventPlugin;
+use util::{tween::TweenEventPlugin, event::Spawnable};
 
 fn main() -> Result<(), io::Error> {
     let mut app = App::new();
@@ -125,8 +125,9 @@ fn main() -> Result<(), io::Error> {
         .add_systems(
             OnEnter(MapLoadState::Success),
             (
-                Dummy::spawn_at(Transform::from_xyz(10.0, 1E-2, 0.0)),
-                BoomBox::spawn_at(Transform::from_xyz(0.0, 1E-2, 10.0)),
+                Dummy::spawn_with(DummySpawnEvent {
+                    transform: Transform::from_xyz(10.0, 1E-2, 0.0)
+                }),
             ),
         )
         .add_systems(OnEnter(DialogueAssetLoadState::Success), test_dialogue)

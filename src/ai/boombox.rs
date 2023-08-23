@@ -12,72 +12,45 @@ use crate::{
     character::PlayerCharacter,
     damage::{
         projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
-        Damage, DamageBuffer, DamageVariant, Dead, Health, HealthBundle,
+        Damage, DamageVariant, Dead,
     },
-    humanoid::{
-        Humanoid, HumanoidAssets, HumanoidBundle, HumanoidDominantHand, HumanoidPartType,
-        HUMANOID_RADIUS,
-    },
+    humanoid::{Humanoid, HumanoidAssets, HumanoidBundle, HumanoidDominantHand, HUMANOID_RADIUS},
     item::Target,
-    map::{MapLoadState, NavMesh},
+    map::NavMesh,
     physics::{CollisionGroupExt, CollisionGroupsExt, ForceTimer},
     render::sketched::SketchMaterial,
     time::Rewind,
     util::{
         distr,
+        event::Spawnable,
         vectors::{self, Vec3Ext},
     },
 };
 
 use super::{
-    dummy::DummySet,
-    movement::{follow_velocity, move_to_target, CircularVelocity, MovementBundle, PathBehavior},
-    propagate_attack_target_to_weapon, set_closest_attack_target,
+    configure_humanoid_physics,
+    movement::{match_desired_velocity, propagate_attack_target_to_agent_target},
+    propagate_attack_target_to_weapon_target, set_closest_attack_target, AISet, EnemyAgentBundle,
 };
-
-#[derive(SystemSet, Hash, Debug, Eq, PartialEq, Copy, Clone)]
-pub enum BoomBoxSet {
-    Spawn,
-    Setup,
-    Propagate,
-    Act,
-}
 
 pub struct BoomBoxPlugin;
 
 impl Plugin for BoomBoxPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<BoomBoxSpawnEvent>()
-            .configure_sets(
-                Update,
-                (
-                    BoomBoxSet::Setup.run_if(in_state(AssetLoadState::Success)),
-                    BoomBoxSet::Propagate,
-                    BoomBoxSet::Act,
-                )
-                    .chain(),
-            )
             .add_collection_to_loading_state::<_, BoomBoxAssets>(AssetLoadState::Loading)
             .add_systems(
                 Update,
                 (
-                    apply_deferred
-                        .before(LandmassSystemSet::SyncExistence)
-                        .after(DummySet::Spawn),
-                    spawn
-                        .in_set(BoomBoxSet::Spawn)
-                        .run_if(in_state(MapLoadState::Success)),
-                    init_humanoid.in_set(BoomBoxSet::Spawn),
-                    set_closest_attack_target::<BoomBox, PlayerCharacter>.in_set(BoomBoxSet::Setup),
-                    propagate_attack_target_to_weapon::<BoomBox>.in_set(BoomBoxSet::Propagate),
-                    move_to_target::<BoomBox>.in_set(BoomBoxSet::Act),
-                    fire.in_set(BoomBoxSet::Act),
-                    fire.in_set(BoomBoxSet::Act),
-                    follow_velocity::<BoomBox>
-                        .in_set(BoomBoxSet::Act)
-                        .after(LandmassSystemSet::Output),
-                )
-                    .run_if(in_state(AssetLoadState::Success)),
+                    spawn.in_set(AISet::Spawn),
+                    configure_humanoid_physics.in_set(AISet::Spawn),
+                    init_humanoid.in_set(AISet::Spawn),
+                    set_closest_attack_target::<BoomBox, PlayerCharacter>.in_set(AISet::Target),
+                    propagate_attack_target_to_weapon_target::<BoomBox>.in_set(AISet::ActionStart),
+                    propagate_attack_target_to_agent_target::<BoomBox>.in_set(AISet::ActionStart),
+                    match_desired_velocity::<BoomBox>.in_set(AISet::Act),
+                    fire.in_set(AISet::Act),
+                ),
             );
     }
 }
@@ -101,18 +74,13 @@ pub struct BoomBoxAssets {
     pub idle_rt: Handle<AnimationClip>,
 }
 
-#[derive(Event, Default)]
+#[derive(Event, Clone, Default)]
 pub struct BoomBoxSpawnEvent {
     pub transform: Transform,
 }
 
-impl BoomBox {
-    // how do I return impl IntoSystem??? too confusing???
-    pub fn spawn_at(transform: Transform) -> impl Fn(EventWriter<BoomBoxSpawnEvent>) {
-        move |mut events: EventWriter<BoomBoxSpawnEvent>| {
-            events.send(BoomBoxSpawnEvent { transform });
-        }
-    }
+impl Spawnable for BoomBox {
+    type Event = BoomBoxSpawnEvent;
 }
 
 pub fn spawn(
@@ -123,67 +91,33 @@ pub fn spawn(
 ) {
     for BoomBoxSpawnEvent { transform } in events.iter() {
         commands.spawn((
-            BoomBoxUninit,
+            BoomBox,
             Target::default(),
             ShotCooldown::default(),
-            HealthBundle {
-                health: Health(1.0),
-                ..Default::default()
-            },
-            MovementBundle {
-                path_behavior: PathBehavior::Beeline { velocity: 2.0 },
-            },
-            CollisionGroups::from_group_default(Group::ENEMY),
             HumanoidBundle {
                 skeleton_gltf: hum_assets.skeleton.clone(),
                 spatial: SpatialBundle::from_transform(transform.clone()),
                 ..Default::default()
             },
-            AgentBundle {
-                archipelago_ref: ArchipelagoRef(nav_mesh.archipelago),
+            EnemyAgentBundle {
                 agent: Agent {
                     radius: HUMANOID_RADIUS,
                     max_velocity: 2.0,
                 },
-                velocity: AgentVelocity::default(),
-                desired_velocity: AgentDesiredVelocity::default(),
-                target: AgentTarget::None,
+                ..EnemyAgentBundle::from_archipelago(nav_mesh.archipelago)
             },
-            RigidBody::KinematicPositionBased,
         ));
     }
 }
 
-#[derive(Component)]
-#[component(storage = "SparseSet")]
-pub struct BoomBoxUninit;
-
 pub fn init_humanoid(
     mut commands: Commands,
-    humanoid_query: Query<(Entity, &Humanoid, &HumanoidDominantHand), With<BoomBoxUninit>>,
+    humanoid_query: Query<(Entity, &Humanoid, &HumanoidDominantHand), Added<Humanoid>>,
     mut animator_query: Query<&mut AnimationPlayer>,
     children_query: Query<&Children>,
     boombox_assets: Res<BoomBoxAssets>,
 ) {
     for (e_humanoid, humanoid, dominant) in humanoid_query.iter() {
-        commands
-            .entity(e_humanoid)
-            .remove::<BoomBoxUninit>()
-            .insert(BoomBox::default());
-
-        for e_part in humanoid.parts(HumanoidPartType::HITBOX) {
-            commands.entity(e_part).insert((
-                DamageBuffer::default(),
-                CollisionGroups::from_group_default(Group::ENEMY),
-            ));
-        }
-
-        for e_part in humanoid.parts(HumanoidPartType::HANDS) {
-            commands
-                .entity(e_part)
-                .insert(CollisionGroups::new(Group::ENEMY, Group::empty()));
-        }
-
         commands.entity(humanoid.head).with_children(|parent| {
             parent.spawn(MaterialMeshBundle {
                 material: boombox_assets.matte.clone(),
@@ -256,8 +190,7 @@ pub const DRAG_DISTANCE: f32 = 8.0;
 pub const BEGIN_SPEED: f32 = 2.0 * DRAG_DISTANCE / DRAG_DURATION - END_SPEED;
 pub const DRAG: f32 = (END_SPEED - BEGIN_SPEED) / DRAG_DURATION;
 
-pub fn create_bullet(source: Entity, base_transform: Transform, dir: Vec3) -> impl Bundle {
-    let transform = base_transform.looking_to(dir, dir.any_orthogonal_vector());
+pub fn create_bullet(source: Entity, transform: Transform) -> impl Bundle {
     (
         BulletProjectile,
         ProjectileBundle {
@@ -307,7 +240,12 @@ pub fn fire(
                 16,
                 &distr::linear,
             )
-            .map(move |dir| create_bullet(entity, transform, dir)),
+            .map(move |dir| {
+                create_bullet(
+                    entity,
+                    transform.looking_to(dir, dir.any_orthogonal_vector()),
+                )
+            }),
         );
     }
 }

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_landmass::{Agent, AgentDesiredVelocity, AgentTarget, AgentVelocity};
+use bevy_rapier3d::prelude::*;
 
 use crate::{damage::Dead, physics::PhysicsTime, time::Rewind, util::vectors::Vec3Ext};
 
@@ -45,7 +46,7 @@ pub enum CircularVelocity {
 #[derive(Component, Clone, Copy, Debug)]
 pub struct AttackTarget(pub Entity);
 
-pub fn move_to_target<T: Component>(
+pub fn propagate_attack_target_to_agent_target<T: Component>(
     time: Res<PhysicsTime>,
     mut agent_query: Query<
         (
@@ -101,15 +102,14 @@ pub fn move_to_target<T: Component>(
     }
 }
 
-pub fn follow_velocity<T: Component>(
-    time: Res<PhysicsTime>,
+pub fn match_desired_velocity<T: Component>(
     mut agent_query: Query<
-        (&mut Transform, &mut AgentVelocity, &AgentDesiredVelocity),
+        (&mut Velocity, &mut AgentVelocity, &AgentDesiredVelocity),
         (With<T>, Without<Rewind>, Without<Dead>),
     >,
 ) {
-    for (mut transform, mut velocity, desired_velocity) in agent_query.iter_mut() {
-        velocity.0 = desired_velocity.velocity();
-        transform.translation += desired_velocity.velocity() * time.0.delta_seconds();
+    for (mut velocity, mut agent_velocity, desired_velocity) in agent_query.iter_mut() {
+        velocity.linvel = desired_velocity.velocity();
+        agent_velocity.0 = velocity.linvel;
     }
 }

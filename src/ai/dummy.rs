@@ -1,88 +1,60 @@
 use bevy::prelude::*;
-use bevy_landmass::{
-    Agent, AgentBundle, AgentDesiredVelocity, AgentTarget, AgentVelocity, ArchipelagoRef,
-    LandmassSystemSet,
-};
-use bevy_rapier3d::prelude::{Ccd, CollisionGroups, Group, RigidBody, Velocity};
+use bevy_landmass::Agent;
+use bevy_rapier3d::prelude::*;
 
 use crate::{
-    asset::AssetLoadState,
     character::PlayerCharacter,
     damage::{
         projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
-        Damage, DamageBuffer, DamageVariant, Dead, Health, HealthBundle,
+        Damage, DamageVariant, Dead,
     },
-    humanoid::{Humanoid, HumanoidAssets, HumanoidBundle, HumanoidPartType, HUMANOID_RADIUS},
+    humanoid::{Humanoid, HumanoidAssets, HumanoidBundle, HUMANOID_RADIUS},
     item::Target,
-    map::{MapLoadState, NavMesh},
+    map::NavMesh,
     physics::{CollisionGroupExt, CollisionGroupsExt},
     time::Rewind,
     util::{
         distr,
+        event::Spawnable,
         vectors::{self, Vec3Ext},
     },
 };
 
 use super::{
-    movement::{follow_velocity, move_to_target, MovementBundle, PathBehavior},
-    propagate_attack_target_to_weapon, set_closest_attack_target,
+    configure_humanoid_physics,
+    movement::{match_desired_velocity, propagate_attack_target_to_agent_target},
+    propagate_attack_target_to_weapon_target, set_closest_attack_target, AISet, EnemyAgentBundle,
 };
-
-#[derive(SystemSet, Hash, Debug, Eq, PartialEq, Copy, Clone)]
-pub enum DummySet {
-    Spawn,
-    Setup,
-    Propagate,
-    Act,
-}
 
 pub struct DummyPlugin;
 
 impl Plugin for DummyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<DummySpawnEvent>()
-            .configure_sets(
-                Update,
-                (DummySet::Setup, DummySet::Propagate, DummySet::Act).chain(),
-            )
-            .add_systems(
-                Update,
-                (
-                    apply_deferred
-                        .before(LandmassSystemSet::SyncExistence)
-                        .after(DummySet::Spawn),
-                    spawn
-                        .in_set(DummySet::Spawn)
-                        .run_if(in_state(MapLoadState::Success)),
-                    init_humanoid.in_set(DummySet::Spawn),
-                    set_closest_attack_target::<Dummy, PlayerCharacter>.in_set(DummySet::Setup),
-                    propagate_attack_target_to_weapon::<Dummy>.in_set(DummySet::Propagate),
-                    move_to_target::<Dummy>.in_set(DummySet::Act),
-                    fire.in_set(DummySet::Act),
-                    follow_velocity::<Dummy>
-                        .in_set(DummySet::Act)
-                        .after(LandmassSystemSet::Output),
-                )
-                    .run_if(in_state(AssetLoadState::Success)),
-            );
+        app.add_event::<DummySpawnEvent>().add_systems(
+            Update,
+            (
+                spawn.in_set(AISet::Spawn),
+                configure_humanoid_physics.in_set(AISet::Spawn),
+                set_closest_attack_target::<Dummy, PlayerCharacter>.in_set(AISet::Target),
+                propagate_attack_target_to_weapon_target::<Dummy>.in_set(AISet::ActionStart),
+                propagate_attack_target_to_agent_target::<Dummy>.in_set(AISet::ActionStart),
+                match_desired_velocity::<Dummy>.in_set(AISet::Act),
+                fire.in_set(AISet::Act),
+            ),
+        );
     }
 }
 
 #[derive(Component, Default)]
 pub struct Dummy;
 
-#[derive(Event, Default)]
-pub struct DummySpawnEvent {
-    pub transform: Transform,
+impl Spawnable for Dummy {
+    type Event = DummySpawnEvent;
 }
 
-impl Dummy {
-    // how do I return impl IntoSystem??? too confusing???
-    pub fn spawn_at(transform: Transform) -> impl Fn(EventWriter<DummySpawnEvent>) {
-        move |mut events: EventWriter<DummySpawnEvent>| {
-            events.send(DummySpawnEvent { transform });
-        }
-    }
+#[derive(Event, Clone, Default)]
+pub struct DummySpawnEvent {
+    pub transform: Transform,
 }
 
 pub fn spawn(
@@ -93,63 +65,22 @@ pub fn spawn(
 ) {
     for DummySpawnEvent { transform } in events.iter() {
         commands.spawn((
-            DummyUninit,
+            Dummy,
             Target::default(),
             ShotCooldown::default(),
-            HealthBundle {
-                health: Health(100.0),
-                ..Default::default()
-            },
-            MovementBundle {
-                path_behavior: PathBehavior::Beeline { velocity: 2.0 },
-            },
-            CollisionGroups::from_group_default(Group::ENEMY),
             HumanoidBundle {
                 skeleton_gltf: hum_assets.skeleton.clone(),
                 spatial: SpatialBundle::from_transform(transform.clone()),
                 ..Default::default()
             },
-            AgentBundle {
-                archipelago_ref: ArchipelagoRef(nav_mesh.archipelago),
+            EnemyAgentBundle {
                 agent: Agent {
                     radius: HUMANOID_RADIUS,
                     max_velocity: 2.0,
                 },
-                velocity: AgentVelocity::default(),
-                desired_velocity: AgentDesiredVelocity::default(),
-                target: AgentTarget::None,
+                ..EnemyAgentBundle::from_archipelago(nav_mesh.archipelago)
             },
-            RigidBody::KinematicPositionBased,
         ));
-    }
-}
-
-#[derive(Component)]
-#[component(storage = "SparseSet")]
-pub struct DummyUninit;
-
-pub fn init_humanoid(
-    mut commands: Commands,
-    humanoid_query: Query<(Entity, &Humanoid), With<DummyUninit>>,
-) {
-    for (e_humanoid, humanoid) in humanoid_query.iter() {
-        commands
-            .entity(e_humanoid)
-            .remove::<DummyUninit>()
-            .insert(Dummy::default());
-
-        for e_part in humanoid.parts(HumanoidPartType::HITBOX) {
-            commands.entity(e_part).insert((
-                DamageBuffer::default(),
-                CollisionGroups::from_group_default(Group::ENEMY),
-            ));
-        }
-
-        for e_part in humanoid.parts(HumanoidPartType::HANDS) {
-            commands
-                .entity(e_part)
-                .insert(CollisionGroups::new(Group::ENEMY, Group::empty()));
-        }
     }
 }
 

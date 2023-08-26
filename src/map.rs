@@ -2,6 +2,7 @@ use std::array::IntoIter;
 
 use bevy::{prelude::*, render::mesh::VertexAttributeValues};
 use bevy_landmass::Archipelago;
+use bevy_mod_outline::SetOutlineDepth;
 use geo::{
     BooleanOps, Contains, ConvexHull, Coord, Line, LineString, LinesIter, MultiPolygon, OpType,
 };
@@ -112,7 +113,7 @@ pub fn setup_map_navigation(
 
         commands.entity(e_node).insert(collider!(&meshes, mesh));
         if !restricted {
-            commands.entity(e_node).insert(NoOutline);
+            commands.entity(e_node).insert(SetOutlineDepth::Real);
         }
     }
 

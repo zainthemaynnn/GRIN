@@ -904,6 +904,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_mod_inverse_kinematics"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1e3090d4c9ef42055323e38d9feb99772dc1dcacb3be5da8cbdc8de947c1a51"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_mod_outline"
 version = "0.5.0"
 source = "git+https://github.com/zainthemaynnn/bevy_mod_outline.git#7e4878e45e31ba21753512a27a9406907b42684b"
@@ -2555,6 +2564,7 @@ dependencies = [
  "bevy_hanabi",
  "bevy_landmass",
  "bevy_mod_debugdump",
+ "bevy_mod_inverse_kinematics",
  "bevy_mod_outline",
  "bevy_rapier3d",
  "bevy_tweening",

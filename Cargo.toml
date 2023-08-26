@@ -11,6 +11,7 @@ bevy_asset_loader = { version = "0.17", features = ["3d", "progress_tracking"] }
 bevy_common_assets = { version = "0.7", features = ["ron"] }
 bevy_mod_outline = { git = "https://github.com/zainthemaynnn/bevy_mod_outline.git" }
 bevy_rapier3d = "0.22"
+bevy_mod_inverse_kinematics = "0.4"
 bevy_mod_debugdump = "0.8"
 bevy_hanabi = "0.7"
 bevy_tweening = "0.8"

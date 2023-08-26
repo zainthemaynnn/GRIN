@@ -4,6 +4,9 @@ use bevy_rapier3d::prelude::*;
 
 use crate::{damage::Dead, physics::PhysicsTime, time::Rewind, util::vectors::Vec3Ext};
 
+// TODO: again, find good number
+pub const MAX_AGENT_ANGULAR_VELOCITY: f32 = TAU;
+
 #[derive(Bundle, Default)]
 pub struct MovementBundle {
     pub path_behavior: PathBehavior,
@@ -60,6 +63,7 @@ pub fn propagate_attack_target_to_agent_target<T: Component>(
     >,
     transform_query: Query<&Transform, Without<T>>,
 ) {
+    let dt = time.0.delta_seconds();
     for (mut transform, mut agent, mut agent_target, AttackTarget(e_target), path_behavior) in
         agent_query.iter_mut()
     {
@@ -82,12 +86,9 @@ pub fn propagate_attack_target_to_agent_target<T: Component>(
                 agent.max_velocity = radial_velocity.hypot(angular);
 
                 let mut new_transform = transform.clone();
-                new_transform.translation +=
-                    direction.normalize() * radial_velocity * time.0.delta_seconds();
-                new_transform.translate_around(
-                    target.translation,
-                    Quat::from_rotation_y(angular * time.0.delta_seconds()),
-                );
+                new_transform.translation += direction.normalize() * radial_velocity * dt;
+                new_transform
+                    .translate_around(target.translation, Quat::from_rotation_y(angular * dt));
 
                 // I'm extending the target point by an arbitrary length tangent to the circle
                 // the real fix would be to add an `AgentTarget::Velocity`,
@@ -98,7 +99,20 @@ pub fn propagate_attack_target_to_agent_target<T: Component>(
             }
         };
 
-        transform.look_to(direction, Vec3::Y);
+        let angle_diff = Quat::from_rotation_arc(
+            transform.forward().xz_flat().normalize(),
+            direction.normalize(),
+        );
+        let (axis, mut angle_diff) = angle_diff.to_axis_angle();
+        // we do a little trolling
+        if axis == Vec3::NEG_Y {
+            angle_diff *= -1.0;
+        }
+
+        transform.rotation *= Quat::from_rotation_y(angle_diff.clamp(
+            -MAX_AGENT_ANGULAR_VELOCITY * dt,
+            MAX_AGENT_ANGULAR_VELOCITY * dt,
+        ));
     }
 }
 

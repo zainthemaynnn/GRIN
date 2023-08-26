@@ -2,7 +2,7 @@
 //! (i.e. animated outlines/textures).
 
 use bevy::{
-    asset::load_internal_asset,
+    asset::{load_internal_asset, HandleId},
     pbr::{MaterialPipeline, MaterialPipelineKey, StandardMaterialFlags},
     prelude::*,
     reflect::{TypePath, TypeUuid},
@@ -11,13 +11,15 @@ use bevy::{
         render_asset::RenderAssets,
         render_resource::{
             AsBindGroup, AsBindGroupShaderType, Face, RenderPipelineDescriptor, ShaderRef,
-            ShaderType, SpecializedMeshPipelineError, TextureFormat,
+            ShaderType, SpecializedMeshPipelineError, TextureFormat, TextureViewDescriptor,
+            TextureViewDimension,
         },
     },
+    utils::HashMap,
 };
 pub(crate) use bevy_mod_outline::*;
 
-use crate::character::camera::PlayerCamera;
+use crate::{asset::FallbackImage, character::camera::PlayerCamera};
 
 // preloaded shaders to define import paths for other shaders
 pub const PBR_BINDINGS_HANDLE: HandleUntyped =
@@ -57,12 +59,21 @@ impl Plugin for SketchEffectPlugin {
 
         let autofill_enabled = self.autofill_sketch_effect;
         app.add_asset::<SketchUiImage>()
+            .init_resource::<StandardToSketchMaterialResource>()
             .add_plugins((
                 OutlinePlugin,
                 AutoGenerateOutlineNormalsPlugin,
                 MaterialPlugin::<SketchMaterial>::default(),
             ))
             .insert_resource(self.outline.clone())
+            .add_systems(
+                PreUpdate,
+                (
+                    autofill_sketch_effect.run_if(move || autofill_enabled == true),
+                    // TODO: need to decide where in the event loop this goes
+                    swap_standard_for_sketch_materials,
+                ),
+            )
             .add_systems(
                 Update,
                 (
@@ -72,10 +83,6 @@ impl Plugin for SketchEffectPlugin {
                     animate_sketched_outlines,
                     animate_sketched_ui_images.after(init_sketched_ui_images),
                 ),
-            )
-            .add_systems(
-                Update,
-                autofill_sketch_effect.run_if(move || autofill_enabled == true),
             );
     }
 }
@@ -240,10 +247,88 @@ pub struct SketchUiImage {
     pub images: Vec<Handle<Image>>,
 }
 
+/// You're right. I *could* modify bevy's GLTF importer.
+///
+/// Or, you know, this.
+//
+// TODO: cleanup
+#[derive(Resource, Default)]
+pub struct StandardToSketchMaterialResource {
+    pub map: HashMap<HandleId, HandleId>,
+}
+
+pub fn swap_standard_for_sketch_materials(
+    mut commands: Commands,
+    mut standard_materials: ResMut<Assets<StandardMaterial>>,
+    mut sketch_materials: ResMut<Assets<SketchMaterial>>,
+    mut std_to_sketch: ResMut<StandardToSketchMaterialResource>,
+    mut textures: ResMut<Assets<Image>>,
+    fallback_image: Res<FallbackImage>,
+    material_query: Query<(Entity, &Handle<StandardMaterial>)>,
+) {
+    for (e_material, h_std) in material_query.iter() {
+        commands
+            .entity(e_material)
+            .remove::<Handle<StandardMaterial>>();
+
+        let h_sketched = match standard_materials.remove(h_std) {
+            Some(mut std_material) => {
+                std_material.base_color_texture = Some(std_material.base_color_texture.map_or(
+                    fallback_image.texture.clone(),
+                    |tex_handle| {
+                        let tex = textures.get(&tex_handle).unwrap();
+
+                        // if it's already a D2Array, no modifications are necessary
+                        if tex
+                            .texture_view_descriptor
+                            .as_ref()
+                            .is_some_and(|view_desc| {
+                                view_desc
+                                    .dimension
+                                    .is_some_and(|dim| dim == TextureViewDimension::D2Array)
+                            })
+                        {
+                            return tex_handle;
+                        }
+
+                        // force dimension to D2Array
+                        let mut new_tex = tex.clone();
+                        new_tex.texture_view_descriptor = Some(TextureViewDescriptor {
+                            label: Some("D2Array Texture View"),
+                            dimension: Some(TextureViewDimension::D2Array),
+                            format: Some(tex.texture_descriptor.format),
+                            array_layer_count: Some(1),
+                            ..Default::default()
+                        });
+
+                        textures.add(new_tex)
+                    },
+                ));
+                let h_sketched = sketch_materials.add(SketchMaterial::from(std_material));
+                // I'll take my chances here
+                std_to_sketch
+                    .map
+                    .insert_unique_unchecked(h_std.id(), h_sketched.id());
+                h_sketched
+            }
+            None => {
+                let mut h_sketched =
+                    Handle::<SketchMaterial>::weak(*std_to_sketch.map.get(&h_std.id()).unwrap());
+                h_sketched.make_strong(&sketch_materials);
+                h_sketched
+            }
+        };
+
+        commands.entity(e_material).insert(h_sketched);
+    }
+}
+
 // NOTE: this is almost a direct copy/paste of the regular `StandardMaterial`
 // it needs to be refactored when they make materials more extensible
 // because at the moment bind group/layout definitions cannot be changed
 // without rewriting the entire descriptor (manually, without AsBindGroup)
+//
+// UPDATE BEVY 0.11: bruh. I am minutes away from just forking this.
 //
 // # changes
 // - base_color_texture from texture_2d => texture_2d_array
@@ -263,8 +348,8 @@ pub struct SketchUiImage {
 /// Textures not using arrays should be set to `0`.
 #[derive(AsBindGroup, Reflect, Debug, Clone, TypeUuid)]
 #[uuid = "7494888b-c082-aaaa-aacf-517228cc0c22"]
-#[bind_group_data(StandardMaterialKey)]
-#[uniform(0, StandardMaterialUniform)]
+#[bind_group_data(SketchMaterialKey)]
+#[uniform(0, SketchMaterialUniform)]
 #[reflect(Default, Debug)]
 pub struct SketchMaterial {
     /// The color of the surface of the material before lighting.
@@ -414,7 +499,7 @@ pub struct SketchMaterial {
     /// This is usually generated and stored automatically ("baked") by 3D-modelling software.
     ///
     /// Typically, steep concave parts of a model (such as the armpit of a shirt) are darker,
-    /// because they have little exposed to light.
+    /// because they have little exposure to light.
     /// An occlusion map specifies those parts of the model that light doesn't reach well.
     ///
     /// The material will be less lit in places where this texture is dark.
@@ -478,6 +563,84 @@ pub struct SketchMaterial {
     /// [z-fighting]: https://en.wikipedia.org/wiki/Z-fighting
     pub depth_bias: f32,
 
+    /// The depth map used for [parallax mapping].
+    ///
+    /// It is a greyscale image where white represents bottom and black the top.
+    /// If this field is set, bevy will apply [parallax mapping].
+    /// Parallax mapping, unlike simple normal maps, will move the texture
+    /// coordinate according to the current perspective,
+    /// giving actual depth to the texture.
+    ///
+    /// The visual result is similar to a displacement map,
+    /// but does not require additional geometry.
+    ///
+    /// Use the [`parallax_depth_scale`] field to control the depth of the parallax.
+    ///
+    /// ## Limitations
+    ///
+    /// - It will look weird on bent/non-planar surfaces.
+    /// - The depth of the pixel does not reflect its visual position, resulting
+    ///   in artifacts for depth-dependent features such as fog or SSAO.
+    /// - For the same reason, the the geometry silhouette will always be
+    ///   the one of the actual geometry, not the parallaxed version, resulting
+    ///   in awkward looks on intersecting parallaxed surfaces.
+    ///
+    /// ## Performance
+    ///
+    /// Parallax mapping requires multiple texture lookups, proportional to
+    /// [`max_parallax_layer_count`], which might be costly.
+    ///
+    /// Use the [`parallax_mapping_method`] and [`max_parallax_layer_count`] fields
+    /// to tweak the shader, trading graphical quality for performance.
+    ///
+    /// To improve performance, set your `depth_map`'s [`Image::sampler_descriptor`]
+    /// filter mode to `FilterMode::Nearest`, as [this paper] indicates, it improves
+    /// performance a bit.
+    ///
+    /// To reduce artifacts, avoid steep changes in depth, blurring the depth
+    /// map helps with this.
+    ///
+    /// Larger depth maps haves a disproportionate performance impact.
+    ///
+    /// [this paper]: https://www.diva-portal.org/smash/get/diva2:831762/FULLTEXT01.pdf
+    /// [parallax mapping]: https://en.wikipedia.org/wiki/Parallax_mapping
+    /// [`parallax_depth_scale`]: StandardMaterial::parallax_depth_scale
+    /// [`parallax_mapping_method`]: StandardMaterial::parallax_mapping_method
+    /// [`max_parallax_layer_count`]: StandardMaterial::max_parallax_layer_count
+    #[texture(11)]
+    #[sampler(12)]
+    pub depth_map: Option<Handle<Image>>,
+
+    /// How deep the offset introduced by the depth map should be.
+    ///
+    /// Default is `0.1`, anything over that value may look distorted.
+    /// Lower values lessen the effect.
+    ///
+    /// The depth is relative to texture size. This means that if your texture
+    /// occupies a surface of `1` world unit, and `parallax_depth_scale` is `0.1`, then
+    /// the in-world depth will be of `0.1` world units.
+    /// If the texture stretches for `10` world units, then the final depth
+    /// will be of `1` world unit.
+    pub parallax_depth_scale: f32,
+
+    /// Which parallax mapping method to use.
+    ///
+    /// We recommend that all objects use the same [`ParallaxMappingMethod`], to avoid
+    /// duplicating and running two shaders.
+    pub parallax_mapping_method: ParallaxMappingMethod,
+
+    /// In how many layers to split the depth maps for parallax mapping.
+    ///
+    /// If you are seeing jaggy edges, increase this value.
+    /// However, this incurs a performance cost.
+    ///
+    /// Dependent on the situation, switching to [`ParallaxMappingMethod::Relief`]
+    /// and keeping this value low might have better performance than increasing the
+    /// layer count while using [`ParallaxMappingMethod::Occlusion`].
+    ///
+    /// Default is `16.0`.
+    pub max_parallax_layer_count: f32,
+
     /// The layer of `base_color_texture` to use.
     pub layer: u32,
 }
@@ -492,34 +655,6 @@ impl SketchMaterial {
                 .array_layer_count(),
         )
     }
-}
-
-/// The GPU representation of the uniform data of a [`StandardMaterial`].
-#[derive(Clone, Default, ShaderType)]
-pub struct StandardMaterialUniform {
-    /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
-    /// in between.
-    pub base_color: Vec4,
-    // Use a color for user friendliness even though we technically don't use the alpha channel
-    // Might be used in the future for exposure correction in HDR
-    pub emissive: Vec4,
-    /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
-    /// Defaults to minimum of 0.089
-    pub roughness: f32,
-    /// From [0.0, 1.0], dielectric to pure metallic
-    pub metallic: f32,
-    /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
-    /// defaults to 0.5 which is mapped to 4% reflectance in the shader
-    pub reflectance: f32,
-    /// The [`StandardMaterialFlags`] accessible in the `wgsl` shader.
-    pub flags: u32,
-    /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
-    /// and any below means fully transparent.
-    pub alpha_cutoff: f32,
-    /// The layer of `base_color_texture` to use.
-    // gpu says gotta pad to 80 bytes here... I think this is how you fix it?
-    #[align(16)]
-    pub base_color_texture_layer: i32,
 }
 
 impl Default for SketchMaterial {
@@ -549,6 +684,10 @@ impl Default for SketchMaterial {
             fog_enabled: true,
             alpha_mode: AlphaMode::Opaque,
             depth_bias: 0.0,
+            depth_map: None,
+            parallax_depth_scale: 0.1,
+            max_parallax_layer_count: 16.0,
+            parallax_mapping_method: ParallaxMappingMethod::Occlusion,
             layer: 0,
         }
     }
@@ -577,8 +716,99 @@ impl From<Handle<Image>> for SketchMaterial {
     }
 }
 
-impl AsBindGroupShaderType<StandardMaterialUniform> for SketchMaterial {
-    fn as_bind_group_shader_type(&self, images: &RenderAssets<Image>) -> StandardMaterialUniform {
+impl From<StandardMaterial> for SketchMaterial {
+    fn from(
+        StandardMaterial {
+            base_color,
+            base_color_texture,
+            emissive,
+            emissive_texture,
+            perceptual_roughness,
+            metallic,
+            metallic_roughness_texture,
+            reflectance,
+            normal_map_texture,
+            flip_normal_map_y,
+            occlusion_texture,
+            double_sided,
+            cull_mode,
+            unlit,
+            fog_enabled,
+            alpha_mode,
+            depth_bias,
+            depth_map,
+            parallax_depth_scale,
+            parallax_mapping_method,
+            max_parallax_layer_count,
+        }: StandardMaterial,
+    ) -> Self {
+        Self {
+            base_color,
+            base_color_texture,
+            emissive,
+            emissive_texture,
+            perceptual_roughness,
+            metallic,
+            metallic_roughness_texture,
+            reflectance,
+            normal_map_texture,
+            flip_normal_map_y,
+            occlusion_texture,
+            double_sided,
+            cull_mode,
+            unlit,
+            fog_enabled,
+            alpha_mode,
+            depth_bias,
+            depth_map,
+            parallax_depth_scale,
+            parallax_mapping_method,
+            max_parallax_layer_count,
+            ..Default::default()
+        }
+    }
+}
+
+/// The GPU representation of the uniform data of a [`StandardMaterial`].
+#[derive(Clone, Default, ShaderType)]
+pub struct SketchMaterialUniform {
+    /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
+    /// in between.
+    pub base_color: Vec4,
+    // Use a color for user friendliness even though we technically don't use the alpha channel
+    // Might be used in the future for exposure correction in HDR
+    pub emissive: Vec4,
+    /// Linear perceptual roughness, clamped to [0.089, 1.0] in the shader
+    /// Defaults to minimum of 0.089
+    pub roughness: f32,
+    /// From [0.0, 1.0], dielectric to pure metallic
+    pub metallic: f32,
+    /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
+    /// defaults to 0.5 which is mapped to 4% reflectance in the shader
+    pub reflectance: f32,
+    /// The [`StandardMaterialFlags`] accessible in the `wgsl` shader.
+    pub flags: u32,
+    /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
+    /// and any below means fully transparent.
+    pub alpha_cutoff: f32,
+    /// The depth of the [`StandardMaterial::depth_map`] to apply.
+    pub parallax_depth_scale: f32,
+    /// In how many layers to split the depth maps for Steep parallax mapping.
+    ///
+    /// If your `parallax_depth_scale` is >0.1 and you are seeing jaggy edges,
+    /// increase this value. However, this incurs a performance cost.
+    pub max_parallax_layer_count: f32,
+    /// Using [`ParallaxMappingMethod::Relief`], how many additional
+    /// steps to use at most to find the depth value.
+    pub max_relief_mapping_search_steps: u32,
+    /// The layer of `base_color_texture` to use.
+    // gpu says gotta pad to 80 bytes here... I think this is how you fix it?
+    #[align(16)]
+    pub base_color_texture_layer: i32,
+}
+
+impl AsBindGroupShaderType<SketchMaterialUniform> for SketchMaterial {
+    fn as_bind_group_shader_type(&self, images: &RenderAssets<Image>) -> SketchMaterialUniform {
         let mut flags = StandardMaterialFlags::NONE;
         if self.base_color_texture.is_some() {
             flags |= StandardMaterialFlags::BASE_COLOR_TEXTURE;
@@ -600,6 +830,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for SketchMaterial {
         }
         if self.fog_enabled {
             flags |= StandardMaterialFlags::FOG_ENABLED;
+        }
+        if self.depth_map.is_some() {
+            flags |= StandardMaterialFlags::DEPTH_MAP;
         }
         let has_normal_map = self.normal_map_texture.is_some();
         if has_normal_map {
@@ -633,7 +866,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for SketchMaterial {
             AlphaMode::Multiply => flags |= StandardMaterialFlags::ALPHA_MODE_MULTIPLY,
         };
 
-        StandardMaterialUniform {
+        SketchMaterialUniform {
             base_color: self.base_color.as_linear_rgba_f32().into(),
             emissive: self.emissive.as_linear_rgba_f32().into(),
             roughness: self.perceptual_roughness,
@@ -641,24 +874,36 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for SketchMaterial {
             reflectance: self.reflectance,
             flags: flags.bits(),
             alpha_cutoff,
-            base_color_texture_layer: self.layer as i32,
+            parallax_depth_scale: self.parallax_depth_scale,
+            max_parallax_layer_count: self.max_parallax_layer_count,
+            // GOD DAMN IT THIS IS PRIVATE
+            // WELL SCREW YOU THEN
+            // max_relief_mapping_search_steps: self.parallax_mapping_method.max_steps(),
+            max_relief_mapping_search_steps: 0,
+            base_color_texture_layer: 0,
         }
     }
 }
 
+/// The pipeline key for [`StandardMaterial`].
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct StandardMaterialKey {
+pub struct SketchMaterialKey {
     normal_map: bool,
     cull_mode: Option<Face>,
     depth_bias: i32,
+    relief_mapping: bool,
 }
 
-impl From<&SketchMaterial> for StandardMaterialKey {
+impl From<&SketchMaterial> for SketchMaterialKey {
     fn from(material: &SketchMaterial) -> Self {
-        StandardMaterialKey {
+        SketchMaterialKey {
             normal_map: material.normal_map_texture.is_some(),
             cull_mode: material.cull_mode,
             depth_bias: material.depth_bias as i32,
+            relief_mapping: matches!(
+                material.parallax_mapping_method,
+                ParallaxMappingMethod::Relief { .. }
+            ),
         }
     }
 }
@@ -670,11 +915,14 @@ impl Material for SketchMaterial {
         _layout: &MeshVertexBufferLayout,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        if key.bind_group_data.normal_map {
-            if let Some(fragment) = descriptor.fragment.as_mut() {
-                fragment
-                    .shader_defs
-                    .push("STANDARDMATERIAL_NORMAL_MAP".into());
+        if let Some(fragment) = descriptor.fragment.as_mut() {
+            let shader_defs = &mut fragment.shader_defs;
+
+            if key.bind_group_data.normal_map {
+                shader_defs.push("STANDARDMATERIAL_NORMAL_MAP".into());
+            }
+            if key.bind_group_data.relief_mapping {
+                shader_defs.push("RELIEF_MAPPING".into());
             }
         }
         descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;

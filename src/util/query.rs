@@ -19,3 +19,35 @@ pub fn distinguish_by_query<Q: WorldQuery, F: ReadOnlyWorldQuery>(
         },
     }
 }
+
+/// Finds an `Entity` corresponding to the `EntityPath` from `root`.
+pub fn gltf_path_search(
+    path: &EntityPath,
+    root: Entity,
+    children: &Query<&Children>,
+    names: &Query<&Name>,
+) -> Result<Entity, ()> {
+    let mut current_entity = root;
+
+    for part in path.parts.iter() {
+        let mut found = false;
+        if let Ok(children) = children.get(current_entity) {
+            for child in children.iter() {
+                if let Ok(name) = names.get(*child) {
+                    if name == part {
+                        // Found a children with the right name, continue to the next part
+                        current_entity = *child;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if !found {
+            warn!("Entity not found for path {:?} on part {:?}", path, part);
+            return Err(());
+        }
+    }
+
+    Ok(current_entity)
+}

@@ -48,6 +48,15 @@ CustomDynamicAssetCollection({
      "rig.humanoid_skeleton": File (
           path: "meshes/skeleton.glb#Scene0",
      ),
+     "rig.screamer": File (
+          path: "meshes/screamer.glb#Scene0",
+     ),
+     "anim.screamer.idle.armed": File (
+          path: "meshes/screamer.glb#Animation0",
+     ),
+     "anim.screamer.idle.unarmed": File (
+          path: "meshes/screamer.glb#Animation1",
+     ),
      // yikes. I'll have to split files or find a better way to index soon.
      "anim.hammer.charge": File (
           path: "meshes/skeleton.glb#Animation0",
@@ -198,6 +207,9 @@ CustomDynamicAssetCollection({
      ),
      "sfx.uzi": File (
           path: "audio/uzi-1800-rpm.ogg",
+     ),
+     "sfx.stomp": File (
+          path: "audio/stomp.ogg",
      ),
      "sfx.dialogue.eightball": File (
           path: "audio/eightball-blip.ogg",

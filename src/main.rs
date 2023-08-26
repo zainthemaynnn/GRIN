@@ -14,7 +14,12 @@ mod util;
 
 use std::{env, io, time::Duration};
 
-use ai::{boombox::BoomBox, dummy::Dummy, AIPlugins};
+use ai::{
+    boombox::BoomBox,
+    dummy::{Dummy, DummySpawnEvent},
+    screamer::{Screamer, ScreamerSpawnEvent},
+    AIPlugins,
+};
 use asset::{AssetLoadState, DynamicAssetPlugin};
 use bevy::{
     asset::ChangeWatcher,
@@ -26,6 +31,7 @@ use bevy::{
 use bevy_hanabi::HanabiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_landmass::LandmassPlugin;
+use bevy_mod_inverse_kinematics::InverseKinematicsPlugin;
 use bevy_rapier3d::prelude::*;
 use bevy_tweening::TweeningPlugin;
 use character::{CharacterPlugin, CharacterSet};
@@ -39,7 +45,7 @@ use physics::GrinPhysicsPlugin;
 use render::RenderFXPlugins;
 use sound::SoundPlugin;
 use time::{scaling::TimeScalePlugin, RewindComponentPlugin, RewindPlugin};
-use util::{tween::TweenEventPlugin, event::Spawnable};
+use util::{event::Spawnable, tween::TweenEventPlugin};
 
 fn main() -> Result<(), io::Error> {
     let mut app = App::new();
@@ -110,12 +116,13 @@ fn main() -> Result<(), io::Error> {
             TimeScalePlugin,
             RewindPlugin::default(),
             RewindComponentPlugin::<Transform>::default(),
-            //RapierDebugRenderPlugin::default(),
+            RapierDebugRenderPlugin::default(),
             WorldInspectorPlugin::new(),
             LandmassPlugin,
             MapPlugin {
-                navmesh_debugging: Some(Color::WHITE),
+                navmesh_debugging: None,
             },
+            InverseKinematicsPlugin,
         ))
         .insert_resource(RapierConfiguration {
             gravity: Vec3::NEG_Y * 9.81 * (HUMANOID_HEIGHT / 1.8),
@@ -124,11 +131,9 @@ fn main() -> Result<(), io::Error> {
         .add_systems(OnEnter(AssetLoadState::Success), load_scene)
         .add_systems(
             OnEnter(MapLoadState::Success),
-            (
-                Dummy::spawn_with(DummySpawnEvent {
-                    transform: Transform::from_xyz(10.0, 1E-2, 0.0)
-                }),
-            ),
+            (Screamer::spawn_with(ScreamerSpawnEvent {
+                transform: Transform::from_xyz(10.0, 1E-2, 0.0),
+            }),),
         )
         .add_systems(OnEnter(DialogueAssetLoadState::Success), test_dialogue)
         .add_systems(

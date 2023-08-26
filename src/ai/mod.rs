@@ -1,6 +1,7 @@
 pub mod boombox;
 pub mod dummy;
 pub mod movement;
+pub mod screamer;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_landmass::{
@@ -21,6 +22,7 @@ use self::{
     boombox::BoomBoxPlugin,
     dummy::DummyPlugin,
     movement::{AttackTarget, PathBehavior},
+    screamer::ScreamerPlugin,
 };
 
 #[derive(SystemSet, Hash, Debug, Eq, PartialEq, Copy, Clone)]
@@ -77,8 +79,9 @@ impl PluginGroup for AIPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(BaseAIPlugin)
-            .add(DummyPlugin)
             .add(BoomBoxPlugin)
+            .add(DummyPlugin)
+            .add(ScreamerPlugin)
     }
 }
 

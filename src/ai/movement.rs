@@ -1,8 +1,16 @@
-use bevy::prelude::*;
+use std::f32::consts::TAU;
+
+use bevy::{math::cubic_splines::CubicCurve, prelude::*};
 use bevy_landmass::{Agent, AgentDesiredVelocity, AgentTarget, AgentVelocity};
 use bevy_rapier3d::prelude::*;
 
-use crate::{damage::Dead, physics::PhysicsTime, time::Rewind, util::vectors::Vec3Ext};
+use crate::{
+    damage::Dead,
+    physics::PhysicsTime,
+    sound::TrackedSpatialAudioBundle,
+    time::{scaling::TimeScale, Rewind},
+    util::vectors::Vec3Ext,
+};
 
 // TODO: again, find good number
 pub const MAX_AGENT_ANGULAR_VELOCITY: f32 = TAU;
@@ -125,5 +133,212 @@ pub fn match_desired_velocity<T: Component>(
     for (mut velocity, mut agent_velocity, desired_velocity) in agent_query.iter_mut() {
         velocity.linvel = desired_velocity.velocity();
         agent_velocity.0 = velocity.linvel;
+    }
+}
+
+// this guy explains everything. thanks!
+// https://weaverdev.io/projects/bonehead-procedural-animation/
+// note that I didn't do the batch thing. I've modified this for bipeds.
+// might do another implementation if I ever get >2 legs, which is likely.
+
+/// A system of IK constraints, to synchronize stepping maneouvers.
+///
+/// This one will ensure that each proc steps in order, regardless of which is out
+/// of range, until all procs are in range.
+#[derive(Component)]
+pub struct IkProcs {
+    /// List of IK constraints.
+    pub procs: Vec<IkProc>,
+    /// Maximum distance for any of the IK procs before triggering.
+    pub scare_distance: f32,
+    /// Duration of IK step.
+    pub step_duration: f32,
+    /// Y displacement at peak of IK step.
+    pub step_height: f32,
+    /// Sound when the step lands.
+    pub audio: Option<Handle<AudioSource>>,
+    /// Which proc should step next.
+    pub active_proc: usize,
+}
+
+impl IkProcs {
+    /// Whether any procs are active.
+    pub fn stepping(&self) -> bool {
+        self.procs.iter().find(|p| p.step_state.is_some()).is_some()
+    }
+
+    /// Whether all procs are in range (do not need stepping).
+    pub fn all_in_range(&self, g_transform_query: &Query<&GlobalTransform>) -> bool {
+        self.procs
+            .iter()
+            .find(|proc| {
+                g_transform_query
+                    .get(proc.home)
+                    .unwrap()
+                    .translation()
+                    .distance(g_transform_query.get(proc.target).unwrap().translation())
+                    > self.scare_distance
+            })
+            .is_none()
+    }
+
+    /// Updates all active procs.
+    pub fn step_all(
+        &mut self,
+        dt: f32,
+        commands: &mut Commands,
+        transform_query: &mut Query<&mut Transform>,
+    ) {
+        for proc in self.procs.iter_mut() {
+            proc.step(dt, commands, transform_query, self.audio.as_ref());
+        }
+    }
+}
+
+/// Represents one IK constraint.
+pub struct IkProc {
+    /// "Rest" position for IK.
+    pub home: Entity,
+    /// Target position for IK.
+    pub target: Entity,
+    /// Step motion path, if currently stepping.
+    pub step_state: Option<StepState>,
+}
+
+impl IkProc {
+    pub fn new(home: Entity, target: Entity) -> Self {
+        Self {
+            home,
+            target,
+            step_state: None,
+        }
+    }
+
+    /// Begins a step depending on current transforms + velocities.
+    pub fn begin_step(
+        &mut self,
+        step_height: f32,
+        step_duration: f32,
+        transform_query: &Query<&GlobalTransform>,
+        velocity_query: &Query<&Velocity>,
+    ) {
+        let g_home_transform = transform_query.get(self.home).unwrap();
+        let g_target_transform = transform_query.get(self.target).unwrap();
+
+        // configure motion path
+        let (_, src_rotation, src_translation) = g_target_transform.to_scale_rotation_translation();
+        let (_, mut dst_rotation, mut dst_translation) =
+            g_home_transform.to_scale_rotation_translation();
+
+        // use velocity prediction so that the constraint will reach the
+        // intended target by the end of its step duration
+        let velocity = velocity_query.get(self.home).unwrap();
+        let rot_predict = Quat::from_rotation_y(velocity.angvel.y * step_duration);
+        dst_translation += rot_predict * velocity.linvel * step_duration;
+        dst_rotation *= Quat::from_rotation_y(velocity.angvel.y * step_duration);
+
+        // use the midpoint with added step height for the middle two points
+        let center = src_translation.lerp(dst_translation, 0.5) + Vec3::Y * step_height;
+        self.step_state = Some(StepState {
+            curve: Bezier::new([[src_translation, center, center, dst_translation]]).to_curve(),
+            quat0: src_rotation,
+            quat1: dst_rotation,
+            t: 0.0,
+        });
+    }
+
+    /// Updates the step if active.
+    pub fn step(
+        &mut self,
+        dt: f32,
+        commands: &mut Commands,
+        transform_query: &mut Query<&mut Transform>,
+        audio: Option<&Handle<AudioSource>>,
+    ) {
+        let Some(step_state) = &mut self.step_state else {
+            return;
+        };
+
+        let mut target_transform = transform_query.get_mut(self.target).unwrap();
+        *target_transform = step_state.step(dt);
+
+        if step_state.done() {
+            self.step_state = None;
+
+            // play sound
+            if let Some(audio) = audio {
+                commands.spawn((
+                    TrackedSpatialAudioBundle {
+                        source: audio.clone(),
+                        settings: PlaybackSettings::DESPAWN,
+                        ..Default::default()
+                    },
+                    TransformBundle::from_transform(target_transform.clone()),
+                ));
+            };
+        }
+    }
+}
+
+/// IK step motion path.
+pub struct StepState {
+    /// Translation path.
+    pub curve: CubicCurve<Vec3>,
+    /// Initial rotation.
+    pub quat0: Quat,
+    /// Final rotation.
+    pub quat1: Quat,
+    /// Completion of path, within `[0.0, 1.0]`.
+    pub t: f32,
+}
+
+impl StepState {
+    /// Target position after `dt`.
+    pub fn step(&mut self, dt: f32) -> Transform {
+        self.t = (self.t + dt).min(1.0);
+        Transform {
+            translation: self.curve.position(self.t),
+            rotation: self.quat0.lerp(self.quat1, self.t),
+            ..Default::default()
+        }
+    }
+
+    /// Whether the step has finished.
+    pub fn done(&self) -> bool {
+        self.t == 1.0
+    }
+}
+
+pub fn update_biped_procedural_walk_cycle<T: Component>(
+    mut commands: Commands,
+    time: Res<PhysicsTime>,
+    mut agent_query: Query<(&mut IkProcs, &TimeScale), With<T>>,
+    mut transform_query: Query<&mut Transform>,
+    g_transform_query: Query<&GlobalTransform>,
+    velocity_query: Query<&Velocity>,
+) {
+    for (mut ik_procs, time_scale) in agent_query.iter_mut() {
+        // update active `IkProc`s
+        // note: this works for multiple steps at a time, although really only one should
+        // be active at a time for bipeds
+        let dt = (time.0.delta_seconds() * f32::from(time_scale)) / ik_procs.step_duration;
+        ik_procs.step_all(dt, &mut commands, &mut transform_query);
+
+        if !ik_procs.stepping() && !ik_procs.all_in_range(&g_transform_query) {
+            // copy these cause borrow checker
+            let active_batch = ik_procs.active_proc;
+            let step_height = ik_procs.step_height;
+            let step_duration = ik_procs.step_duration;
+
+            ik_procs.procs[active_batch].begin_step(
+                step_height,
+                step_duration,
+                &g_transform_query,
+                &velocity_query,
+            );
+
+            // configure next proc for stepping
+            ik_procs.active_proc = (ik_procs.active_proc + 1) % 2;
+        }
     }
 }

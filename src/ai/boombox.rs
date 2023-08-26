@@ -1,10 +1,8 @@
+use std::f32::consts::PI;
+
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
-use bevy_landmass::{
-    Agent, AgentBundle, AgentDesiredVelocity, AgentTarget, AgentVelocity, ArchipelagoRef,
-    LandmassSystemSet,
-};
-use bevy_mod_outline::SetOutlineDepth;
+use bevy_landmass::Agent;
 use bevy_rapier3d::prelude::*;
 
 use crate::{
@@ -14,15 +12,15 @@ use crate::{
         projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
         Damage, DamageVariant, Dead,
     },
-    humanoid::{Humanoid, HumanoidAssets, HumanoidBundle, HumanoidDominantHand, HUMANOID_RADIUS},
+    humanoid::{Humanoid, HumanoidBundle, HumanoidDominantHand, HUMANOID_RADIUS},
     item::Target,
     map::NavMesh,
     physics::{CollisionGroupExt, CollisionGroupsExt, ForceTimer},
-    render::sketched::SketchMaterial,
     time::Rewind,
     util::{
         distr,
         event::Spawnable,
+        query::gltf_path_search,
         vectors::{self, Vec3Ext},
     },
 };
@@ -60,14 +58,8 @@ pub struct BoomBox;
 
 #[derive(Resource, AssetCollection)]
 pub struct BoomBoxAssets {
-    #[asset(key = "mesh.square_shades")]
-    pub shades: Handle<Mesh>,
-    #[asset(key = "mat.shades")]
-    pub matte: Handle<SketchMaterial>,
-    #[asset(key = "mesh.boombox")]
-    pub boombox: Handle<Mesh>,
-    #[asset(key = "mesh.headphones")]
-    pub headphones: Handle<Mesh>,
+    #[asset(key = "rig.boombox")]
+    pub skeleton: Handle<Scene>,
     #[asset(key = "anim.idle.boombox.left")]
     pub idle_lt: Handle<AnimationClip>,
     #[asset(key = "anim.idle.boombox.right")]
@@ -85,9 +77,9 @@ impl Spawnable for BoomBox {
 
 pub fn spawn(
     mut commands: Commands,
-    hum_assets: Res<HumanoidAssets>,
     nav_mesh: Res<NavMesh>,
     mut events: EventReader<BoomBoxSpawnEvent>,
+    assets: Res<BoomBoxAssets>,
 ) {
     for BoomBoxSpawnEvent { transform } in events.iter() {
         commands.spawn((
@@ -95,7 +87,7 @@ pub fn spawn(
             Target::default(),
             ShotCooldown::default(),
             HumanoidBundle {
-                skeleton_gltf: hum_assets.skeleton.clone(),
+                skeleton_gltf: assets.skeleton.clone(),
                 spatial: SpatialBundle::from_transform(transform.clone()),
                 ..Default::default()
             },
@@ -112,73 +104,45 @@ pub fn spawn(
 
 pub fn init_humanoid(
     mut commands: Commands,
-    humanoid_query: Query<
-        (Entity, &Humanoid, &HumanoidDominantHand),
-        (With<BoomBox>, Added<Humanoid>),
-    >,
+    assets: Res<BoomBoxAssets>,
+    humanoid_query: Query<(&Humanoid, &HumanoidDominantHand), (With<BoomBox>, Added<Humanoid>)>,
     mut animator_query: Query<&mut AnimationPlayer>,
+    mut transform_query: Query<&mut Transform>,
     children_query: Query<&Children>,
-    boombox_assets: Res<BoomBoxAssets>,
+    name_query: Query<&Name>,
 ) {
-    for (e_humanoid, humanoid, dominant) in humanoid_query.iter() {
-        commands.entity(humanoid.head).with_children(|parent| {
-            parent.spawn(MaterialMeshBundle {
-                material: boombox_assets.matte.clone(),
-                mesh: boombox_assets.shades.clone(),
-                transform: Transform {
-                    translation: Vec3::new(0.0, 0.0, -0.525),
-                    rotation: match dominant {
-                        HumanoidDominantHand::Left => Quat::from_rotation_y(180.0_f32.to_radians()),
-                        HumanoidDominantHand::Right => Quat::default(),
-                    },
-                    ..Default::default()
-                },
-                ..Default::default()
-            });
-            parent.spawn((
-                MaterialMeshBundle {
-                    material: boombox_assets.matte.clone(),
-                    mesh: boombox_assets.headphones.clone(),
-                    ..Default::default()
-                },
-                SetOutlineDepth::Real,
-            ));
-        });
+    // TODO: accessory colliders? that's a hell of a lot of boilerplate.
+    // doable, but I don't want to add them until I decide for sure if they're needed.
+    for (humanoid, dominant) in humanoid_query.iter() {
+        let mut animator = animator_query.get_mut(humanoid.armature).unwrap();
+        animator
+            .play(match dominant {
+                HumanoidDominantHand::Left => assets.idle_rt.clone(),
+                HumanoidDominantHand::Right => assets.idle_rt.clone(),
+            })
+            .repeat();
 
+        let e_boombox = gltf_path_search(
+            &EntityPath {
+                parts: vec!["BoomBox".into()],
+            },
+            humanoid.rhand,
+            &children_query,
+            &name_query,
+        )
+        .unwrap();
         commands
-            .entity(humanoid.dominant_hand())
-            .with_children(|parent| {
-                parent.spawn(MaterialMeshBundle {
-                    material: boombox_assets.matte.clone(),
-                    mesh: boombox_assets.boombox.clone(),
-                    transform: Transform {
-                        translation: Vec3::new(0.0, 0.25, 0.0),
-                        rotation: match dominant {
-                            HumanoidDominantHand::Left => {
-                                Quat::from_rotation_y(180.0_f32.to_radians())
-                            }
-                            HumanoidDominantHand::Right => Quat::default(),
-                        },
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                });
-            });
+            .entity(e_boombox)
+            .set_parent(humanoid.dominant_hand());
 
-        for e_child in children_query.iter_descendants(e_humanoid) {
-            let Ok(mut animator) = animator_query.get_mut(e_child) else {
-                continue;
-            };
-
-            animator
-                .play(match dominant {
-                    HumanoidDominantHand::Left => boombox_assets.idle_lt.clone(),
-                    HumanoidDominantHand::Right => boombox_assets.idle_rt.clone(),
-                })
-                .repeat();
-
-            break;
-        }
+        // unlike most weapons, boombox is asymmetrical along global z,
+        // so it needs to be flipped depending on the hand
+        // TODO: this should be a component for humanoid accessories
+        // so I don't have to do it manual
+        transform_query.get_mut(e_boombox).unwrap().rotation *= match dominant {
+            HumanoidDominantHand::Left => Quat::from_rotation_y(PI),
+            HumanoidDominantHand::Right => Quat::default(),
+        };
     }
 }
 

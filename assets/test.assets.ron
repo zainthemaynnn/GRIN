@@ -21,15 +21,6 @@ CustomDynamicAssetCollection({
      "mesh.pizza_shades": File (
           path: "meshes/pizza_shades.glb#Mesh0/Primitive0",
      ),
-     "mesh.square_shades": File (
-          path: "meshes/square_shades.glb#Mesh0/Primitive0",
-     ),
-     "mesh.boombox": File (
-          path: "meshes/boombox.glb#Mesh0/Primitive0",
-     ),
-     "mesh.headphones": File (
-          path: "meshes/headphones.glb#Mesh0/Primitive0",
-     ),
      "mesh.gun": UVSphereMesh ( // TODO: make like, an actual gun
           radius: 0.15,
      ),
@@ -45,19 +36,16 @@ CustomDynamicAssetCollection({
      "mesh.bullet_10cm": UVSphereMesh (
           radius: 0.10,
      ),
+
+     // I give up on trying to reuse the main rig for all humanoids.
+     // I'll probably do it later if it turns out I REALLY need it.
+     // the base humanoid pretty low-poly anyways.
+     // the one thing I WILL reuse is humanoid animations,
+     // since those are easy to retrofit as long as the skeleton is the same.
      "rig.humanoid_skeleton": File (
           path: "meshes/skeleton.glb#Scene0",
      ),
-     "rig.screamer": File (
-          path: "meshes/screamer.glb#Scene0",
-     ),
-     "anim.screamer.idle.armed": File (
-          path: "meshes/screamer.glb#Animation0",
-     ),
-     "anim.screamer.idle.unarmed": File (
-          path: "meshes/screamer.glb#Animation1",
-     ),
-     // yikes. I'll have to split files or find a better way to index soon.
+     // might want to move the pistol/hammer ones to another rig
      "anim.hammer.charge": File (
           path: "meshes/skeleton.glb#Animation0",
      ),
@@ -76,21 +64,36 @@ CustomDynamicAssetCollection({
      "anim.idle": File (
           path: "meshes/skeleton.glb#Animation5",
      ),
-     "anim.idle.boombox.left": File (
+     "anim.pistol.left": File (
           path: "meshes/skeleton.glb#Animation6",
      ),
-     "anim.idle.boombox.right": File (
+     "anim.pistol.right": File (
           path: "meshes/skeleton.glb#Animation7",
      ),
-     "anim.pistol.left": File (
+     "anim.stretch": File (
           path: "meshes/skeleton.glb#Animation8",
      ),
-     "anim.pistol.right": File (
-          path: "meshes/skeleton.glb#Animation9",
+
+     "rig.boombox": File (
+          path: "meshes/boombox.glb#Scene0",
      ),
-     "anim.stretch": File (
-          path: "meshes/skeleton.glb#Animation10",
+     "anim.idle.boombox.left": File (
+          path: "meshes/boombox.glb#Animation0",
      ),
+     "anim.idle.boombox.right": File (
+          path: "meshes/boombox.glb#Animation1",
+     ),
+
+     "rig.screamer": File (
+          path: "meshes/screamer.glb#Scene0",
+     ),
+     "anim.screamer.idle.armed": File (
+          path: "meshes/screamer.glb#Animation0",
+     ),
+     "anim.screamer.idle.unarmed": File (
+          path: "meshes/screamer.glb#Animation1",
+     ),
+
      "tex.skin": File (
           path: "textures/generated/skin.png",
      ),

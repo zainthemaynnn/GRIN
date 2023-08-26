@@ -15,7 +15,7 @@ mod util;
 use std::{env, io, time::Duration};
 
 use ai::{
-    boombox::BoomBox,
+    boombox::{BoomBox, BoomBoxSpawnEvent},
     dummy::{Dummy, DummySpawnEvent},
     screamer::{Screamer, ScreamerSpawnEvent},
     AIPlugins,
@@ -131,9 +131,14 @@ fn main() -> Result<(), io::Error> {
         .add_systems(OnEnter(AssetLoadState::Success), load_scene)
         .add_systems(
             OnEnter(MapLoadState::Success),
-            (Screamer::spawn_with(ScreamerSpawnEvent {
-                transform: Transform::from_xyz(10.0, 1E-2, 0.0),
-            }),),
+            (
+                Screamer::spawn_with(ScreamerSpawnEvent {
+                    transform: Transform::from_xyz(10.0, 1E-2, 0.0),
+                }),
+                BoomBox::spawn_with(BoomBoxSpawnEvent {
+                    transform: Transform::from_xyz(15.0, 1E-2, 0.0),
+                }),
+            ),
         )
         .add_systems(OnEnter(DialogueAssetLoadState::Success), test_dialogue)
         .add_systems(

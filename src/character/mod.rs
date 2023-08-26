@@ -25,7 +25,7 @@ use bevy_rapier3d::prelude::*;
 use self::camera::{CameraAlignment, LookInfo, PlayerCamera, PlayerCameraPlugin};
 use self::eightball::{EightBall, EightBallPlugin};
 
-pub const CHARACTER_WALKSPEED: f32 = 3.0;
+pub const CHARACTER_WALKSPEED: f32 = 24.0;
 
 pub struct CharacterPlugin;
 

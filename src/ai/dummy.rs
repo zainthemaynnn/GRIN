@@ -11,7 +11,7 @@ use crate::{
     humanoid::{Humanoid, HumanoidAssets, HumanoidBundle, HUMANOID_RADIUS},
     item::Target,
     map::NavMesh,
-    physics::{CollisionGroupExt, CollisionGroupsExt},
+    physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime},
     time::Rewind,
     util::{
         distr,
@@ -89,7 +89,7 @@ pub struct ShotCooldown(pub f32);
 
 pub fn fire(
     mut commands: Commands,
-    time: Res<Time>,
+    time: Res<PhysicsTime>,
     mut dummy_query: Query<
         (Entity, &Humanoid, &Target, &mut ShotCooldown),
         (With<Dummy>, Without<Rewind>, Without<Dead>),
@@ -105,7 +105,7 @@ pub fn fire(
         mut cooldown,
     ) in dummy_query.iter_mut()
     {
-        cooldown.0 += time.delta_seconds();
+        cooldown.0 += time.0.delta_seconds();
         if cooldown.0 < 4.0 {
             continue;
         }

@@ -15,7 +15,7 @@ use crate::{
     humanoid::{Humanoid, HumanoidBundle, HumanoidDominantHand, HUMANOID_RADIUS},
     item::Target,
     map::NavMesh,
-    physics::{CollisionGroupExt, CollisionGroupsExt, ForceTimer},
+    physics::{CollisionGroupExt, CollisionGroupsExt, ForceTimer, PhysicsTime},
     time::Rewind,
     util::{
         distr,
@@ -183,7 +183,7 @@ pub fn create_bullet(source: Entity, transform: Transform) -> impl Bundle {
 
 pub fn fire(
     mut commands: Commands,
-    time: Res<Time>,
+    time: Res<PhysicsTime>,
     mut dummy_query: Query<
         (Entity, &Humanoid, &mut ShotCooldown),
         (With<BoomBox>, Without<Rewind>, Without<Dead>),
@@ -191,7 +191,7 @@ pub fn fire(
     transform_query: Query<&GlobalTransform>,
 ) {
     for (entity, humanoid, mut cooldown) in dummy_query.iter_mut() {
-        cooldown.0 += time.delta_seconds();
+        cooldown.0 += time.0.delta_seconds();
         if cooldown.0 < 4.0 {
             continue;
         }

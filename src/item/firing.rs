@@ -217,7 +217,7 @@ pub fn play_sfx_discrete<T: Component>(
 pub fn play_sfx_continuous<T: Component>(
     mut commands: Commands,
     sfx_query: Query<&ItemSfx, With<T>>,
-    sink_query: Query<&mut AudioSink>,
+    sink_query: Query<&mut SpatialAudioSink>,
     mut shots_began: EventReader<ShotsBegan<T>>,
     mut shots_ended: EventReader<ShotsEnded<T>>,
 ) {
@@ -242,7 +242,7 @@ pub fn play_sfx_continuous<T: Component>(
     for ShotsEnded { entity, .. } in shots_ended.iter() {
         if let Ok(sound) = sink_query.get(*entity) {
             sound.stop();
-            commands.get_or_spawn(*entity).remove::<AudioSink>();
+            commands.get_or_spawn(*entity).remove::<SpatialAudioSink>();
         }
         commands
             .get_or_spawn(*entity)

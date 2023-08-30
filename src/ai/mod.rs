@@ -1,4 +1,5 @@
 pub mod boombox;
+pub mod bt;
 pub mod dummy;
 pub mod movement;
 pub mod screamer;

@@ -9,7 +9,7 @@ use crate::{
     physics::PhysicsTime,
     sound::TrackedSpatialAudioBundle,
     time::{scaling::TimeScale, Rewind},
-    util::vectors::Vec3Ext,
+    util::{numbers::MulStack, vectors::Vec3Ext},
 };
 
 // TODO: again, find good number
@@ -126,13 +126,30 @@ pub fn propagate_attack_target_to_agent_target<T: Component>(
 
 pub fn match_desired_velocity<T: Component>(
     mut agent_query: Query<
-        (&mut Velocity, &mut AgentVelocity, &AgentDesiredVelocity),
+        (
+            &mut Velocity,
+            &mut AgentVelocity,
+            &AgentDesiredVelocity,
+            &AgentVelocityMultiplier,
+        ),
         (With<T>, Without<Rewind>, Without<Dead>),
     >,
 ) {
-    for (mut velocity, mut agent_velocity, desired_velocity) in agent_query.iter_mut() {
-        velocity.linvel = desired_velocity.velocity();
+    for (mut velocity, mut agent_velocity, desired_velocity, multiplier) in agent_query.iter_mut() {
+        velocity.linvel = desired_velocity.velocity() * f32::from(multiplier);
         agent_velocity.0 = velocity.linvel;
+    }
+}
+
+/// It's really just what it sounds like.
+#[derive(Component, Default)]
+pub struct AgentVelocityMultiplier {
+    pub mulstack: MulStack,
+}
+
+impl From<&AgentVelocityMultiplier> for f32 {
+    fn from(value: &AgentVelocityMultiplier) -> Self {
+        f32::from(&value.mulstack)
     }
 }
 

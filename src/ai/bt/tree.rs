@@ -292,7 +292,7 @@ impl<A> BehaviorTree<A> {
 ///     }
 /// };
 /// ```
-#[macro_export]
+#[macro_export(local_inner_macros)]
 macro_rules! bt {
     ( $($block:tt)* ) => {
         bt_internal!(@root $($block)*)
@@ -303,6 +303,7 @@ macro_rules! bt {
 /// The public version `bt!` doesn't need to be annotated.
 //
 // wow. learning how to make a non-trivial macro was a journey. a whole day, in fact...
+#[macro_export(local_inner_macros)]
 macro_rules! bt_internal {
     ( @root $($block:tt)* ) => {
         {

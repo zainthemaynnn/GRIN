@@ -58,7 +58,6 @@ impl<I: GenericImage> TextureArrayBuilder<I> {
     }
 }
 
-#[macro_export]
 /// Generates texture arrays by superimposing textures from the listed folders, in order.
 ///
 /// If a directory contains multiple images, the composite textures form a texture array.
@@ -86,6 +85,7 @@ impl<I: GenericImage> TextureArrayBuilder<I> {
 /// // [2] = [eyes/1, mouth/1]
 /// // [3] = [eyes/0, mouth/2]
 /// ```
+#[macro_export]
 macro_rules! texture_array {
     [$indices:expr, $( $path:literal ),* $(,)?] => {
         {

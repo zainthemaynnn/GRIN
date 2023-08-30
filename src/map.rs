@@ -10,9 +10,7 @@ use geo_offset::Offset;
 use itertools::Itertools;
 use spade::{ConstrainedDelaunayTriangulation, Point2, Triangulation};
 
-use crate::{
-    collider, humanoid::HUMANOID_RADIUS, render::sketched::NoOutline, util::vectors::Vec3Ext,
-};
+use crate::{collider, humanoid::HUMANOID_RADIUS, util::vectors::Vec3Ext};
 
 /// How much to offset navmesh from obstacles.
 //

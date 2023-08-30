@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::{PhysicsSet, RigidBody, Velocity};
 
+use crate::util::numbers::{MulStack, MulStackError};
+
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum TimeScaleSet {
     PreScale,
@@ -46,7 +48,7 @@ impl Plugin for TimeScalePlugin {
 #[derive(Component)]
 pub struct TimeScale {
     /// List of scale multipliers.
-    pub mulstack: Vec<f32>,
+    pub mulstack: MulStack,
     /// Timescale of the previous frame. See `write_time_scales` in `Last`.
     pub memoed: f32,
 }
@@ -54,24 +56,8 @@ pub struct TimeScale {
 impl Default for TimeScale {
     fn default() -> Self {
         Self {
-            mulstack: Vec::new(),
+            mulstack: MulStack::default(),
             memoed: 1.0,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum TimeScaleError {
-    BadUnscale(f32),
-}
-
-impl std::fmt::Display for TimeScaleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::BadUnscale(scale) => f.write_fmt(format_args!(
-                "`TimeScale::unscale` with unidentified multiplier {}",
-                scale
-            )),
         }
     }
 }
@@ -79,25 +65,18 @@ impl std::fmt::Display for TimeScaleError {
 impl TimeScale {
     /// Adds a multiplier to the timescale.
     pub fn scale_by(&mut self, scale: f32) {
-        self.mulstack.push(scale);
+        self.mulstack.add(scale)
     }
 
-    /// Removes a multiplier from the timescale. `TimeScaleError::BadUnscale` if not found.
-    pub fn unscale_by(&mut self, scale: f32) -> Result<(), TimeScaleError> {
-        match self.mulstack.iter().position(|v| *v == scale) {
-            Some(i) => {
-                self.mulstack.remove(i);
-                Ok(())
-            }
-            None => Err(TimeScaleError::BadUnscale(scale)),
-        }
+    /// Removes a multiplier from the timescale. `MulStackError::BadUnscale` if not found.
+    pub fn unscale_by(&mut self, scale: f32) -> Result<(), MulStackError> {
+        self.mulstack.remove(scale)
     }
 }
 
-// imagine only impl'ing From for the reference. couldn't be me.
 impl From<&TimeScale> for f32 {
     fn from(value: &TimeScale) -> Self {
-        value.mulstack.iter().fold(1.0, |acc, scale| acc * scale)
+        f32::from(&value.mulstack)
     }
 }
 
@@ -197,7 +176,7 @@ pub fn scale_animations(mut animator_query: Query<(&mut AnimationPlayer, &TimeSc
 mod tests {
     use std::f32::consts::TAU;
 
-    use bevy::{audio::AudioPlugin, time::TimePlugin};
+    use bevy::time::TimePlugin;
     use bevy_rapier3d::prelude::*;
 
     use crate::physics::new_physics_app;
@@ -307,7 +286,7 @@ mod tests {
             .spawn((
                 AnimationPlayer::default(),
                 TimeScale {
-                    mulstack: vec![0.5],
+                    mulstack: vec![0.5].into(),
                     ..Default::default()
                 },
             ))
@@ -357,7 +336,7 @@ mod tests {
                     angvel: Vec3::new(TAU, 0.0, 0.0),
                 },
                 TimeScale {
-                    mulstack: vec![0.5],
+                    mulstack: vec![0.5].into(),
                     ..Default::default()
                 },
             ))

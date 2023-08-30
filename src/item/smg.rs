@@ -161,11 +161,9 @@ pub fn spawn_bullet(
                     value: 5.0,
                     source: None,
                 },
+                transform: bullet_transform.with_scale(Vec3::splat(0.15)),
                 velocity: Velocity::linear(bullet_transform.forward() * 64.0),
                 collision_groups: CollisionGroups::from_group_default(group),
-                spatial: SpatialBundle::from_transform(
-                    bullet_transform.with_scale(Vec3::splat(0.15)),
-                ),
                 ccd: Ccd::enabled(),
                 ..Default::default()
             },

@@ -1,3 +1,7 @@
+// TODO: I don't know whether to use raycasts or colliders. possibly both.
+// there is a 50:50 chance of a projectile physics overhaul coming?
+// I need to see 1) the performance difference and 2) the accuracy of CCD first.
+
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
@@ -5,7 +9,9 @@ use bevy_rapier3d::prelude::*;
 use crate::{
     asset::AssetLoadState,
     damage::{ContactDamage, Damage},
+    physics::{CollisionGroupExt, CollisionGroupsExt},
     render::sketched::{GlobalMeshOutline, NoOutline, SketchMaterial},
+    util::{distr, vectors},
 };
 
 pub struct ProjectilePlugin;
@@ -105,7 +111,6 @@ pub enum ProjectileColor {
 pub struct ProjectileBundle {
     pub color: ProjectileColor,
     pub body: RigidBody,
-    pub spatial: SpatialBundle,
     pub collider: Collider,
     pub collision_groups: CollisionGroups,
     pub velocity: Velocity,
@@ -117,6 +122,26 @@ pub struct ProjectileBundle {
     pub ccd: Ccd,
     pub mass_properties: ColliderMassProperties,
     pub spatial_constraints: LockedAxes,
+    pub visibility: Visibility,
+    pub computed: ComputedVisibility,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+}
+
+impl ProjectileBundle {
+    pub fn player_default() -> Self {
+        Self {
+            collision_groups: CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE),
+            ..Default::default()
+        }
+    }
+
+    pub fn enemy_default() -> Self {
+        Self {
+            collision_groups: CollisionGroups::from_group_default(Group::ENEMY_PROJECTILE),
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for ProjectileBundle {
@@ -126,8 +151,10 @@ impl Default for ProjectileBundle {
             gravity: GravityScale(0.0),
             collision_groups: CollisionGroups::default(),
             body: RigidBody::Dynamic,
-            spatial: SpatialBundle::default(),
-            collider: Collider::default(),
+            collider: Collider::polyline(
+                vectors::circle(Vec3::X, Vec3::Y, 16, &distr::linear).collect(),
+                None,
+            ),
             velocity: Velocity::default(),
             sensor: Sensor::default(),
             damage: Damage::default(),
@@ -136,6 +163,10 @@ impl Default for ProjectileBundle {
             color: ProjectileColor::Red,
             mass_properties: ColliderMassProperties::default(),
             spatial_constraints: LockedAxes::TRANSLATION_LOCKED_Y,
+            visibility: Visibility::default(),
+            computed: ComputedVisibility::default(),
+            transform: Transform::default(),
+            global_transform: GlobalTransform::default(),
         }
     }
 }

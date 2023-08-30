@@ -11,7 +11,7 @@ use crate::{
     humanoid::{Humanoid, HumanoidAssets, HumanoidBundle, HUMANOID_RADIUS},
     item::Target,
     map::NavMesh,
-    physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime},
+    physics::PhysicsTime,
     time::Rewind,
     util::{
         distr,
@@ -131,15 +131,10 @@ pub fn fire(
                                 value: 5.0,
                                 source: Some(entity),
                             },
+                            transform: bullet_transform.with_scale(Vec3::splat(0.5)),
                             velocity: Velocity::linear(bullet_transform.forward() * 10.0),
-                            collision_groups: CollisionGroups::from_group_default(
-                                Group::ENEMY_PROJECTILE,
-                            ),
-                            spatial: SpatialBundle::from_transform(
-                                bullet_transform.with_scale(Vec3::splat(0.5)),
-                            ),
                             ccd: Ccd::enabled(),
-                            ..Default::default()
+                            ..ProjectileBundle::enemy_default()
                         },
                     )
                 },

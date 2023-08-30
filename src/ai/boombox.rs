@@ -15,7 +15,7 @@ use crate::{
     humanoid::{Humanoid, HumanoidBundle, HumanoidDominantHand, HUMANOID_RADIUS},
     item::Target,
     map::NavMesh,
-    physics::{CollisionGroupExt, CollisionGroupsExt, ForceTimer, PhysicsTime},
+    physics::{ForceTimer, PhysicsTime},
     time::Rewind,
     util::{
         distr,
@@ -165,13 +165,12 @@ pub fn create_bullet(source: Entity, transform: Transform) -> impl Bundle {
             damage: Damage {
                 ty: DamageVariant::Ballistic,
                 value: 5.0,
-                source: source.into(),
+                source: Some(source),
             },
+            transform: transform.with_scale(Vec3::splat(BULLET_SIZE)),
             velocity: Velocity::linear(transform.forward() * BEGIN_SPEED),
-            collision_groups: CollisionGroups::from_group_default(Group::ENEMY_PROJECTILE),
-            spatial: SpatialBundle::from_transform(transform.with_scale(Vec3::splat(BULLET_SIZE))),
             mass_properties: ColliderMassProperties::Mass(1.0),
-            ..Default::default()
+            ..ProjectileBundle::enemy_default()
         },
         ExternalForce {
             force: transform.forward() * DRAG,

@@ -8,13 +8,13 @@ pub enum OutVerdict {
 }
 
 /// Used when moving between behavior tree nodes. It helps avoid recursion.
-enum NodeTraversal {
+enum NodeTraversal<A: Clone> {
     /// Traverse down the tree.
     Down { node: usize },
     /// Traverse up the tree, with this status.
     Up { node: usize, verdict: OutVerdict },
     /// Stop traversing the tree at a leaf node.
-    Break,
+    Task { action: A },
     /// Finish traversing the tree at the root node.
     Finish { verdict: OutVerdict },
 }
@@ -34,9 +34,9 @@ impl<A> Default for Node<A> {
     }
 }
 
-impl<A> Node<A> {
+impl<A: Clone> Node<A> {
     /// Traverse down the behavior tree. Returns on a leaf node.
-    fn down(&self) -> NodeTraversal {
+    fn down(&self) -> NodeTraversal<A> {
         match self {
             Node::Root(node) => NodeTraversal::Down { node: *node },
             Node::Composite(composite) => {
@@ -47,12 +47,14 @@ impl<A> Node<A> {
             Node::Decorator(decorator) => NodeTraversal::Down {
                 node: decorator.child,
             },
-            Node::Leaf(..) => NodeTraversal::Break,
+            Node::Leaf(Leaf { action, .. }) => NodeTraversal::Task {
+                action: action.clone(),
+            },
         }
     }
 
     /// Traverse up the behavior tree. Returns on a leaf node or the root node if the tree is finished.
-    fn up(&self, source: usize, verdict: OutVerdict) -> NodeTraversal {
+    fn up(&self, source: usize, verdict: OutVerdict) -> NodeTraversal<A> {
         match self {
             Node::Root(..) => NodeTraversal::Finish { verdict },
             Node::Composite(composite) => {
@@ -180,16 +182,16 @@ pub enum GraphBuildError {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BehaviorOutput {
+pub enum BehaviorOutput<A> {
     /// Reached a task.
-    Task { node: usize },
+    Task { node: usize, action: A },
     /// Reached the top of the tree.
     Complete { verdict: OutVerdict },
 }
 
-impl<A> BehaviorTree<A> {
+impl<A: Clone> BehaviorTree<A> {
     /// Run a node traversal.
-    fn traverse_at(&self, mut traversal: NodeTraversal) -> BehaviorOutput {
+    fn traverse_at(&self, mut traversal: NodeTraversal<A>) -> BehaviorOutput<A> {
         let mut visiting_node = usize::MAX;
         loop {
             traversal = match traversal {
@@ -203,9 +205,10 @@ impl<A> BehaviorTree<A> {
                     self.graph[node].up(source, verdict)
                 }
                 // I dunno why they get formatted like this, but OK
-                NodeTraversal::Break => {
+                NodeTraversal::Task { action } => {
                     break BehaviorOutput::Task {
                         node: visiting_node,
+                        action,
                     }
                 }
                 NodeTraversal::Finish { verdict } => break BehaviorOutput::Complete { verdict },
@@ -214,12 +217,12 @@ impl<A> BehaviorTree<A> {
     }
 
     /// Run from the top of the tree.
-    pub fn run_root(&self) -> BehaviorOutput {
+    pub fn run_root(&self) -> BehaviorOutput<A> {
         self.traverse_at(NodeTraversal::Down { node: 0 })
     }
 
     /// Run from a particular node that outputted a particular verdict.
-    pub fn run_leaf(&self, input_node: usize, verdict: OutVerdict) -> BehaviorOutput {
+    pub fn run_leaf(&self, input_node: usize, verdict: OutVerdict) -> BehaviorOutput<A> {
         match verdict {
             OutVerdict::Success => self.traverse_at(NodeTraversal::Up {
                 node: input_node,
@@ -392,7 +395,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Debug)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     enum MockTask {
         A,
         B,
@@ -419,13 +422,19 @@ mod tests {
 
         assert_eq!(
             bt.run_root(),
-            BehaviorOutput::Task { node: task_a },
+            BehaviorOutput::Task {
+                node: task_a,
+                action: MockTask::A,
+            },
             "First task not selected.",
         );
 
         assert_eq!(
             bt.run_leaf(task_a, OutVerdict::Success),
-            BehaviorOutput::Task { node: task_b },
+            BehaviorOutput::Task {
+                node: task_b,
+                action: MockTask::B,
+            },
             "Second task not selected.",
         );
 
@@ -439,7 +448,10 @@ mod tests {
 
         assert_eq!(
             bt.run_root(),
-            BehaviorOutput::Task { node: task_a },
+            BehaviorOutput::Task {
+                node: task_a,
+                action: MockTask::A,
+            },
             "First task not selected on next iteration.",
         );
 
@@ -465,13 +477,19 @@ mod tests {
 
         assert_eq!(
             bt.run_root(),
-            BehaviorOutput::Task { node: task_a },
+            BehaviorOutput::Task {
+                node: task_a,
+                action: MockTask::A,
+            },
             "First task not selected.",
         );
 
         assert_eq!(
             bt.run_leaf(task_a, OutVerdict::Failure),
-            BehaviorOutput::Task { node: task_b },
+            BehaviorOutput::Task {
+                node: task_b,
+                action: MockTask::B,
+            },
             "Second task not selected.",
         );
 
@@ -485,7 +503,10 @@ mod tests {
 
         assert_eq!(
             bt.run_root(),
-            BehaviorOutput::Task { node: task_a },
+            BehaviorOutput::Task {
+                node: task_a,
+                action: MockTask::A,
+            },
             "First task not selected on next iteration.",
         );
 
@@ -509,7 +530,10 @@ mod tests {
 
         assert_eq!(
             bt.run_root(),
-            BehaviorOutput::Task { node: task_a },
+            BehaviorOutput::Task {
+                node: task_a,
+                action: MockTask::A,
+            },
             "Child task not selected.",
         );
 
@@ -523,7 +547,10 @@ mod tests {
 
         assert_eq!(
             bt.run_root(),
-            BehaviorOutput::Task { node: task_a },
+            BehaviorOutput::Task {
+                node: task_a,
+                action: MockTask::A,
+            },
             "Child task not selected on next iteration.",
         );
 

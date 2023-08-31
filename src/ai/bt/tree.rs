@@ -411,7 +411,7 @@ mod tests {
     #[test]
     fn sequence() {
         // you can still use intellisense on the enums... that's so cool
-        let mut bt = bt! {
+        let bt = bt! {
             Composite(CompositeNode::Sequence) {
                 Leaf(MockTask::A),
                 Leaf(MockTask::B),
@@ -466,7 +466,7 @@ mod tests {
 
     #[test]
     fn selector() {
-        let mut bt = bt! {
+        let bt = bt! {
             Composite(CompositeNode::Selector) {
                 Leaf(MockTask::A),
                 Leaf(MockTask::B),
@@ -521,7 +521,7 @@ mod tests {
 
     #[test]
     fn invert() {
-        let mut bt = bt! {
+        let bt = bt! {
             Decorator(DecoratorNode::Invert) {
                 Leaf(MockTask::A),
             },

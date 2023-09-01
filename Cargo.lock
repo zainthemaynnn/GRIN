@@ -678,6 +678,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_enum_filter"
+version = "0.2.0"
+source = "git+https://github.com/zainthemaynnn/bevy_enum_filter.git#745cc334c5976a8d85b2f539b0ad26857e8936bb"
+dependencies = [
+ "bevy_app",
+ "bevy_ecs",
+ "bevy_enum_filter_derive",
+]
+
+[[package]]
+name = "bevy_enum_filter_derive"
+version = "0.1.0"
+source = "git+https://github.com/zainthemaynnn/bevy_enum_filter.git#745cc334c5976a8d85b2f539b0ad26857e8936bb"
+dependencies = [
+ "convert_case",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.107",
+]
+
+[[package]]
 name = "bevy_gilrs"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1598,6 +1620,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd23e864550e6dafc1e41ac78ce4f1ccddc8672b40c403524a04ff3f0518420"
 dependencies = [
  "const_soft_float",
+]
+
+[[package]]
+name = "convert_case"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
+dependencies = [
+ "unicode-segmentation",
 ]
 
 [[package]]
@@ -2561,6 +2592,7 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_asset_loader",
  "bevy_common_assets",
+ "bevy_enum_filter",
  "bevy_hanabi",
  "bevy_landmass",
  "bevy_mod_debugdump",
@@ -4703,6 +4735,12 @@ checksum = "5c5713f0fc4b5db668a2ac63cdb7bb4469d8c9fed047b1d0292cc7b0ce2ba921"
 dependencies = [
  "tinyvec",
 ]
+
+[[package]]
+name = "unicode-segmentation"
+version = "1.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1dd624098567895118886609431a7c3b8f516e41d30e0643f03d94592a147e36"
 
 [[package]]
 name = "unicode-width"

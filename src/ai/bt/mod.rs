@@ -2,14 +2,28 @@ pub mod tree;
 
 use std::{marker::PhantomData, mem};
 
-use bevy::ecs::schedule::ScheduleLabel;
-use bevy::prelude::*;
+use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
+use bevy_enum_filter::prelude::*;
 
 use self::tree::{BehaviorOutput, BehaviorTree, OutVerdict};
 
-pub trait Action: Component + std::fmt::Debug + Clone {}
+pub trait Action: Component + std::fmt::Debug + Clone {
+    /// The default action when the behavior tree is at the root node.
+    ///
+    /// I would have made `Action` an optional component, but enum markers don't get removed
+    /// along with the enum, which leads to archetype fragmentation. Removing both is technically
+    /// possible if you attempt to remove every single marker struct at once but that's another
+    /// issue. This is just a teensy implementation bump I'll need to roll over.
+    ///
+    /// Note: This is also a blanket implementation over `Default`.
+    fn no_op() -> Self;
+}
 
-impl<T: Component + std::fmt::Debug + Clone> Action for T {}
+impl<T: Component + std::fmt::Debug + Clone + Default> Action for T {
+    fn no_op() -> Self {
+        Self::default()
+    }
+}
 
 /// Node status. I called it `Verdict` instead of `Status` because status ambiguously
 /// has like 200 different meanings... not cause I'm quirky or anything.
@@ -117,23 +131,12 @@ impl<A: Action> Plugin for BehaviorPlugin<A> {
     }
 }
 
-/// Contains a behavior tree corresponding to action `A`. This AI model can be shared
-/// between any NPC's with a `BrainMarker<A>`, as long as the generic matches.
-#[derive(Resource)]
-pub struct AiModel<A: Action> {
-    pub bt: BehaviorTree<A>,
-}
-
-/// The generic `A` dictates the type of AI model followed by `Brain`.
-///
-/// It's a separate component so that `Brain` doesn't need a generic. Otherwise you
-/// pretty much always want both at once. See `BrainBundle`.
-#[derive(Component)]
-pub struct BrainMarker<A: Action> {
+// bruh... negative trait bounds when...
+pub struct EnumBehaviorPlugin<A: Action> {
     pub phantom_data: PhantomData<A>,
 }
 
-impl<A: Action> Default for BrainMarker<A> {
+impl<A: Action> Default for EnumBehaviorPlugin<A> {
     fn default() -> Self {
         Self {
             phantom_data: PhantomData::default(),
@@ -141,8 +144,25 @@ impl<A: Action> Default for BrainMarker<A> {
     }
 }
 
+impl<A: Action + EnumFilter> Plugin for EnumBehaviorPlugin<A> {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(BehaviorPlugin::<A>::default()).add_systems(
+            BehaviorIteration,
+            bevy_enum_filter::watch_for_enum::<A>.after(BehaviorSet::Think),
+        );
+    }
+}
+
+/// Contains a behavior tree corresponding to action `A`. This AI model can be shared
+/// between any NPC's with a `BrainMarker<A>`, as long as the generic matches.
+#[derive(Resource)]
+pub struct AiModel<A: Action> {
+    pub bt: BehaviorTree<A>,
+}
+
 /// Facilitates interaction between an agent and its `AiModel<A>`. You can select the
-/// behavior tree by inserting this with a `BrainMarker<A>`. Also see `BrainBundle`.
+/// behavior tree by inserting `A` as a raw adjacent component. You pretty much always
+/// want both at once, so see `BrainBundle<A>`.
 #[derive(Component, Debug, Default)]
 pub struct Brain {
     visiting_node: usize,
@@ -172,14 +192,14 @@ impl Brain {
 #[derive(Bundle)]
 pub struct BrainBundle<A: Action> {
     pub brain: Brain,
-    pub marker: BrainMarker<A>,
+    pub action: A,
 }
 
 impl<A: Action> Default for BrainBundle<A> {
     fn default() -> Self {
         Self {
             brain: Brain::default(),
-            marker: BrainMarker::default(),
+            action: A::no_op(),
         }
     }
 }
@@ -199,21 +219,28 @@ pub fn init_behavior_update(mut commands: Commands, mut agent_query: Query<Entit
 pub fn behavior_update<A: Action>(
     mut commands: Commands,
     ai: Res<AiModel<A>>,
-    mut agent_query: Query<
-        (Entity, &mut Brain, Option<&mut A>),
-        (With<ActiveTree>, With<BrainMarker<A>>),
-    >,
+    mut agent_query: Query<(Entity, &mut Brain, &mut A), With<ActiveTree>>,
 ) {
-    for (e_agent, mut brain, action) in agent_query.iter_mut() {
-        if action.is_some() && !brain.pop_changed() {
-            warn!("{:?} was not handled. Make sure to handle this with `Brain::write_status`. Terminating tree...", action);
-            commands
-                .entity(e_agent)
-                .remove::<(ActiveTree, BrainBundle<A>)>();
-            continue;
-        }
+    for (e_agent, mut brain, mut action) in agent_query.iter_mut() {
+        if brain.visiting_node == 0 {
+            // there's no action so the tree needs to be restarted. call `run_root`.
+            let BehaviorOutput::Task { node, action: new_action } = ai.bt.run_root() else {
+                error!("Behavior tree finished without task.");
+                continue;
+            };
 
-        if let Some(mut action) = action {
+            debug!("Running action {:?}.", new_action);
+            brain.visiting_node = node;
+            *action = new_action;
+        } else {
+            if !brain.pop_changed() {
+                warn!("{:?} was not handled. Make sure to handle this with `Brain::write_status`. Terminating tree...", action);
+                commands
+                    .entity(e_agent)
+                    .remove::<(ActiveTree, BrainBundle<A>)>();
+                continue;
+            }
+
             match brain.verdict() {
                 Verdict::Success | Verdict::Failure => match ai
                     .bt
@@ -228,11 +255,12 @@ pub fn behavior_update<A: Action>(
                         brain.visiting_node = node;
                         *action = new_action;
                     }
-                    // deactivate, remove the action, and set `visiting_node` to root
+                    // deactivate, reset the action, and set `visiting_node` to root
                     BehaviorOutput::Complete { verdict } => {
-                        brain.visiting_node = 0;
                         debug!("Tree finished with {:?}.", verdict);
-                        commands.entity(e_agent).remove::<(ActiveTree, A)>();
+                        brain.visiting_node = 0;
+                        *action = A::no_op();
+                        commands.entity(e_agent).remove::<ActiveTree>();
                     }
                 },
                 // temporarily deactivate but keep `visiting_node`, so that it starts
@@ -242,16 +270,6 @@ pub fn behavior_update<A: Action>(
                     commands.entity(e_agent).remove::<ActiveTree>();
                 }
             }
-        } else {
-            // there's no action so the tree needs to be restarted. call `run_root`.
-            let BehaviorOutput::Task { node, action } = ai.bt.run_root() else {
-                error!("Behavior tree finished without task.");
-                continue;
-            };
-
-            debug!("Running action {:?}.", action);
-            brain.visiting_node = node;
-            commands.entity(e_agent).insert(action);
         }
     }
 }
@@ -262,8 +280,10 @@ mod tests {
 
     use super::*;
 
-    #[derive(Component, Clone, Copy, Debug, Eq, PartialEq)]
+    #[derive(Component, EnumFilter, Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub enum MockTask {
+        #[default]
+        NoOp,
         A,
         B,
     }
@@ -273,17 +293,18 @@ mod tests {
         mut switch: Local<u32>,
     ) {
         for (action, mut brain) in agent_query.iter_mut() {
-            brain.write_verdict(match action {
+            match action {
                 MockTask::A => {
                     if *switch == 3 {
-                        Verdict::Success
+                        brain.write_verdict(Verdict::Success)
                     } else {
                         *switch += 1;
-                        Verdict::Running
+                        brain.write_verdict(Verdict::Running)
                     }
                 }
-                MockTask::B => Verdict::Failure,
-            });
+                MockTask::B => brain.write_verdict(Verdict::Failure),
+                _ => (),
+            }
         }
     }
 
@@ -310,14 +331,14 @@ mod tests {
         for _ in 0..3 {
             app.update();
 
-            let action = app.world.entity(e_agent).get::<MockTask>();
-            assert_eq!(action, Some(&MockTask::A));
+            let action = app.world.entity(e_agent).get::<MockTask>().unwrap();
+            assert_eq!(action, &MockTask::A);
         }
 
         app.update();
 
-        let action = app.world.entity(e_agent).get::<MockTask>();
-        assert_eq!(action, None);
+        let action = app.world.entity(e_agent).get::<MockTask>().unwrap();
+        assert_eq!(action, &MockTask::no_op());
     }
 
     #[test]

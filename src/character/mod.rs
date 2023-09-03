@@ -149,6 +149,7 @@ pub fn init_character_model(
             ..Default::default()
         },
         RigidBody::KinematicPositionBased,
+        Velocity::default(),
         KinematicCharacterController {
             custom_shape: Some((
                 match race {

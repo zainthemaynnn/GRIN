@@ -87,11 +87,26 @@ CustomDynamicAssetCollection({
      "rig.screamer": File (
           path: "meshes/screamer.glb#Scene0",
      ),
-     "anim.screamer.idle.armed": File (
+     "anim.screamer.aim": File (
           path: "meshes/screamer.glb#Animation0",
      ),
-     "anim.screamer.idle.unarmed": File (
+     "anim.screamer.bass": File (
           path: "meshes/screamer.glb#Animation1",
+     ),
+     "anim.screamer.bassready": File (
+          path: "meshes/screamer.glb#Animation2",
+     ),
+     "anim.screamer.idle.armed": File (
+          path: "meshes/screamer.glb#Animation3",
+     ),
+     "anim.screamer.idle.unarmed": File (
+          path: "meshes/screamer.glb#Animation4",
+     ),
+     "anim.screamer.scream": File (
+          path: "meshes/screamer.glb#Animation5",
+     ),
+     "sfx.bass_cannon": File (
+          path: "audio/synth-bass-drop-impact.ogg",
      ),
 
      "tex.skin": File (

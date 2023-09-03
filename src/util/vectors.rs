@@ -15,6 +15,9 @@ pub trait Vec3Ext {
     /// Sets `Vec3.y` to `0.0`.
     fn xz_flat(&self) -> Self;
 
+    /// Sets `Vec3.y` to `y`.
+    fn with_y(&self, y: f32) -> Self;
+
     /// Returns the lexographic comparison of the two vectors.
     /// In baby words: comparison by priority of individual components `x`, `y`, `z`.
     fn lexographic_cmp(&self, other: &Vec3) -> std::cmp::Ordering;
@@ -24,6 +27,11 @@ impl Vec3Ext for Vec3 {
     #[inline]
     fn xz_flat(&self) -> Vec3 {
         Vec3::new(self.x, 0.0, self.z)
+    }
+
+    #[inline]
+    fn with_y(&self, y: f32) -> Vec3 {
+        Vec3::new(self.x, y, self.z)
     }
 
     fn lexographic_cmp(&self, other: &Vec3) -> std::cmp::Ordering {

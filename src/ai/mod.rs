@@ -187,3 +187,42 @@ impl<A: Action> EnemyAgentBundle<A> {
         }
     }
 }
+
+/// Pretty much any wrapper component around `Timer`.
+pub trait Cooldown: Component {
+    fn timer(&self) -> &Timer;
+    fn timer_mut(&mut self) -> &mut Timer;
+}
+
+fn cooldown_win_lose<T: Component, C: Cooldown>(
+    time: &PhysicsTime,
+    agent_query: &mut Query<(&mut Brain, &mut C), With<T>>,
+    win: Verdict,
+    lose: Verdict,
+) {
+    for (mut brain, mut cooldown) in agent_query.iter_mut() {
+        brain.write_verdict(
+            if cooldown.timer_mut().tick(time.0.delta()).just_finished() {
+                win
+            } else {
+                lose
+            },
+        );
+    }
+}
+
+/// Updates cooldown `C`. Writes `Verdict::Success` if ready, `Verdict::Failure` otherwise.
+pub fn protective_cooldown<T: Component, C: Cooldown>(
+    time: Res<PhysicsTime>,
+    mut agent_query: Query<(&mut Brain, &mut C), With<T>>,
+) {
+    cooldown_win_lose(&time, &mut agent_query, Verdict::Success, Verdict::Failure);
+}
+
+/// Updates cooldown `C`. Writes `Verdict::Success` if ready, `Verdict::Running` otherwise.
+pub fn blocking_cooldown<T: Component, C: Cooldown>(
+    time: Res<PhysicsTime>,
+    mut agent_query: Query<(&mut Brain, &mut C), With<T>>,
+) {
+    cooldown_win_lose(&time, &mut agent_query, Verdict::Success, Verdict::Running);
+}

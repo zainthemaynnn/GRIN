@@ -12,6 +12,8 @@ use crate::{
     util::{numbers::MulStack, vectors::Vec3Ext},
 };
 
+use super::bt::{Brain, Verdict};
+
 // TODO: again, find good number
 pub const MAX_AGENT_ANGULAR_VELOCITY: f32 = TAU;
 

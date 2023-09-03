@@ -194,7 +194,6 @@ pub struct HumanoidBundle {
     pub build: HumanoidBuild,
     pub dominant_hand: HumanoidDominantHand,
     pub spatial: SpatialBundle,
-    pub velocity: Velocity,
 }
 
 #[derive(Component)]
@@ -475,8 +474,6 @@ impl std::fmt::Display for HumanoidLoadError {
 /// - Inserts `Humanoid`.
 /// - Updates meshes and textures to be in line with cosmetic components.
 /// - Assigns dominant hand.
-/// - Inserts colliders.
-/// - Inserts velocity, character controller.
 pub fn process_skeletons(
     mut commands: Commands,
     assets: Res<HumanoidAssets>,

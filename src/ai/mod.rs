@@ -151,22 +151,28 @@ pub fn configure_humanoid_physics<T: Component>(
 }
 
 #[derive(Bundle)]
-pub struct EnemyAgentBundle {
+pub struct EnemyAgentBundle<A: Action> {
     pub health: Health,
     pub resist: Resist,
+    pub brain: Brain,
+    pub action: A,
     pub path_behavior: PathBehavior,
     pub archipelago_ref: ArchipelagoRef,
     pub agent: Agent,
     pub velocity: AgentVelocity,
     pub desired_velocity: AgentDesiredVelocity,
     pub agent_target: AgentTarget,
+    pub rapier_velocity: Velocity,
+    pub rapier_body: RigidBody,
 }
 
-impl EnemyAgentBundle {
+impl<A: Action> EnemyAgentBundle<A> {
     pub fn from_archipelago(archipelago: Entity) -> Self {
         Self {
             health: Health::default(),
             resist: Resist::default(),
+            brain: Brain::default(),
+            action: A::no_op(),
             path_behavior: PathBehavior::default(),
             archipelago_ref: ArchipelagoRef(archipelago),
             agent: Agent {
@@ -176,6 +182,8 @@ impl EnemyAgentBundle {
             velocity: AgentVelocity::default(),
             desired_velocity: AgentDesiredVelocity::default(),
             agent_target: AgentTarget::default(),
+            rapier_velocity: Velocity::default(),
+            rapier_body: RigidBody::KinematicVelocityBased,
         }
     }
 }

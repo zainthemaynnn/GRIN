@@ -120,7 +120,7 @@ pub fn init_humanoid(
         let mut animator = animator_query.get_mut(humanoid.armature).unwrap();
         animator
             .play(match dominant {
-                HumanoidDominantHand::Left => assets.idle_rt.clone(),
+                HumanoidDominantHand::Left => assets.idle_lt.clone(),
                 HumanoidDominantHand::Right => assets.idle_rt.clone(),
             })
             .repeat();

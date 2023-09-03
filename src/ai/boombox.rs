@@ -2,6 +2,7 @@ use std::f32::consts::PI;
 
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
+use bevy_enum_filter::prelude::*;
 use bevy_landmass::Agent;
 use bevy_rapier3d::prelude::*;
 
@@ -13,9 +14,8 @@ use crate::{
         Damage, DamageVariant, Dead,
     },
     humanoid::{Humanoid, HumanoidBundle, HumanoidDominantHand, HUMANOID_RADIUS},
-    item::Target,
     map::NavMesh,
-    physics::{ForceTimer, PhysicsTime},
+    physics::ForceTimer,
     time::Rewind,
     util::{
         distr,
@@ -26,9 +26,11 @@ use crate::{
 };
 
 use super::{
+    bt::{BehaviorIteration, BehaviorSet, Brain, Verdict},
     configure_humanoid_physics,
+    dummy::{dummy_ai_filters, DummyAi, ShotCooldown},
     movement::{match_desired_velocity, propagate_attack_target_to_agent_target},
-    propagate_attack_target_to_weapon_target, set_closest_attack_target, AISet, EnemyAgentBundle,
+    protective_cooldown, set_closest_attack_target, AiSet, EnemyAgentBundle,
 };
 
 pub struct BoomBoxPlugin;
@@ -39,16 +41,18 @@ impl Plugin for BoomBoxPlugin {
             .add_collection_to_loading_state::<_, BoomBoxAssets>(AssetLoadState::Loading)
             .add_systems(
                 Update,
+                (spawn, init_humanoid, configure_humanoid_physics::<BoomBox>).in_set(AiSet::Spawn),
+            )
+            .add_systems(
+                BehaviorIteration,
                 (
-                    spawn.in_set(AISet::Spawn),
-                    configure_humanoid_physics::<BoomBox>.in_set(AISet::Spawn),
-                    init_humanoid.in_set(AISet::Spawn),
-                    set_closest_attack_target::<BoomBox, PlayerCharacter>.in_set(AISet::Target),
-                    propagate_attack_target_to_weapon_target::<BoomBox>.in_set(AISet::ActionStart),
-                    propagate_attack_target_to_agent_target::<BoomBox>.in_set(AISet::ActionStart),
-                    match_desired_velocity::<BoomBox>.in_set(AISet::Act),
-                    fire.in_set(AISet::Act),
-                ),
+                    set_closest_attack_target::<BoomBox, Enum!(DummyAi::Track), PlayerCharacter>,
+                    propagate_attack_target_to_agent_target::<BoomBox, Enum!(DummyAi::Target)>,
+                    protective_cooldown::<BoomBox, Enum!(DummyAi::FireCheck), ShotCooldown>,
+                    match_desired_velocity::<BoomBox, Enum!(DummyAi::Chase)>,
+                    fire::<BoomBox, Enum!(DummyAi::Fire)>,
+                )
+                    .in_set(BehaviorSet::Act),
             );
     }
 }
@@ -84,14 +88,13 @@ pub fn spawn(
     for BoomBoxSpawnEvent { transform } in events.iter() {
         commands.spawn((
             BoomBox,
-            Target::default(),
             ShotCooldown::default(),
             HumanoidBundle {
                 skeleton_gltf: assets.skeleton.clone(),
                 spatial: SpatialBundle::from_transform(transform.clone()),
                 ..Default::default()
             },
-            EnemyAgentBundle {
+            EnemyAgentBundle::<DummyAi> {
                 agent: Agent {
                     radius: HUMANOID_RADIUS,
                     max_velocity: 2.0,
@@ -146,9 +149,6 @@ pub fn init_humanoid(
     }
 }
 
-#[derive(Component, Default)]
-pub struct ShotCooldown(pub f32);
-
 pub const BULLET_SIZE: f32 = 0.5;
 pub const END_SPEED: f32 = 3.0;
 pub const DRAG_DURATION: f32 = 0.5;
@@ -180,22 +180,15 @@ pub fn create_bullet(source: Entity, transform: Transform) -> impl Bundle {
     )
 }
 
-pub fn fire(
+pub fn fire<T: Component, A: Component>(
     mut commands: Commands,
-    time: Res<PhysicsTime>,
-    mut dummy_query: Query<
-        (Entity, &Humanoid, &mut ShotCooldown),
-        (With<BoomBox>, Without<Rewind>, Without<Dead>),
+    mut agent_query: Query<
+        (Entity, &mut Brain, &Humanoid),
+        (With<T>, With<A>, Without<Rewind>, Without<Dead>),
     >,
     transform_query: Query<&GlobalTransform>,
 ) {
-    for (entity, humanoid, mut cooldown) in dummy_query.iter_mut() {
-        cooldown.0 += time.0.delta_seconds();
-        if cooldown.0 < 4.0 {
-            continue;
-        }
-
-        cooldown.0 -= 4.0;
+    for (e_agent, mut brain, humanoid) in agent_query.iter_mut() {
         let origin = transform_query.get(humanoid.dominant_hand()).unwrap();
         let transform = Transform::from_translation(origin.translation());
 
@@ -208,10 +201,12 @@ pub fn fire(
             )
             .map(move |dir| {
                 create_bullet(
-                    entity,
+                    e_agent,
                     transform.looking_to(dir, dir.any_orthogonal_vector()),
                 )
             }),
         );
+
+        brain.write_verdict(Verdict::Success);
     }
 }

@@ -241,6 +241,7 @@ pub fn behavior_update<A: Action>(
                 continue;
             }
 
+            debug!("--> {:?}", brain.verdict());
             match brain.verdict() {
                 Verdict::Success | Verdict::Failure => match ai
                     .bt
@@ -256,8 +257,7 @@ pub fn behavior_update<A: Action>(
                         *action = new_action;
                     }
                     // deactivate, reset the action, and set `visiting_node` to root
-                    BehaviorOutput::Complete { verdict } => {
-                        debug!("Tree finished with {:?}.", verdict);
+                    BehaviorOutput::Complete { .. } => {
                         brain.visiting_node = 0;
                         *action = A::no_op();
                         commands.entity(e_agent).remove::<ActiveTree>();

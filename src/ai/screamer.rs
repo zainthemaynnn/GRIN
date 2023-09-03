@@ -312,7 +312,7 @@ pub fn aim_begin<T: Component>(
 ) {
     for (mut brain, parts) in agent_query.iter_mut() {
         let mut animator = animator_query.get_mut(parts.armature).unwrap();
-        animator.play_with_transition(assets.bass_ready.clone(), Duration::from_secs_f32(0.1));
+        animator.play_with_transition(assets.bass_ready.clone(), Duration::from_secs_f32(0.2));
         brain.write_verdict(Verdict::Success);
     }
 }
@@ -354,7 +354,7 @@ pub fn bass_cannon<T: Component>(
                     source: Some(e_screamer),
                 },
                 transform: bullet_transform.with_scale(Vec3::splat(1.0)),
-                velocity: Velocity::linear(bullet_transform.forward() * 10.0),
+                velocity: Velocity::linear(bullet_transform.forward() * 24.0),
                 ccd: Ccd::enabled(),
                 ..ProjectileBundle::enemy_default()
             },
@@ -365,14 +365,13 @@ pub fn bass_cannon<T: Component>(
 }
 
 pub fn set_idle<T: Component>(
-    time: Res<PhysicsTime>,
     assets: Res<ScreamerAssets>,
     mut agent_query: Query<(&mut Brain, &ScreamerParts), (With<Screamer>, With<T>)>,
     mut animator_query: Query<&mut AnimationPlayer>,
 ) {
     for (mut brain, parts) in agent_query.iter_mut() {
         let mut animator = animator_query.get_mut(parts.armature).unwrap();
-        animator.play_with_transition(assets.idle.clone(), Duration::from_secs_f32(0.1));
+        animator.play_with_transition(assets.idle.clone(), Duration::from_secs_f32(0.2));
         brain.write_verdict(Verdict::Success);
     }
 }

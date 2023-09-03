@@ -63,6 +63,7 @@ pub fn propagate_attack_target_to_agent_target<T: Component>(
     time: Res<PhysicsTime>,
     mut agent_query: Query<
         (
+            &mut Brain,
             &mut Transform,
             &mut Agent,
             &mut AgentTarget,
@@ -74,8 +75,14 @@ pub fn propagate_attack_target_to_agent_target<T: Component>(
     transform_query: Query<&Transform, Without<T>>,
 ) {
     let dt = time.0.delta_seconds();
-    for (mut transform, mut agent, mut agent_target, AttackTarget(e_target), path_behavior) in
-        agent_query.iter_mut()
+    for (
+        mut brain,
+        mut transform,
+        mut agent,
+        mut agent_target,
+        AttackTarget(e_target),
+        path_behavior,
+    ) in agent_query.iter_mut()
     {
         let target = transform_query.get(*e_target).unwrap();
 
@@ -123,23 +130,39 @@ pub fn propagate_attack_target_to_agent_target<T: Component>(
             -MAX_AGENT_ANGULAR_VELOCITY * dt,
             MAX_AGENT_ANGULAR_VELOCITY * dt,
         ));
+
+        brain.write_verdict(Verdict::Success);
     }
 }
 
 pub fn match_desired_velocity<T: Component>(
     mut agent_query: Query<
         (
+            &mut Brain,
             &mut Velocity,
             &mut AgentVelocity,
             &AgentDesiredVelocity,
-            &AgentVelocityMultiplier,
         ),
         (With<T>, Without<Rewind>, Without<Dead>),
     >,
 ) {
-    for (mut velocity, mut agent_velocity, desired_velocity, multiplier) in agent_query.iter_mut() {
-        velocity.linvel = desired_velocity.velocity() * f32::from(multiplier);
+    for (mut brain, mut velocity, mut agent_velocity, desired_velocity) in agent_query.iter_mut() {
+        velocity.linvel = desired_velocity.velocity();
         agent_velocity.0 = velocity.linvel;
+        brain.write_verdict(Verdict::Success);
+    }
+}
+
+pub fn zero_velocity<T: Component>(
+    mut agent_query: Query<
+        (&mut Brain, &mut Velocity, &mut AgentVelocity),
+        (With<T>, Without<Rewind>, Without<Dead>),
+    >,
+) {
+    for (mut brain, mut velocity, mut agent_velocity) in agent_query.iter_mut() {
+        velocity.linvel = Vec3::ZERO;
+        agent_velocity.0 = velocity.linvel;
+        brain.write_verdict(Verdict::Success);
     }
 }
 

@@ -12,22 +12,23 @@ use bevy_rapier3d::prelude::*;
 
 use crate::{
     damage::{DamageBuffer, Dead, Health, Resist},
-    humanoid::{Humanoid, HumanoidPartType},
+    humanoid::{Humanoid, HumanoidBundle, HumanoidPartType},
     item::Target,
     map::MapLoadState,
-    physics::{CollisionGroupExt, CollisionGroupsExt},
+    physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime},
     time::Rewind,
 };
 
 use self::{
     boombox::BoomBoxPlugin,
+    bt::{Action, Brain, MasterBehaviorPlugin, Verdict},
     dummy::DummyPlugin,
-    movement::{AttackTarget, PathBehavior},
+    movement::{update_biped_procedural_walk_cycle, AttackTarget, PathBehavior},
     screamer::ScreamerPlugin,
 };
 
 #[derive(SystemSet, Hash, Debug, Eq, PartialEq, Copy, Clone)]
-pub enum AISet {
+pub enum AiSet {
     /// Spawns AI's.
     Spawn,
     SpawnFlush,
@@ -41,45 +42,47 @@ pub enum AISet {
     Act,
 }
 
-pub struct BaseAIPlugin;
+pub struct MasterAiPlugin;
 
-impl Plugin for BaseAIPlugin {
+impl Plugin for MasterAiPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(
             Update,
             (
-                AISet::Spawn.run_if(in_state(MapLoadState::Success)),
-                AISet::SpawnFlush,
+                AiSet::Spawn.run_if(in_state(MapLoadState::Success)),
+                AiSet::SpawnFlush,
                 LandmassSystemSet::SyncExistence,
-                AISet::Target,
-                AISet::TargetFlush,
-                AISet::ActionStart,
-                AISet::ActionStartFlush,
+                AiSet::Target,
+                AiSet::TargetFlush,
+                AiSet::ActionStart,
+                AiSet::ActionStartFlush,
                 LandmassSystemSet::Output,
-                AISet::Act,
+                AiSet::Act,
             )
                 .chain(),
         )
+        .add_plugins(MasterBehaviorPlugin)
         .add_systems(
             Update,
             (
-                apply_deferred.in_set(AISet::SpawnFlush),
-                apply_deferred.in_set(AISet::TargetFlush),
-                apply_deferred.in_set(AISet::ActionStartFlush),
+                update_biped_procedural_walk_cycle,
+                apply_deferred.in_set(AiSet::SpawnFlush),
+                apply_deferred.in_set(AiSet::TargetFlush),
+                apply_deferred.in_set(AiSet::ActionStartFlush),
                 apply_deferred
                     .after(LandmassSystemSet::Output)
-                    .before(AISet::Act),
+                    .before(AiSet::Act),
             ),
         );
     }
 }
 
-pub struct AIPlugins;
+pub struct AiPlugins;
 
-impl PluginGroup for AIPlugins {
+impl PluginGroup for AiPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(BaseAIPlugin)
+            .add(MasterAiPlugin)
             .add(BoomBoxPlugin)
             .add(DummyPlugin)
             .add(ScreamerPlugin)
@@ -88,10 +91,13 @@ impl PluginGroup for AIPlugins {
 
 pub fn set_closest_attack_target<T: Component, E: Component>(
     mut commands: Commands,
-    mut self_query: Query<(Entity, &GlobalTransform), (With<T>, Without<Rewind>, Without<Dead>)>,
+    mut agent_query: Query<
+        (Entity, &mut Brain, &GlobalTransform),
+        (With<T>, Without<Rewind>, Without<Dead>),
+    >,
     target_query: Query<(Entity, &GlobalTransform), With<E>>,
 ) {
-    for (e_agent, src_transform) in self_query.iter_mut() {
+    for (e_agent, mut brain, src_transform) in agent_query.iter_mut() {
         let mut new_target = None;
         let mut target_distance = f32::MAX;
         for (e_target, dst_transform) in target_query.iter() {
@@ -106,10 +112,10 @@ pub fn set_closest_attack_target<T: Component, E: Component>(
 
         if let Some(t) = new_target {
             commands.entity(e_agent).insert(t);
-            trace!("Target: {:?}", t);
+            brain.write_verdict(Verdict::Success);
         } else {
             commands.entity(e_agent).remove::<AttackTarget>();
-            trace!("Target removed.");
+            brain.write_verdict(Verdict::Failure);
         }
     }
 }

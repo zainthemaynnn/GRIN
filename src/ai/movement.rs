@@ -12,7 +12,7 @@ use crate::{
     util::{numbers::MulStack, vectors::Vec3Ext},
 };
 
-use super::bt::{Brain, Verdict};
+use super::bt::{Action, Brain, Verdict};
 
 // TODO: again, find good number
 pub const MAX_AGENT_ANGULAR_VELOCITY: f32 = TAU;
@@ -59,7 +59,7 @@ pub enum CircularVelocity {
 #[derive(Component, Clone, Copy, Debug)]
 pub struct AttackTarget(pub Entity);
 
-pub fn propagate_attack_target_to_agent_target<T: Component>(
+pub fn propagate_attack_target_to_agent_target<T: Component, A: Component>(
     time: Res<PhysicsTime>,
     mut agent_query: Query<
         (
@@ -70,7 +70,7 @@ pub fn propagate_attack_target_to_agent_target<T: Component>(
             &AttackTarget,
             &PathBehavior,
         ),
-        (With<T>, Without<Rewind>, Without<Dead>),
+        (With<T>, With<A>, Without<Rewind>, Without<Dead>),
     >,
     transform_query: Query<&Transform, Without<T>>,
 ) {
@@ -135,7 +135,7 @@ pub fn propagate_attack_target_to_agent_target<T: Component>(
     }
 }
 
-pub fn match_desired_velocity<T: Component>(
+pub fn match_desired_velocity<T: Component, A: Component>(
     mut agent_query: Query<
         (
             &mut Brain,
@@ -143,7 +143,7 @@ pub fn match_desired_velocity<T: Component>(
             &mut AgentVelocity,
             &AgentDesiredVelocity,
         ),
-        (With<T>, Without<Rewind>, Without<Dead>),
+        (With<T>, With<A>, Without<Rewind>, Without<Dead>),
     >,
 ) {
     for (mut brain, mut velocity, mut agent_velocity, desired_velocity) in agent_query.iter_mut() {
@@ -153,10 +153,10 @@ pub fn match_desired_velocity<T: Component>(
     }
 }
 
-pub fn zero_velocity<T: Component>(
+pub fn zero_velocity<T: Component, A: Component>(
     mut agent_query: Query<
         (&mut Brain, &mut Velocity, &mut AgentVelocity),
-        (With<T>, Without<Rewind>, Without<Dead>),
+        (With<T>, With<A>, Without<Rewind>, Without<Dead>),
     >,
 ) {
     for (mut brain, mut velocity, mut agent_velocity) in agent_query.iter_mut() {

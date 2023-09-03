@@ -89,11 +89,11 @@ impl PluginGroup for AiPlugins {
     }
 }
 
-pub fn set_closest_attack_target<T: Component, E: Component>(
+pub fn set_closest_attack_target<T: Component, A: Component, E: Component>(
     mut commands: Commands,
     mut agent_query: Query<
         (Entity, &mut Brain, &GlobalTransform),
-        (With<T>, Without<Rewind>, Without<Dead>),
+        (With<T>, With<A>, Without<Rewind>, Without<Dead>),
     >,
     target_query: Query<(Entity, &GlobalTransform), With<E>>,
 ) {
@@ -117,18 +117,6 @@ pub fn set_closest_attack_target<T: Component, E: Component>(
             commands.entity(e_agent).remove::<AttackTarget>();
             brain.write_verdict(Verdict::Failure);
         }
-    }
-}
-
-pub fn propagate_attack_target_to_weapon_target<T: Component>(
-    mut agent_query: Query<(&AttackTarget, &mut Target), (With<T>, Without<Rewind>, Without<Dead>)>,
-    transform_query: Query<&Transform, Without<T>>,
-) {
-    for (AttackTarget(e_target), mut target) in agent_query.iter_mut() {
-        *target = Target {
-            transform: *transform_query.get(*e_target).unwrap(),
-            distance: 1.0,
-        };
     }
 }
 
@@ -200,9 +188,9 @@ pub trait Cooldown: Component {
     fn timer_mut(&mut self) -> &mut Timer;
 }
 
-fn cooldown_win_lose<T: Component, C: Cooldown>(
+fn cooldown_win_lose<T: Component, C: Cooldown, A: Component>(
     time: &PhysicsTime,
-    agent_query: &mut Query<(&mut Brain, &mut C), With<T>>,
+    agent_query: &mut Query<(&mut Brain, &mut C), (With<T>, With<A>)>,
     win: Verdict,
     lose: Verdict,
 ) {
@@ -218,17 +206,17 @@ fn cooldown_win_lose<T: Component, C: Cooldown>(
 }
 
 /// Updates cooldown `C`. Writes `Verdict::Success` if ready, `Verdict::Failure` otherwise.
-pub fn protective_cooldown<T: Component, C: Cooldown>(
+pub fn protective_cooldown<T: Component, A: Component, C: Cooldown>(
     time: Res<PhysicsTime>,
-    mut agent_query: Query<(&mut Brain, &mut C), With<T>>,
+    mut agent_query: Query<(&mut Brain, &mut C), (With<T>, With<A>)>,
 ) {
     cooldown_win_lose(&time, &mut agent_query, Verdict::Success, Verdict::Failure);
 }
 
 /// Updates cooldown `C`. Writes `Verdict::Success` if ready, `Verdict::Running` otherwise.
-pub fn blocking_cooldown<T: Component, C: Cooldown>(
+pub fn blocking_cooldown<T: Component, A: Component, C: Cooldown>(
     time: Res<PhysicsTime>,
-    mut agent_query: Query<(&mut Brain, &mut C), With<T>>,
+    mut agent_query: Query<(&mut Brain, &mut C), (With<T>, With<A>)>,
 ) {
     cooldown_win_lose(&time, &mut agent_query, Verdict::Success, Verdict::Running);
 }

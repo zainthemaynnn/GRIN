@@ -36,7 +36,7 @@ use super::{
         match_desired_velocity, propagate_attack_target_to_agent_target, zero_velocity,
         AttackTarget, IkProc, IkProcs,
     },
-    protective_cooldown, set_closest_attack_target, AiSet, Cooldown, EnemyAgentBundle,
+    protective_cooldown, set_closest_attack_target, AiSet, EnemyAgentBundle,
 };
 
 #[derive(Component, Cooldown)]
@@ -84,13 +84,13 @@ impl Plugin for ScreamerPlugin {
             .add_systems(
                 BehaviorIteration,
                 (
-                    protective_cooldown::<Enum!(ScreamerAi::BassCooldownCheck), BassCannonCooldown>,
-                    blocking_cooldown::<Enum!(ScreamerAi::AimCheck), BassCannonAim>,
-                    blocking_cooldown::<Enum!(ScreamerAi::BassCannonSelfStun), BassCannonSelfStun>,
-                    set_closest_attack_target::<Enum!(ScreamerAi::Track), PlayerCharacter>,
-                    propagate_attack_target_to_agent_target::<Enum!(ScreamerAi::Target)>,
-                    match_desired_velocity::<Enum!(ScreamerAi::Chase)>,
-                    zero_velocity::<Enum!(ScreamerAi::EndChase)>,
+                    protective_cooldown::<Screamer, Enum!(ScreamerAi::BassCooldownCheck), BassCannonCooldown>,
+                    blocking_cooldown::<Screamer, Enum!(ScreamerAi::AimCheck), BassCannonAim>,
+                    blocking_cooldown::<Screamer, Enum!(ScreamerAi::BassCannonSelfStun), BassCannonSelfStun>,
+                    set_closest_attack_target::<Screamer, Enum!(ScreamerAi::Track), PlayerCharacter>,
+                    propagate_attack_target_to_agent_target::<Screamer, Enum!(ScreamerAi::Target)>,
+                    match_desired_velocity::<Screamer, Enum!(ScreamerAi::Chase)>,
+                    zero_velocity::<Screamer, Enum!(ScreamerAi::EndChase)>,
                     set_idle::<Enum!(ScreamerAi::SetIdle)>,
                     aim_begin::<Enum!(ScreamerAi::AimBegin)>,
                     bass_cannon::<Enum!(ScreamerAi::BassCannon)>,

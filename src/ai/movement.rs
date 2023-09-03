@@ -351,10 +351,10 @@ impl StepState {
     }
 }
 
-pub fn update_biped_procedural_walk_cycle<T: Component>(
+pub fn update_biped_procedural_walk_cycle(
     mut commands: Commands,
     time: Res<PhysicsTime>,
-    mut agent_query: Query<(&mut IkProcs, &TimeScale), With<T>>,
+    mut agent_query: Query<(&mut IkProcs, &TimeScale)>,
     mut transform_query: Query<&mut Transform>,
     g_transform_query: Query<&GlobalTransform>,
     velocity_query: Query<&Velocity>,

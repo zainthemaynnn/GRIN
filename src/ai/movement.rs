@@ -135,6 +135,7 @@ pub fn propagate_attack_target_to_agent_target<T: Component, A: Component>(
     }
 }
 
+// TODO: this has frame lag. order it after `LandmassSystemSet::Output`.
 pub fn match_desired_velocity<T: Component, A: Component>(
     mut agent_query: Query<
         (

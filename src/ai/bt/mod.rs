@@ -7,6 +7,8 @@ use bevy_enum_filter::prelude::*;
 
 use self::tree::{BehaviorOutput, BehaviorTree, OutVerdict};
 
+use super::AiSet;
+
 pub trait Action: Component + std::fmt::Debug + Clone {
     /// The default action when the behavior tree is at the root node.
     ///
@@ -103,7 +105,7 @@ impl Plugin for MasterBehaviorPlugin {
             // think before you act? not here.
             (BehaviorSet::Act, BehaviorSet::Think).chain(),
         )
-        .add_systems(Update, ai_schedule_runner)
+        .add_systems(Update, ai_schedule_runner.in_set(AiSet::RunTrees))
         .add_systems(PreBehaviorIteration, init_behavior_update);
     }
 }
@@ -252,7 +254,7 @@ pub fn behavior_update<A: Action>(
                         node,
                         action: new_action,
                     } => {
-                        debug!("Running action {:?}.", new_action);
+                        debug!("Running action {:?}", new_action);
                         brain.visiting_node = node;
                         *action = new_action;
                     }
@@ -266,7 +268,6 @@ pub fn behavior_update<A: Action>(
                 // temporarily deactivate but keep `visiting_node`, so that it starts
                 // at the same node next frame
                 Verdict::Running => {
-                    debug!("Deferring action {:?}.", *action);
                     commands.entity(e_agent).remove::<ActiveTree>();
                 }
             }

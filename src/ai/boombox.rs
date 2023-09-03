@@ -39,9 +39,10 @@ impl Plugin for BoomBoxPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<BoomBoxSpawnEvent>()
             .add_collection_to_loading_state::<_, BoomBoxAssets>(AssetLoadState::Loading)
+            .add_systems(Update, spawn.in_set(AiSet::Spawn))
             .add_systems(
-                Update,
-                (spawn, init_humanoid, configure_humanoid_physics::<BoomBox>).in_set(AiSet::Spawn),
+                PreUpdate,
+                (load, configure_humanoid_physics::<BoomBox>).in_set(AiSet::Load),
             )
             .add_systems(
                 BehaviorIteration,
@@ -105,7 +106,7 @@ pub fn spawn(
     }
 }
 
-pub fn init_humanoid(
+pub fn load(
     mut commands: Commands,
     assets: Res<BoomBoxAssets>,
     humanoid_query: Query<(&Humanoid, &HumanoidDominantHand), (With<BoomBox>, Added<Humanoid>)>,

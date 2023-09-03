@@ -12,8 +12,7 @@ use bevy_rapier3d::prelude::*;
 
 use crate::{
     damage::{DamageBuffer, Dead, Health, Resist},
-    humanoid::{Humanoid, HumanoidBundle, HumanoidPartType},
-    item::Target,
+    humanoid::{Humanoid, HumanoidPartType},
     map::MapLoadState,
     physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime},
     time::Rewind,
@@ -29,17 +28,12 @@ use self::{
 
 #[derive(SystemSet, Hash, Debug, Eq, PartialEq, Copy, Clone)]
 pub enum AiSet {
-    /// Spawns AI's.
+    /// Run behavior trees.
+    RunTrees,
+    /// Spawn new NPC's.
     Spawn,
-    SpawnFlush,
-    /// Setup required for `ActionStart`.
-    Target,
-    TargetFlush,
-    /// Queue actions for `Act`. This is where most of the thinking should happen.
-    ActionStart,
-    ActionStartFlush,
-    /// Perform actions from `ActionStart`.
-    Act,
+    /// Load new NPC models (preupdate).
+    Load,
 }
 
 pub struct MasterAiPlugin;
@@ -49,31 +43,24 @@ impl Plugin for MasterAiPlugin {
         app.configure_sets(
             Update,
             (
-                AiSet::Spawn.run_if(in_state(MapLoadState::Success)),
-                AiSet::SpawnFlush,
                 LandmassSystemSet::SyncExistence,
-                AiSet::Target,
-                AiSet::TargetFlush,
-                AiSet::ActionStart,
-                AiSet::ActionStartFlush,
-                LandmassSystemSet::Output,
-                AiSet::Act,
+                AiSet::RunTrees,
+                LandmassSystemSet::SyncValues,
             )
                 .chain(),
         )
-        .add_plugins(MasterBehaviorPlugin)
-        .add_systems(
+        .configure_set(
+            PreUpdate,
+            AiSet::Load.run_if(in_state(MapLoadState::Success)),
+        )
+        .configure_set(
             Update,
-            (
-                update_biped_procedural_walk_cycle,
-                apply_deferred.in_set(AiSet::SpawnFlush),
-                apply_deferred.in_set(AiSet::TargetFlush),
-                apply_deferred.in_set(AiSet::ActionStartFlush),
-                apply_deferred
-                    .after(LandmassSystemSet::Output)
-                    .before(AiSet::Act),
-            ),
-        );
+            AiSet::Spawn
+                .after(AiSet::RunTrees)
+                .run_if(in_state(MapLoadState::Success)),
+        )
+        .add_plugins(MasterBehaviorPlugin)
+        .add_systems(Update, (update_biped_procedural_walk_cycle,));
     }
 }
 

@@ -80,7 +80,8 @@ impl Plugin for ScreamerPlugin {
                     },
                 },
             })
-            .add_systems(Update, (spawn, load).in_set(AiSet::Spawn))
+            .add_systems(Update, spawn.in_set(AiSet::Spawn))
+            .add_systems(PreUpdate, load.in_set(AiSet::Load))
             .add_systems(
                 BehaviorIteration,
                 (

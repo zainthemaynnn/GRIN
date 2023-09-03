@@ -47,16 +47,17 @@ impl Plugin for DummyPlugin {
                         Composite(CompositeNode::Selector) {
                             Composite(CompositeNode::Sequence) {
                                 Leaf(DummyAi::FireCheck),
-                                Leaf(DummyAi::Fire), 
+                                Leaf(DummyAi::Fire),
                             },
                             Leaf(DummyAi::Chase),
                         },
                     },
                 },
             })
+            .add_systems(Update, spawn.in_set(AiSet::Spawn))
             .add_systems(
-                Update,
-                (spawn, configure_humanoid_physics::<Dummy>).in_set(AiSet::Spawn),
+                PreUpdate,
+                configure_humanoid_physics::<Dummy>.in_set(AiSet::Load),
             )
             .add_systems(
                 BehaviorIteration,

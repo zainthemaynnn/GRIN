@@ -135,9 +135,9 @@ fn main() -> Result<(), io::Error> {
                 Screamer::spawn_with(ScreamerSpawnEvent {
                     transform: Transform::from_xyz(10.0, 1E-2, 0.0),
                 }),
-                /*BoomBox::spawn_with(BoomBoxSpawnEvent {
+                BoomBox::spawn_with(BoomBoxSpawnEvent {
                     transform: Transform::from_xyz(15.0, 1E-2, 0.0),
-                }),*/
+                }),
             ),
         )
         .add_systems(OnEnter(DialogueAssetLoadState::Success), test_dialogue)

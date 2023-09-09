@@ -22,7 +22,6 @@ impl Plugin for ProjectilePlugin {
             .add_systems(
                 Update,
                 (
-                    spawn_orb_projectiles.run_if(in_state(AssetLoadState::Success)),
                     spawn_bullet_projectiles.run_if(in_state(AssetLoadState::Success)),
                     curve_trajectories,
                     target_trajectories,
@@ -107,6 +106,20 @@ pub enum ProjectileColor {
     White,
 }
 
+impl From<ProjectileColor> for Color {
+    fn from(value: ProjectileColor) -> Self {
+        match value {
+            ProjectileColor::Red => Color::RED,
+            ProjectileColor::Orange => Color::ORANGE,
+            ProjectileColor::Yellow => Color::YELLOW,
+            ProjectileColor::Green => Color::GREEN,
+            ProjectileColor::Blue => Color::BLUE,
+            ProjectileColor::Violet => Color::VIOLET,
+            ProjectileColor::White => Color::WHITE,
+        }
+    }
+}
+
 #[derive(Bundle)]
 pub struct ProjectileBundle {
     pub color: ProjectileColor,
@@ -152,7 +165,7 @@ impl Default for ProjectileBundle {
             collision_groups: CollisionGroups::default(),
             body: RigidBody::Dynamic,
             collider: Collider::polyline(
-                vectors::circle(Vec3::X, Vec3::Y, 16, &distr::linear).collect(),
+                vectors::circle(Vec3::X * 0.5, Vec3::Y, 16, &distr::linear).collect(),
                 None,
             ),
             velocity: Velocity::default(),
@@ -171,42 +184,6 @@ impl Default for ProjectileBundle {
     }
 }
 
-pub fn spawn_orb_projectiles(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    assets: Res<ProjectileAssets>,
-    outline: Res<GlobalMeshOutline>,
-    query: Query<(Entity, Option<&ProjectileColor>), Added<OrbProjectile>>,
-) {
-    for (e_projectile, color) in query.iter() {
-        let color = color.copied().unwrap_or_default();
-        commands
-            .entity(e_projectile)
-            .insert((
-                meshes.add(Mesh::from(shape::UVSphere {
-                    radius: 0.5,
-                    ..Default::default()
-                })),
-                assets.solid_color(color).clone(),
-                outline.standard.clone(),
-                Collider::default(),
-            ))
-            .with_children(|parent| {
-                parent.spawn((
-                    MaterialMeshBundle {
-                        mesh: meshes.add(Mesh::from(shape::UVSphere {
-                            radius: 0.35,
-                            ..Default::default()
-                        })),
-                        material: assets.half_color(color).clone(),
-                        ..Default::default()
-                    },
-                    NoOutline,
-                ));
-            });
-    }
-}
-
 pub fn spawn_bullet_projectiles(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -215,7 +192,6 @@ pub fn spawn_bullet_projectiles(
     query: Query<(Entity, Option<&ProjectileColor>), Added<BulletProjectile>>,
 ) {
     for (e_projectile, color) in query.iter() {
-        let color = color.copied().unwrap_or_default();
         commands.get_or_spawn(e_projectile).insert((
             meshes.add(Mesh::from(shape::UVSphere {
                 radius: 0.5,
@@ -224,11 +200,10 @@ pub fn spawn_bullet_projectiles(
             assets.solid_color(ProjectileColor::White).clone(),
             {
                 let mut outline = outline.standard.clone();
-                outline.outline.colour = Color::RED;
+                outline.outline.colour = color.copied().unwrap_or_default().into();
                 //outline.outline.width = 3.0;
                 outline
             },
-            Collider::default(),
         ));
     }
 }

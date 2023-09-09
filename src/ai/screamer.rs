@@ -353,7 +353,7 @@ pub fn bass_cannon<T: Component>(
                     value: 5.0,
                     source: Some(e_screamer),
                 },
-                transform: bullet_transform.with_scale(Vec3::splat(1.0)),
+                transform: bullet_transform.with_scale(Vec3::splat(3.0)),
                 velocity: Velocity::linear(bullet_transform.forward() * 24.0),
                 ccd: Ccd::enabled(),
                 ..ProjectileBundle::enemy_default()

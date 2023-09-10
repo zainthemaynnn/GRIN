@@ -1,4 +1,5 @@
 pub mod beam;
+pub mod blaze;
 pub mod bwstatic;
 pub mod duoquad;
 pub mod gopro;
@@ -10,6 +11,7 @@ use bevy_mod_outline::{OutlineBundle, OutlineVolume};
 
 use self::{
     beam::BeamPlugin,
+    blaze::BlazePlugin,
     bwstatic::BWStaticPlugin,
     duoquad::DuoQuadPlugin,
     gopro::GoProPlugin,
@@ -52,5 +54,6 @@ impl PluginGroup for RenderFXPlugins {
             .add(GoProPlugin)
             .add(DuoQuadPlugin)
             .add(BeamPlugin)
+            .add(BlazePlugin)
     }
 }

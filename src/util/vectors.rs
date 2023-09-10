@@ -9,7 +9,7 @@ use std::{cmp::Ordering, f32::consts::TAU};
 use bevy::prelude::{Quat, Vec3};
 use itertools::Itertools;
 
-use super::distr::{self, closed_f32_distribution, open_f32_distribution};
+use super::distr::{self, f32_distribution};
 
 pub trait Vec3Ext {
     /// Sets `Vec3.y` to `0.0`.
@@ -49,38 +49,15 @@ impl Vec3Ext for Vec3 {
     }
 }
 
-/// Distributes `n` points over `[p0, p1)`.
-#[inline]
-pub fn open_segment<'a>(
-    p0: Vec3,
-    p1: Vec3,
-    n: u32,
-    distr: &'a impl Fn(f32) -> f32,
-) -> impl Iterator<Item = Vec3> + 'a {
-    open_f32_distribution(n, distr).map(move |x| p0.clone().lerp(p1, x))
-}
-
 /// Distributes `n` points over `[p0, p1]`.
 #[inline]
 pub fn segment<'a>(
     p0: Vec3,
     p1: Vec3,
-    n: u32,
+    n: usize,
     distr: &'a impl Fn(f32) -> f32,
 ) -> impl Iterator<Item = Vec3> + 'a {
-    closed_f32_distribution(n, distr).map(move |x| p0.clone().lerp(p1, x))
-}
-
-/// Distributes a point `p0` around `axis` `n` times over `[0.0, angle)` radians.
-#[inline]
-pub fn open_arc<'a>(
-    p0: Vec3,
-    axis: Vec3,
-    n: u32,
-    angle: f32,
-    distr: &'a impl Fn(f32) -> f32,
-) -> impl Iterator<Item = Vec3> + 'a {
-    open_f32_distribution(n, distr).map(move |x| Quat::from_axis_angle(axis, angle * x) * p0)
+    f32_distribution(n, distr).map(move |x| p0.clone().lerp(p1, x))
 }
 
 /// Distributes a point `p0` around `axis` `n` times over `[0.0, angle]` radians. CCW.
@@ -88,11 +65,11 @@ pub fn open_arc<'a>(
 pub fn arc<'a>(
     p0: Vec3,
     axis: Vec3,
-    n: u32,
+    n: usize,
     angle: f32,
     distr: &'a impl Fn(f32) -> f32,
 ) -> impl Iterator<Item = Vec3> + 'a {
-    closed_f32_distribution(n, distr).map(move |x| Quat::from_axis_angle(axis, angle * x) * p0)
+    f32_distribution(n, distr).map(move |x| Quat::from_axis_angle(axis, angle * x) * p0)
 }
 
 /// Distributes a point `p0` around `axis` `n` times over `[0.0, angle]` radians.
@@ -101,11 +78,11 @@ pub fn arc<'a>(
 pub fn centered_arc<'a>(
     p0: Vec3,
     axis: Vec3,
-    n: u32,
+    n: usize,
     angle: f32,
     distr: &'a impl Fn(f32) -> f32,
 ) -> impl Iterator<Item = Vec3> + 'a {
-    closed_f32_distribution(n, distr)
+    f32_distribution(n, distr)
         .map(move |x| Quat::from_axis_angle(axis, angle * x - angle / 2.0) * p0)
 }
 
@@ -114,16 +91,16 @@ pub fn centered_arc<'a>(
 pub fn circle<'a>(
     p0: Vec3,
     axis: Vec3,
-    n: u32,
+    n: usize,
     distr: &'a impl Fn(f32) -> f32,
 ) -> impl Iterator<Item = Vec3> + 'a {
-    open_arc(p0, axis, n, TAU, distr)
+    arc(p0, axis, n, TAU, distr).skip(1)
 }
 
 /// Distributes `n` points between adjacent pairs from `vertices`.
 pub fn link_vertices<'a, I>(
     vertices: impl IntoIterator<IntoIter = I>,
-    n: u32,
+    n: usize,
     distr: &'a impl Fn(f32) -> f32,
 ) -> impl Iterator<Item = Vec3> + 'a
 where
@@ -133,15 +110,15 @@ where
         .into_iter()
         // look at that! itertools is like magic!
         .circular_tuple_windows()
-        .flat_map(move |(p0, p1)| open_segment(p0, p1, n, distr))
+        .flat_map(move |(p0, p1)| segment(p0, p1, n, distr).skip(1))
 }
 
 /// Creates an equilateral `n`-gon with `segsize` points distributed per side.
 pub fn polygon_eq<'a>(
     p0: Vec3,
     axis: Vec3,
-    n: u32,
-    segsize: u32,
+    n: usize,
+    segsize: usize,
     distr: &'a impl Fn(f32) -> f32,
 ) -> impl Iterator<Item = Vec3> + 'a {
     // the iterator needs to be collected as it's not copiable
@@ -255,14 +232,10 @@ mod tests {
     // floats... sigh... why can't you be like the segment test?
     #[test]
     fn arc_test() {
-        let a = open_arc(Vec3::X, Vec3::Y, 3, 270.0_f32.to_radians(), &distr::linear)
-            .collect::<Vec<_>>();
+        let a =
+            arc(Vec3::X, Vec3::Y, 3, 180.0_f32.to_radians(), &distr::linear).collect::<Vec<_>>();
         assert_relative_eq!(a[0].x, 1.0);
         assert_relative_eq!(a[1].z, -1.0);
-        assert_relative_eq!(a[2].x, -1.0);
-
-        let a =
-            arc(Vec3::X, Vec3::Y, 3, 270.0_f32.to_radians(), &distr::linear).collect::<Vec<_>>();
         assert_relative_eq!(a[2].z, 1.0);
     }
 

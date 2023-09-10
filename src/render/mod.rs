@@ -2,6 +2,7 @@ pub mod beam;
 pub mod bwstatic;
 pub mod duoquad;
 pub mod gopro;
+pub mod particles;
 pub mod sketched;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};

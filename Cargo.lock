@@ -2617,6 +2617,7 @@ dependencies = [
  "serde",
  "spade",
  "thiserror",
+ "typetag",
 ]
 
 [[package]]

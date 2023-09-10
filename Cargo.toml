@@ -37,6 +37,7 @@ bitfield = "0.14"
 itertools = "0.10"
 approx = "0.5"
 html_parser = "0.7"
+typetag = "0.2"
 
 # Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]

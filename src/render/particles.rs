@@ -48,7 +48,7 @@ impl Modifier for SetVelocityModifier {
 impl InitModifier for SetVelocityModifier {
     fn apply_init(&self, context: &mut InitContext) -> Result<(), ExprError> {
         let func_id = calc_func_id(self);
-        let func_name = format!("set_velocity_tangent_{0:016X}", func_id);
+        let func_name = format!("set_velocity_{0:016X}", func_id);
 
         context.init_extra += &format!(
             r##"fn {0}(transform: mat4x4<f32>, particle: ptr<function, Particle>) {{

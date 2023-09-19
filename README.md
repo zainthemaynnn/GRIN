@@ -12,3 +12,12 @@ A third person shooter.
 At the moment every single material texture is represented by a texture array.
 This most notably excludes [OpenGL ES 2.0 and WebGL 1.0](https://docs.unity3d.com/Manual/class-Texture2DArray.html).
 Might fix it later.
+
+## Development
+Due to school it's more difficult to put a lot of time into this. You and I have seen this story with hundreds of student-created indie games before, so I expect you're rolling your eyes and saying "yeah, he's never gonna finish it." And to that, I say:
+
+> true
+
+But check back in six months, and hopefully the repository commits will still be chugging along.
+
+If I do finish it, it will remain free and open source.

@@ -24,6 +24,7 @@ use crate::{
     character::Player,
     humanoid::HumanoidDominantHand,
     render::sketched::SketchMaterial,
+    util::event::Spawnable,
 };
 
 use self::{sledge::SledgePlugin, smg::SMGPlugin};
@@ -166,6 +167,10 @@ pub trait Item: Component + Sized {
     type SpawnEvent: Event;
     /// Sending this event should equip the item.
     type EquipEvent: Event;
+}
+
+impl<E: Event + Clone, T: Item<SpawnEvent = E, EquipEvent = E>> Spawnable for T {
+    type Event = E;
 }
 
 #[derive(Component, Default)]

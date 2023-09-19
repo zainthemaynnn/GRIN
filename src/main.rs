@@ -45,7 +45,10 @@ use physics::GrinPhysicsPlugin;
 use render::RenderFXPlugins;
 use sound::SoundPlugin;
 use time::{scaling::TimeScalePlugin, RewindComponentPlugin, RewindPlugin};
-use util::{event::Spawnable, tween::TweenEventPlugin};
+use util::{
+    event::{DefaultSpawnable, Spawnable},
+    tween::TweenEventPlugin,
+};
 
 fn main() -> Result<(), io::Error> {
     let mut app = App::new();

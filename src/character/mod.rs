@@ -16,6 +16,7 @@ use crate::sound::Ears;
 use crate::item::{Equipped, Item};
 use crate::physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
 use crate::render::RenderLayer;
+use crate::util::event::Spawnable;
 use crate::util::vectors::Vec3Ext;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
@@ -86,26 +87,12 @@ impl Plugin for CharacterPlugin {
     }
 }
 
-#[derive(Event)]
-pub struct CharacterSpawnEvent<C: Character> {
-    pub phantom_data: PhantomData<C>,
-}
 
-impl<C: Character> Default for CharacterSpawnEvent<C> {
-    fn default() -> Self {
-        CharacterSpawnEvent {
-            phantom_data: PhantomData::default(),
-        }
     }
 }
 
-pub trait Character: Component + Sized {
+pub trait Character: Component + Sized + Spawnable {
     type StartItem: Item;
-
-    /// A system that by default, sends a `CharacterSpawnEvent<Character>` for other systems to handle.
-    fn spawn(mut events: EventWriter<CharacterSpawnEvent<Self>>) {
-        events.send_default();
-    }
 }
 
 #[derive(Resource, AssetCollection)]

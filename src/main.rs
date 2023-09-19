@@ -34,7 +34,7 @@ use bevy_landmass::LandmassPlugin;
 use bevy_mod_inverse_kinematics::InverseKinematicsPlugin;
 use bevy_rapier3d::prelude::*;
 use bevy_tweening::TweeningPlugin;
-use character::{CharacterPlugin, CharacterSet};
+use character::{CharacterPlugins, CharacterSet};
 use damage::DamagePlugin;
 use dialogue::{asset_gen::DialogueAssetLoadState, DialogueEvent, DialogueMap, DialoguePlugin};
 use humanoid::{HumanoidPlugin, HUMANOID_HEIGHT};
@@ -109,7 +109,7 @@ fn main() -> Result<(), io::Error> {
             RenderFXPlugins,
             HumanoidPlugin,
             ItemPlugins,
-            CharacterPlugin,
+            CharacterPlugins,
             AiPlugins,
             DamagePlugin,
             SoundPlugin,

@@ -1,42 +1,45 @@
+use bevy::{prelude::*, render::view::RenderLayers};
+use bevy_rapier3d::prelude::*;
+
 use crate::{
     asset::AssetLoadState,
+    character::{AvatarAssets, AvatarLoadEvent, Character, CharacterSet, Player, PlayerCharacter},
     collider,
     humanoid::{Humanoid, HumanoidAssets, HumanoidBuild, HumanoidBundle, HumanoidDominantHand},
     item::{smg::SMG, Item},
     physics::CollisionGroupsExt,
     render::RenderLayer,
+    util::event::Spawnable,
 };
-
-use super::{
-    AvatarAssets, AvatarLoadEvent, Character, CharacterSet, CharacterSpawnEvent, Player,
-    PlayerCharacter,
-};
-use bevy::{prelude::*, render::view::RenderLayers};
-use bevy_rapier3d::prelude::*;
 
 pub struct EightBallPlugin;
 
 impl Plugin for EightBallPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<CharacterSpawnEvent<EightBall>>()
+        app.add_event::<EightBallSpawnEvent>()
             .add_systems(
                 OnEnter(AssetLoadState::Success),
-                spawn
-                    .after(<EightBall as Character>::spawn)
-                    .in_set(CharacterSet::Spawn),
+                spawn.in_set(CharacterSet::Spawn),
             )
             .add_systems(Update, init_humanoid.in_set(CharacterSet::Init));
     }
 }
 
-#[derive(Component, Default)]
-pub struct EightBallUninit;
+#[derive(Event, Clone, Default)]
+pub struct EightBallSpawnEvent;
 
 #[derive(Component, Default)]
 pub struct EightBall;
 
+#[derive(Component, Default)]
+pub struct EightBallUninit;
+
 impl Character for EightBall {
     type StartItem = SMG;
+}
+
+impl Spawnable for EightBall {
+    type Event = EightBallSpawnEvent;
 }
 
 type ItemSpawnEvent = <<EightBall as Character>::StartItem as Item>::SpawnEvent;
@@ -45,9 +48,11 @@ pub fn spawn(
     mut commands: Commands,
     assets: Res<AvatarAssets>,
     hum_assets: Res<HumanoidAssets>,
-    mut events: EventReader<CharacterSpawnEvent<EightBall>>,
+    mut events: EventReader<<EightBall as Spawnable>::Event>,
 ) {
+    dbg!("echeck");
     for _ in events.iter() {
+        dbg!("event");
         commands.spawn((
             PlayerCharacter,
             HumanoidBundle {
@@ -93,8 +98,8 @@ pub fn init_humanoid(
 
     commands
         .entity(e_humanoid)
-        .remove::<EightBallUninit>()
-        .insert(EightBall::default());
+        .insert(EightBall::default())
+        .remove::<EightBallUninit>();
 
     loaded_events.send_default();
 

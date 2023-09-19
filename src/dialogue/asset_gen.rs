@@ -12,7 +12,7 @@ use itertools::Itertools;
 use serde::Deserialize;
 
 use crate::{
-    character::eightball::EightBall,
+    character::kit::eightball::EightBall,
     humanoid::Humanoid,
     render::{
         gopro::{add_gopro_world, GoProSettings},

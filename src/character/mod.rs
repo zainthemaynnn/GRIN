@@ -1,8 +1,7 @@
 pub mod camera;
-pub mod eightball;
+pub mod kit;
 
 use std::array::IntoIter;
-use std::marker::PhantomData;
 
 use crate::asset::AssetLoadState;
 use crate::damage::{DamageBuffer, Health, HealthBundle};
@@ -18,17 +17,18 @@ use crate::physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
 use crate::render::RenderLayer;
 use crate::util::event::Spawnable;
 use crate::util::vectors::Vec3Ext;
+use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 use bevy::render::view::RenderLayers;
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
 
 use self::camera::{CameraAlignment, LookInfo, PlayerCamera, PlayerCameraPlugin};
-use self::eightball::{EightBall, EightBallPlugin};
+use self::kit::eightball::EightBallPlugin;
 
 pub const CHARACTER_WALKSPEED: f32 = 24.0;
 
-pub struct CharacterPlugin;
+pub struct MasterCharacterPlugin;
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum CharacterSet {
@@ -50,11 +50,11 @@ pub fn set_avatar_load_state(
     }
 }
 
-impl Plugin for CharacterPlugin {
+impl Plugin for MasterCharacterPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<AvatarLoadState>()
             .add_event::<AvatarLoadEvent>()
-            .add_plugins((PlayerCameraPlugin, EightBallPlugin))
+            .add_plugins(PlayerCameraPlugin)
             .add_collection_to_loading_state::<_, AvatarAssets>(AssetLoadState::Loading)
             .configure_sets(
                 Update,
@@ -66,10 +66,6 @@ impl Plugin for CharacterPlugin {
                             .and_then(in_state(AvatarLoadState::NotLoaded)),
                     ),
                 ),
-            )
-            .add_systems(
-                OnEnter(AssetLoadState::Success),
-                <EightBall as Character>::spawn.before(CharacterSet::Spawn),
             )
             .add_systems(Update, init_character_model.in_set(CharacterSet::Init))
             .add_systems(
@@ -87,7 +83,13 @@ impl Plugin for CharacterPlugin {
     }
 }
 
+pub struct CharacterPlugins;
 
+impl PluginGroup for CharacterPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add(MasterCharacterPlugin)
+            .add(EightBallPlugin)
     }
 }
 

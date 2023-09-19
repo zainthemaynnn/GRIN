@@ -133,6 +133,10 @@ fn main() -> Result<(), io::Error> {
         })
         .add_systems(OnEnter(AssetLoadState::Success), load_scene)
         .add_systems(
+            OnEnter(AssetLoadState::Success),
+            character::kit::grin::Grin::spawn_default().before(CharacterSet::Spawn),
+        )
+        .add_systems(
             OnEnter(MapLoadState::Success),
             (
                 Screamer::spawn_with(ScreamerSpawnEvent {

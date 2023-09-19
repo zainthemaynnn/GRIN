@@ -25,6 +25,7 @@ use bevy_rapier3d::prelude::*;
 
 use self::camera::{CameraAlignment, LookInfo, PlayerCamera, PlayerCameraPlugin};
 use self::kit::eightball::EightBallPlugin;
+use self::kit::grin::GrinPlugin;
 
 pub const CHARACTER_WALKSPEED: f32 = 24.0;
 
@@ -89,6 +90,7 @@ impl PluginGroup for CharacterPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(MasterCharacterPlugin)
+            .add(GrinPlugin)
             .add(EightBallPlugin)
     }
 }
@@ -103,6 +105,8 @@ pub struct AvatarAssets {
     pub pizza_shades: Handle<Mesh>,
     #[asset(key = "mat.shades")]
     pub matte_shades: Handle<SketchMaterial>,
+    #[asset(key = "mat.grin")]
+    pub face_grin: Handle<SketchMaterial>,
     #[asset(key = "mat.smirk")]
     pub face_smirk: Handle<SketchMaterial>,
     #[asset(key = "mat.meh")]

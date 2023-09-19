@@ -85,7 +85,7 @@ fn main() -> Result<(), io::Error> {
     #[cfg(debug_assertions)]
     let default_plugins = default_plugins.set(LogPlugin {
         level: Level::DEBUG,
-        filter: "info,wgpu_core=warn,wgpu_hal=warn,grin=debug,naga=warn".into(),
+        filter: "info,wgpu_core=warn,wgpu_hal=warn,naga=warn,grin=debug,grin::ai::bt=warn".into(),
     });
 
     #[cfg(not(debug_assertions))]

@@ -1,0 +1,18 @@
+# TODO: this is pretty small. it should probably go in another crate.
+# I would put it in `grin_util`, but that causes a dep cycle with `grin_time`.
+# unsure where else this would belong. perhaps more custom physics will come soon?
+[package]
+name = "grin_physics"
+version = "0.3.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+grin_time = { path = "../time" }
+bevy = { version = "0.11", features = ["dynamic_linking"] }
+bevy_rapier3d = "0.22"
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3

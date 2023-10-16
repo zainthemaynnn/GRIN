@@ -1,0 +1,26 @@
+[package]
+name = "grin_render"
+version = "0.3.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+grin_physics = { path = "../physics" }
+grin_time = { path = "../time" }
+grin_util = { path = "../util" }
+bevy = { version = "0.11", features = ["dynamic_linking"] }
+bevy_asset_loader = { version = "0.17", features = ["3d", "progress_tracking"] }
+bevy_mod_outline = { git = "https://github.com/zainthemaynnn/bevy_mod_outline.git" }
+bevy_hanabi = "0.7"
+bevy_tweening = "0.8"
+bitflags = "2.1"
+env_logger = "0.10"
+bitfield = "0.14"
+typetag = "0.2"
+rand = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3

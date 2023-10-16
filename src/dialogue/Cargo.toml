@@ -1,0 +1,23 @@
+[package]
+name = "grin_dialogue"
+version = "0.3.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+grin_asset = { path = "../asset" }
+grin_character = { path = "../character" }
+grin_render = { path = "../render" }
+grin_rig = { path = "../rig" }
+grin_util = { path = "../util" }
+bevy = { version = "0.11", features = ["dynamic_linking"] }
+bevy_asset_loader = { version = "0.17", features = ["3d", "progress_tracking"] }
+bevy_common_assets = { version = "0.7", features = ["ron"] }
+serde = { version = "1.0", features = ["derive"] }
+itertools = "0.10"
+html_parser = "0.7"
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3

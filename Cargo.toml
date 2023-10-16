@@ -1,43 +1,30 @@
 [package]
 name = "grin"
-version = "0.2.5"
+version = "0.3.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-grin_derive = { path = "./grin_derive" }
+grin_ai = { path = "./src/ai" }
+grin_asset = { path = "./src/asset" }
+grin_character = { path = "./src/character" }
+grin_damage = { path = "./src/damage" }
+grin_derive = { path = "./src/derive" }
+grin_dialogue = { path = "./src/dialogue" }
+grin_item = { path = "./src/item" }
+grin_input = { path = "./src/input" }
+grin_physics = { path = "./src/physics" }
+grin_map = { path = "./src/map" }
+grin_render = { path = "./src/render" }
+grin_rig = { path = "./src/rig" }
+grin_time = { path = "./src/time" }
+grin_util = { path = "./src/util" }
 bevy = { version = "0.11", features = ["dynamic_linking"] }
-bevy_asset_loader = { version = "0.17", features = ["3d", "progress_tracking"] }
-bevy_common_assets = { version = "0.7", features = ["ron"] }
-bevy_mod_outline = { git = "https://github.com/zainthemaynnn/bevy_mod_outline.git" }
-bevy_enum_filter = { git = "https://github.com/zainthemaynnn/bevy_enum_filter.git" }
-bevy_rapier3d = "0.22"
-bevy_mod_inverse_kinematics = "0.4"
 bevy_mod_debugdump = "0.8"
-bevy_hanabi = "0.7"
-bevy_tweening = "0.8"
 bevy-inspector-egui = "0.19"
-bevy_landmass = "0.2"
-landmass = "0.1"
-spade = "2.2"
-geo = "0.26"
-geo-booleanop = "0.3"
-geo-offset = "0.3"
-iyes_progress = "0.9"
-bitflags = "2.1"
-env_logger = "0.10"
-log = "0.4"
-rand = "0.8"
-# bevy_shader_utils = "0.3.0"
-thiserror = "1.0"
 image = "0.24"
-serde = { version = "1.0", features = ["derive"] }
-bitfield = "0.14"
-itertools = "0.10"
-approx = "0.5"
-html_parser = "0.7"
-typetag = "0.2"
+log = "0.4"
 
 # Enable high optimizations for dependencies (incl. Bevy), but not for our code:
 [profile.dev.package."*"]

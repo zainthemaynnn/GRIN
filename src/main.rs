@@ -1,26 +1,5 @@
-mod ai;
-mod asset;
-mod character;
-mod damage;
-mod dialogue;
-mod humanoid;
-mod item;
-mod map;
-mod physics;
-mod render;
-mod sound;
-mod time;
-mod util;
-
 use std::{env, io, time::Duration};
 
-use ai::{
-    boombox::{BoomBox, BoomBoxSpawnEvent},
-    dummy::{Dummy, DummySpawnEvent},
-    screamer::{Screamer, ScreamerSpawnEvent},
-    AiPlugins,
-};
-use asset::{AssetLoadState, DynamicAssetPlugin};
 use bevy::{
     asset::ChangeWatcher,
     diagnostic::LogDiagnosticsPlugin,
@@ -28,25 +7,24 @@ use bevy::{
     prelude::*,
     window::CursorGrabMode,
 };
-use bevy_hanabi::HanabiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_landmass::LandmassPlugin;
-use bevy_mod_inverse_kinematics::InverseKinematicsPlugin;
-use bevy_rapier3d::prelude::*;
-use bevy_tweening::TweeningPlugin;
-use character::{CharacterPlugins, CharacterSet};
-use damage::DamagePlugin;
-use dialogue::{asset_gen::DialogueAssetLoadState, DialogueEvent, DialogueMap, DialoguePlugin};
-use humanoid::{HumanoidPlugin, HUMANOID_HEIGHT};
-use image::io::Reader as ImageReader;
-use item::{ItemPlugins, ItemSet};
-use map::{Map, MapLoadState, MapPlugin};
-use physics::GrinPhysicsPlugin;
-use render::RenderFXPlugins;
-use sound::SoundPlugin;
-use time::{scaling::TimeScalePlugin, RewindComponentPlugin, RewindPlugin};
-use util::{
+use grin_ai::AiPlugins;
+use grin_asset::{texture_array, AssetLoadState, DynamicAssetPlugin};
+use grin_character::{CharacterPlugins, CharacterSet};
+use grin_damage::DamagePlugin;
+use grin_dialogue::{
+    asset_gen::DialogueAssetLoadState, DialogueEvent, DialogueMap, DialoguePlugin,
+};
+use grin_input::camera::PlayerCamera;
+use grin_item::{ItemPlugins, ItemSet};
+use grin_map::{Map, MapLoadState, MapPlugin};
+use grin_physics::GrinPhysicsPlugin;
+use grin_render::RenderFXPlugins;
+use grin_rig::humanoid::HumanoidPlugin;
+use grin_time::{scaling::TimeScalePlugin, RewindComponentPlugin, RewindPlugin};
+use grin_util::{
     event::{DefaultSpawnable, Spawnable},
+    sound::SoundPlugin,
     tween::TweenEventPlugin,
 };
 
@@ -85,7 +63,7 @@ fn main() -> Result<(), io::Error> {
     #[cfg(debug_assertions)]
     let default_plugins = default_plugins.set(LogPlugin {
         level: Level::DEBUG,
-        filter: "info,wgpu_core=warn,wgpu_hal=warn,naga=warn,grin=debug,grin::ai::bt=warn".into(),
+        filter: "info,wgpu_core=warn,wgpu_hal=warn,naga=warn,grin=debug,grin_ai=warn".into(),
     });
 
     #[cfg(not(debug_assertions))]
@@ -100,11 +78,9 @@ fn main() -> Result<(), io::Error> {
         .init_resource::<AmbientLight>()
         .add_plugins((
             DynamicAssetPlugin,
-            RapierPhysicsPlugin::<NoUserData>::default(),
             LogDiagnosticsPlugin::default(),
-            TweeningPlugin,
+            WorldInspectorPlugin::new(),
             TweenEventPlugin,
-            HanabiPlugin,
             GrinPhysicsPlugin,
             RenderFXPlugins,
             HumanoidPlugin,
@@ -112,40 +88,29 @@ fn main() -> Result<(), io::Error> {
             CharacterPlugins,
             AiPlugins,
             DamagePlugin,
-            SoundPlugin,
+            SoundPlugin::<PlayerCamera>::default(),
             DialoguePlugin,
+            MapPlugin {
+                navmesh_debugging: None,
+            },
         ))
         .add_plugins((
             TimeScalePlugin,
             RewindPlugin::default(),
             RewindComponentPlugin::<Transform>::default(),
-            RapierDebugRenderPlugin::default(),
-            WorldInspectorPlugin::new(),
-            LandmassPlugin,
-            MapPlugin {
-                navmesh_debugging: None,
-            },
-            InverseKinematicsPlugin,
         ))
-        .insert_resource(RapierConfiguration {
-            gravity: Vec3::NEG_Y * 9.81 * (HUMANOID_HEIGHT / 1.8),
-            ..Default::default()
-        })
         .add_systems(OnEnter(AssetLoadState::Success), load_scene)
         .add_systems(
             OnEnter(AssetLoadState::Success),
-            character::kit::grin::Grin::spawn_default().before(CharacterSet::Spawn),
+            grin_character::kit::eightball::EightBall::spawn_default().before(CharacterSet::Spawn),
         )
         .add_systems(
             OnEnter(MapLoadState::Success),
-            (
-                Screamer::spawn_with(ScreamerSpawnEvent {
+            (grin_ai::screamer::Screamer::spawn_with(
+                grin_ai::screamer::ScreamerSpawnEvent {
                     transform: Transform::from_xyz(10.0, 1E-2, 0.0),
-                }),
-                BoomBox::spawn_with(BoomBoxSpawnEvent {
-                    transform: Transform::from_xyz(15.0, 1E-2, 0.0),
-                }),
-            ),
+                },
+            ),),
         )
         .add_systems(OnEnter(DialogueAssetLoadState::Success), test_dialogue)
         .add_systems(

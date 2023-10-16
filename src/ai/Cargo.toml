@@ -1,0 +1,32 @@
+[package]
+name = "grin_ai"
+version = "0.3.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+grin_asset = { path = "../asset" }
+grin_character = { path = "../character" }
+grin_derive = { path = "../derive" }
+grin_damage = { path = "../damage" }
+grin_map = { path = "../map" }
+grin_physics = { path = "../physics" }
+grin_render = { path = "../render" }
+grin_rig = { path = "../rig" }
+grin_time = { path = "../time" }
+grin_util = { path = "../util" }
+bevy = { version = "0.11", features = ["dynamic_linking"] }
+bevy_asset_loader = { version = "0.17", features = ["3d", "progress_tracking"] }
+bevy_common_assets = { version = "0.7", features = ["ron"] }
+bevy_enum_filter = "0.2"
+bevy_rapier3d = "0.22"
+bevy_mod_inverse_kinematics = "0.4"
+bevy_landmass = "0.2"
+landmass = "0.1"
+rand = "0.8"
+itertools = "0.10"
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3

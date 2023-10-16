@@ -1,0 +1,19 @@
+[package]
+name = "grin_damage"
+version = "0.3.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+grin_asset = { path = "../asset" }
+grin_physics = { path = "../physics" }
+grin_render = { path = "../render" }
+grin_util = { path = "../util" }
+bevy = { version = "0.11", features = ["dynamic_linking"] }
+bevy_asset_loader = { version = "0.17", features = ["3d", "progress_tracking"] }
+bevy_rapier3d = "0.22"
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3

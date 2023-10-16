@@ -1,0 +1,25 @@
+[package]
+name = "grin_map"
+version = "0.3.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+grin_physics = { path = "../physics" }
+grin_rig = { path = "../rig" }
+grin_util = { path = "../util" }
+bevy = { version = "0.11", features = ["dynamic_linking"] }
+bevy_rapier3d = "0.22"
+bevy_mod_outline = { git = "https://github.com/zainthemaynnn/bevy_mod_outline.git" }
+bevy_landmass = "0.2"
+landmass = "0.1"
+spade = "2.2"
+geo = "0.26"
+geo-booleanop = "0.3"
+geo-offset = "0.3"
+itertools = "0.10"
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3

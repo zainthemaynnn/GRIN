@@ -3,9 +3,25 @@ A third person shooter.
 
 ![yes the gif is grainy I didn't want to recreate it okay?](assets/promo.gif)
 
+## Crate descriptions
+- `grin_ai`: All enemy agents, shared enemy behavior systems, behavior tree models.
+- `grin_asset`: Custom asset loading.
+- `grin_character`: Controls, avatar loading.
+- `grin_damage`: Damage, health, status effects, projectiles, map hazard behavior.
+- `grin_derive`: Procedural macros.
+- `grin_dialogue`: Dialogue window. Will probably change to `grin_ui` at some point.
+- `grin_input`: Currently just the player camera.
+- `grin_item`: All items.
+- `grin_map`: Navmesh.
+- `grin_physics`: A couple extra physics utilities based off of `bevy_rapier3d`.
+- `grin_render`: Materials, particles, post-processing, other VFX.
+- `grin_rig`: Generic player and enemy models.
+- `grin_time`: Time-related mechanics. Entity histories, time-stops, slow/speed.
+- `grin_util`: Math, algorithms, data structures, SFX, some other random things.
+
 ## Engine features I'm waiting on
 - Extensible `StandardMaterial` (or 3d mesh pipeline in general).
-- Entity-entity relations (custom hierarchy). Currently using a bootleg ones for rewinds. Not amazing.
+- Entity-entity relations. I'm using this stuff all over the place. I assume it should help performance a lot.
 - Window icons. Doable already but only through `winit`. This is low priority enough that I can just wait for first-class.
 
 ## Platform support

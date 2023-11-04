@@ -21,7 +21,7 @@ use grin_asset::AssetLoadState;
 use grin_render::sketched::SketchUiImage;
 use grin_util::keys::{InputExt, KeyCodeExt};
 
-use self::asset_gen::{DefaultTextStyle, DialogueAssetLoadState, Portrait};
+pub use self::asset_gen::{DefaultTextStyle, DialogueAssetLoadState, Portrait};
 
 /// Maps `Dialogue` string ID's (defined in assets file) to `Dialogue` handles.
 // the strings are like, handles... for handles.
@@ -48,6 +48,7 @@ impl Plugin for DialoguePlugin {
             .add_event::<SelectedDialogueOptionEvent>()
             .add_event::<DialoguePortraitEvent>()
             .add_systems(Startup, init_dialogue_box)
+            .add_systems(Update, bevy_enum_filter::watch_for_enum::<Portrait>)
             .add_systems(
                 Update,
                 (

@@ -3,6 +3,7 @@ use bevy_rapier3d::prelude::*;
 
 use crate::{AvatarAssets, Character, CharacterSet, Player, PlayerCharacter, GenericHumanoidCharacterPlugin};
 use grin_asset::AssetLoadState;
+use grin_dialogue::Portrait;
 use grin_physics::{collider, CollisionGroupsExt};
 use grin_render::RenderLayer;
 use grin_rig::humanoid::{
@@ -86,6 +87,7 @@ pub fn init_humanoid(
             collider!(meshes, &assets.pizza_shades),
             RigidBody::Fixed,
             CollisionGroups::from_group_default(Group::NONE),
+            Portrait::Smirk,
         ))
         .set_parent(humanoid.head);
 

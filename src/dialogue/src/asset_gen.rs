@@ -7,17 +7,16 @@ use bevy::{
     utils::HashMap,
 };
 use bevy_asset_loader::prelude::*;
+use bevy_enum_filter::prelude::*;
 use html_parser::{Dom, Node};
 use itertools::Itertools;
 use serde::Deserialize;
 
-use grin_character::kit::eightball::EightBall;
 use grin_render::{
     gopro::{add_gopro_world, GoProSettings},
     sketched::SketchUiImage,
     RenderLayer,
 };
-use grin_rig::humanoid::Humanoid;
 
 #[derive(Resource)]
 pub struct DefaultTextStyle(pub TextStyle);
@@ -83,7 +82,7 @@ impl Blip {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, Default)]
+#[derive(Component, Debug, Deserialize, Clone, EnumFilter, Default)]
 pub enum Portrait {
     #[default]
     Smirk,
@@ -91,30 +90,27 @@ pub enum Portrait {
 
 impl Portrait {
     // I can't think of a way to query based on component type with regular systems.
-    // instead I just threw in `&mut World` access + a macro. not performance critical.
+    // instead I just threw in `&mut World` access. not performance critical.
     pub fn render_target(&self, world: &mut World) -> Result<Handle<Image>, QuerySingleError> {
-        macro_rules! typed_portrait {
-            ( $ty:ident ) => {{
-                let humanoid = world
-                    .query_filtered::<&Humanoid, With<$ty>>()
-                    .get_single(world)?;
-
-                Ok(add_gopro_world(
-                    world,
-                    GoProSettings {
-                        entity: humanoid.head,
-                        transform: Transform::from_translation(Vec3::new(0.0, 0.0, -2.0))
-                            .looking_to(Vec3::Z, Vec3::Y),
-                        size: UVec2::splat(240),
-                        render_layers: RenderLayers::layer(RenderLayer::AVATAR as u8),
-                    },
-                ))
-            }};
+        fn query_portrait<T: Component>(world: &mut World) -> Result<Entity, QuerySingleError> {
+            world.query_filtered::<Entity, With<T>>().get_single(world)
         }
 
-        match self {
-            Portrait::Smirk => typed_portrait!(EightBall),
-        }
+        // average rust program
+        let e_portrait = match self {
+            Portrait::Smirk => query_portrait::<Enum!(Portrait::Smirk)>(world)?,
+        };
+
+        Ok(add_gopro_world(
+            world,
+            GoProSettings {
+                entity: e_portrait,
+                transform: Transform::from_translation(Vec3::new(0.0, 0.0, -2.0))
+                    .looking_to(Vec3::Z, Vec3::Y),
+                size: UVec2::splat(240),
+                render_layers: RenderLayers::layer(RenderLayer::AVATAR as u8),
+            },
+        ))
     }
 }
 

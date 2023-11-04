@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 grin_asset = { path = "../asset" }
 grin_damage = { path = "../damage" }
+grin_dialogue = { path = "../dialogue" }
 grin_input = { path = "../input" }
 grin_item = { path = "../item" }
 grin_physics = { path = "../physics" }

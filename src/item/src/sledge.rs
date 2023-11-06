@@ -1,25 +1,21 @@
 use std::time::Duration;
 
+use bevy::prelude::*;
+use bevy_asset_loader::prelude::{AssetCollection, LoadingStateAppExt};
+use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_damage::{Damage, DamageVariant, TemporaryContactDamage};
-use grin_physics::{collider, CollisionGroupsExt, CollisionGroupExt};
+use grin_damage::{impact::Impact, ContactDamage, Damage, DamageEvent, DamageVariant};
+use grin_physics::{collider, CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::SketchMaterial;
 use grin_rig::humanoid::Humanoid;
 use grin_util::event::Spawnable;
-
-use bevy::prelude::*;
-use bevy_rapier3d::prelude::*;
 
 use super::{
     firing::{self, FireRate, FiringPlugin, FiringType, SemiFireBundle, ShotFired},
     insert_on_lmb,
     melee::{update_hammer_winds, Charging, Swinging, Wind, Winding},
-    Item, ItemEquipEvent, ItemPlugin, ItemSet, ItemSpawnEvent, WeaponBundle,
+    Active, Item, ItemEquipEvent, ItemPlugin, ItemSet, ItemSpawnEvent, WeaponBundle,
 };
-pub use super::{Active, Target};
-
-use bevy_asset_loader::prelude::{AssetCollection, LoadingStateAppExt};
-
 
 pub struct SledgePlugin;
 
@@ -66,21 +62,23 @@ impl Plugin for SledgePlugin {
             )
                 .chain(),
         )
-        .add_systems(Update, spawn.in_set(ItemSet::Spawn))
         .add_systems(
             Update,
             (
-                insert_on_lmb::<Sledge, Active>,
-                apply_deferred,
-                wind,
-                charge,
-                apply_deferred,
-                swing_or_cancel,
-                unswing,
-                update_hammer_winds,
-            )
-                .chain()
-                .in_set(SledgeSystemSet::Input),
+                spawn.in_set(ItemSet::Spawn),
+                (
+                    insert_on_lmb::<Sledge, Active>,
+                    apply_deferred,
+                    wind,
+                    charge,
+                    swing_or_cancel,
+                    unswing,
+                    update_hammer_winds,
+                )
+                    .chain()
+                    .in_set(SledgeSystemSet::Input),
+                sledge_on_hit.in_set(SledgeSystemSet::Effects),
+            ),
         );
     }
 }
@@ -125,7 +123,6 @@ pub fn spawn(
                 RigidBody::Dynamic,
                 collider!(meshes, &assets.sledge),
                 CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE),
-                Sensor,
                 Damage {
                     ty: DamageVariant::Ballistic,
                     value: 20.0,
@@ -133,6 +130,7 @@ pub fn spawn(
                 },
                 Ccd::enabled(),
                 ActiveEvents::COLLISION_EVENTS,
+                ActiveHooks::FILTER_CONTACT_PAIRS,
                 ColliderMassProperties::default(),
                 GravityScale(0.0),
             ))
@@ -148,7 +146,7 @@ pub fn wind(
     mut commands: Commands,
     sledge_assets: Res<SledgeAssets>,
     clips: Res<Assets<AnimationClip>>,
-    weapon_query: Query<&Wind, With<Sledge>>,
+    item_query: Query<&Wind, With<Sledge>>,
     mut shot_events: EventReader<ShotFired<Sledge>>,
     parent_query: Query<&Parent>,
     mut animator_query: Query<&mut AnimationPlayer>,
@@ -159,7 +157,7 @@ pub fn wind(
                 continue;
             };
 
-            let wind = weapon_query.get(*e_item).unwrap();
+            let wind = item_query.get(*e_item).unwrap();
             let wind_clip = clips.get(&sledge_assets.wind_animation).unwrap();
             animator
                 .start_with_transition(
@@ -178,11 +176,11 @@ pub fn wind(
 pub fn charge(
     mut commands: Commands,
     sledge_assets: Res<SledgeAssets>,
-    weapon_query: Query<(Entity, &Wind), (With<Sledge>, With<Active>, Without<Charging>)>,
+    item_query: Query<(Entity, &Wind), (With<Sledge>, With<Active>, Without<Charging>)>,
     parent_query: Query<&Parent>,
     mut animator_query: Query<&mut AnimationPlayer>,
 ) {
-    for (e_item, wind) in weapon_query.iter() {
+    for (e_item, wind) in item_query.iter() {
         if wind.progress() >= 1.0 {
             for e_animator in parent_query.iter_ancestors(e_item) {
                 let Ok(mut animator) = animator_query.get_mut(e_animator) else {
@@ -204,11 +202,11 @@ pub fn swing_or_cancel(
     mut commands: Commands,
     sledge_assets: Res<SledgeAssets>,
     clips: Res<Assets<AnimationClip>>,
-    weapon_query: Query<(Entity, &Wind, &Winding), (With<Sledge>, Without<Active>)>,
+    item_query: Query<(Entity, &Wind, &Winding), (With<Sledge>, Without<Active>)>,
     parent_query: Query<&Parent>,
     mut animator_query: Query<&mut AnimationPlayer>,
 ) {
-    for (e_item, wind, winding) in weapon_query.iter() {
+    for (e_item, wind, winding) in item_query.iter() {
         for e_animator in parent_query.iter_ancestors(e_item) {
             let Ok(mut animator) = animator_query.get_mut(e_animator) else {
                 continue;
@@ -221,7 +219,7 @@ pub fn swing_or_cancel(
                     .start(sledge_assets.swing_animation.clone())
                     .set_speed(4.0);
                 commands.entity(e_item).insert((
-                    TemporaryContactDamage,
+                    ContactDamage::Once,
                     Swinging {
                         duration: swing_clip.duration() / 4.0,
                     },
@@ -244,11 +242,11 @@ pub fn swing_or_cancel(
 pub fn unswing(
     mut commands: Commands,
     sledge_assets: Res<SledgeAssets>,
-    weapon_query: Query<(Entity, &Swinging), With<Sledge>>,
+    item_query: Query<(Entity, &Swinging), With<Sledge>>,
     parent_query: Query<&Parent>,
     mut animator_query: Query<&mut AnimationPlayer>,
 ) {
-    for (e_item, swing) in weapon_query.iter() {
+    for (e_item, swing) in item_query.iter() {
         for e_animator in parent_query.iter_ancestors(e_item) {
             let Ok(mut animator) = animator_query.get_mut(e_animator) else {
                 continue;
@@ -257,9 +255,38 @@ pub fn unswing(
             if animator.elapsed() >= swing.duration {
                 commands
                     .entity(e_item)
-                    .remove::<(Swinging, TemporaryContactDamage)>();
-                animator.start(sledge_assets.unswing_animation.clone()).set_speed(2.0);
+                    .remove::<(Swinging, ContactDamage)>();
+                animator
+                    .start(sledge_assets.unswing_animation.clone())
+                    .set_speed(2.0);
             }
         }
+    }
+}
+
+pub fn sledge_on_hit(
+    mut commands: Commands,
+    rapier_context: Res<RapierContext>,
+    item_query: Query<&GlobalTransform, With<Sledge>>,
+    mut damage_events: EventReader<DamageEvent>,
+) {
+    for damage_event in damage_events.iter() {
+        let DamageEvent::Contact { e_damage, e_hit, .. } = damage_event else {
+            continue;
+        };
+        let Ok(g_item_transform) = item_query.get(*e_damage) else {
+            continue;
+        };
+        let Some(contact_pair) = rapier_context.contact_pair(*e_hit, *e_damage) else {
+            continue;
+        };
+        let Some(contact) = contact_pair.find_deepest_contact() else {
+            continue;
+        };
+        let contact_point = g_item_transform.transform_point(contact.1.local_p1());
+        commands.spawn((
+            TransformBundle::from_transform(Transform::from_translation(contact_point)),
+            Impact::from_burst_radius(2.0),
+        ));
     }
 }

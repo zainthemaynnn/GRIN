@@ -4,7 +4,7 @@ use crate::{AvatarAssets, Character, CharacterSet, PlayerCharacter, GenericHuman
 use grin_asset::AssetLoadState;
 
 use grin_rig::humanoid::{
-    HumanoidAssets, HumanoidBuild, HumanoidBundle, HumanoidDominantHand,
+    HumanoidAssets, HumanoidBuild, HumanoidBundle, HumanoidDominantHand, Humanoid,
 };
 use grin_util::event::Spawnable;
 
@@ -17,7 +17,8 @@ impl Plugin for GrinPlugin {
             .add_systems(
                 OnEnter(AssetLoadState::Success),
                 spawn.in_set(CharacterSet::Spawn),
-            );
+            )
+            .add_systems(Update, init_humanoid.in_set(CharacterSet::Init));
     }
 }
 
@@ -26,6 +27,9 @@ pub struct GrinSpawnEvent;
 
 #[derive(Component, Default)]
 pub struct Grin;
+
+#[derive(Component)]
+pub struct GrinUninit;
 
 impl Character for Grin {
     type StartItem = grin_item::sledge::Sledge;
@@ -43,7 +47,7 @@ pub fn spawn(
 ) {
     for _ in events.iter() {
         commands.spawn((
-            Grin::default(),
+            GrinUninit,
             PlayerCharacter,
             HumanoidBundle {
                 skeleton_gltf: hum_assets.skeleton.clone(),
@@ -56,3 +60,18 @@ pub fn spawn(
         ));
     }
 }
+
+pub fn init_humanoid(
+    mut commands: Commands,
+    humanoid_query: Query<Entity, (With<GrinUninit>, With<Humanoid>)>,
+) {
+    let Ok(e_humanoid) = humanoid_query.get_single() else {
+        return;
+    };
+
+    commands
+        .entity(e_humanoid)
+        .insert(Grin::default())
+        .remove::<GrinUninit>();
+}
+

@@ -1,3 +1,5 @@
+use bevy::prelude::*;
+use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::{
     projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
@@ -6,19 +8,15 @@ use grin_damage::{
 
 use grin_rig::humanoid::Humanoid;
 use grin_util::event::Spawnable;
-
-use crate::{set_local_mouse_target, DamageCollisionGroups};
+use rand::{distributions::Uniform, Rng};
 
 use super::{
-    aim_on_active,
+    aim_on_active, find_item_owner,
     firing::{self, AutoFireBundle, FireRate, FiringPlugin, FiringType, ItemSfx, ShotFired},
-    insert_on_lmb, unaim_on_unactive, Accuracy, AimType, IdleType, Item, ItemEquipEvent,
-    ItemPlugin, ItemSet, ItemSpawnEvent, Muzzle, MuzzleBundle, ProjectileAssets, Sfx, WeaponBundle,
+    insert_on_lmb, set_local_mouse_target, unaim_on_unactive, Accuracy, Active, AimType,
+    DamageCollisionGroups, Equipped, IdleType, Item, ItemEquipEvent, ItemPlugin, ItemSet,
+    ItemSpawnEvent, Muzzle, MuzzleBundle, ProjectileAssets, Sfx, Target, WeaponBundle,
 };
-pub use super::{Active, Target};
-use bevy::prelude::*;
-use bevy_rapier3d::prelude::*;
-use rand::{distributions::Uniform, Rng};
 
 pub struct SMGPlugin;
 
@@ -127,13 +125,14 @@ pub fn spawn(
 
 pub fn spawn_bullet(
     mut commands: Commands,
-    weapon_query: Query<(&Target, &Accuracy, &DamageCollisionGroups, &Children), With<SMG>>,
+    item_query: Query<(&Target, &Accuracy, &DamageCollisionGroups, &Children), With<SMG>>,
+    parent_query: Query<&Parent, With<Equipped>>,
     muzzle_query: Query<&GlobalTransform, With<Muzzle>>,
     mut shot_events: EventReader<ShotFired<SMG>>,
 ) {
-    for ShotFired { entity, .. } in shot_events.iter() {
+    for ShotFired { entity: e_item, .. } in shot_events.iter() {
         let (target, accuracy, damage_collision_groups, children) =
-            weapon_query.get(*entity).unwrap();
+            item_query.get(*e_item).unwrap();
         let muzzle_g_transform = muzzle_query.get(*children.first().unwrap()).unwrap();
 
         let origin = muzzle_g_transform.translation();
@@ -159,7 +158,7 @@ pub fn spawn_bullet(
                 damage: Damage {
                     ty: DamageVariant::Ballistic,
                     value: 5.0,
-                    source: None,
+                    source: find_item_owner(*e_item, &parent_query),
                 },
                 transform: bullet_transform.with_scale(Vec3::splat(0.15)),
                 velocity: Velocity::linear(bullet_transform.forward() * 64.0),

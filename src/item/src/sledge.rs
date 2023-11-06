@@ -10,6 +10,8 @@ use grin_render::sketched::SketchMaterial;
 use grin_rig::humanoid::Humanoid;
 use grin_util::event::Spawnable;
 
+use crate::{find_item_owner, Equipped};
+
 use super::{
     firing::{self, FireRate, FiringPlugin, FiringType, SemiFireBundle, ShotFired},
     insert_on_lmb,
@@ -123,11 +125,6 @@ pub fn spawn(
                 RigidBody::Dynamic,
                 collider!(meshes, &assets.sledge),
                 CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE),
-                Damage {
-                    ty: DamageVariant::Ballistic,
-                    value: 20.0,
-                    source: None,
-                },
                 Ccd::enabled(),
                 ActiveEvents::COLLISION_EVENTS,
                 ActiveHooks::FILTER_CONTACT_PAIRS,
@@ -203,7 +200,8 @@ pub fn swing_or_cancel(
     sledge_assets: Res<SledgeAssets>,
     clips: Res<Assets<AnimationClip>>,
     item_query: Query<(Entity, &Wind, &Winding), (With<Sledge>, Without<Active>)>,
-    parent_query: Query<&Parent>,
+    parent_query: Query<&Parent, Without<Equipped>>,
+    parent_query_eq: Query<&Parent, With<Equipped>>,
     mut animator_query: Query<&mut AnimationPlayer>,
 ) {
     for (e_item, wind, winding) in item_query.iter() {
@@ -220,6 +218,11 @@ pub fn swing_or_cancel(
                     .set_speed(4.0);
                 commands.entity(e_item).insert((
                     ContactDamage::Once,
+                    Damage {
+                        ty: DamageVariant::Ballistic,
+                        value: 20.0,
+                        source: find_item_owner(e_item, &parent_query_eq),
+                    },
                     Swinging {
                         duration: swing_clip.duration() / 4.0,
                     },

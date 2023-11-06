@@ -18,7 +18,6 @@ use bevy::{
 };
 use bevy_asset_loader::{asset_collection::AssetCollection, prelude::LoadingStateAppExt};
 use bevy_rapier3d::prelude::*;
-
 use grin_asset::AssetLoadState;
 use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera};
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
@@ -167,7 +166,9 @@ pub struct DamageCollisionGroups(pub CollisionGroups);
 
 impl Default for DamageCollisionGroups {
     fn default() -> Self {
-        Self(CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE))
+        Self(CollisionGroups::from_group_default(
+            Group::PLAYER_PROJECTILE,
+        ))
     }
 }
 
@@ -326,11 +327,20 @@ pub fn equip_items<M: Send + Sync + 'static>(
         match equipped_query.get_mut(*parent_entity) {
             // can't destructure `Mut` >:( >:(
             Ok(mut equipped) => {
+                info!("Equipped item {:?} to {:?}.", parent_entity, item_entity);
                 equipped.0.insert(*item_entity);
             }
             Err(_) => error!("Equipped item to entity without `Equipped`."),
         }
     }
+}
+
+/// Returns the first ancestor with an `Equipped` component.
+pub fn find_item_owner(
+    e_item: Entity,
+    parent_query: &Query<&Parent, With<Equipped>>,
+) -> Option<Entity> {
+    parent_query.iter_ancestors(e_item).next()
 }
 
 /// On `(With<InputHandler>, With<T>)`,
@@ -355,12 +365,14 @@ pub fn set_local_mouse_target<T: Component>(
     }
 }
 
+/// Idle animation.
 #[derive(Component, Default)]
 pub enum IdleType {
     #[default]
     Idle,
 }
 
+/// Aim animation.
 #[derive(Component, Default)]
 pub enum AimType {
     #[default]

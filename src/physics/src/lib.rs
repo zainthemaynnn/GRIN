@@ -1,8 +1,7 @@
 use std::time::Duration;
 
-use bevy::{prelude::*, time::TimeSystem};
+use bevy::{ecs::system::SystemParam, prelude::*, time::TimeSystem};
 use bevy_rapier3d::prelude::*;
-
 use grin_time::scaling::TimeScale;
 
 #[derive(Default)]
@@ -20,13 +19,14 @@ impl Plugin for GrinPhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PhysicsTime>()
             .add_plugins((
-                RapierPhysicsPlugin::<NoUserData>::default(),
+                RapierPhysicsPlugin::<GrinPhysicsHooks>::default(),
                 RapierDebugRenderPlugin {
                     enabled: self.debug_enabled,
                     style: self.debug_style,
                     mode: self.debug_mode,
                 },
             ))
+            .init_resource::<GrinPhysicsHooks>()
             .insert_resource(RapierConfiguration {
                 // gravity is scaled by human height / humanoid height.
                 // it's a magic number. I don't want to import `grin_character`.
@@ -43,6 +43,19 @@ impl Plugin for GrinPhysicsPlugin {
             )
             .add_systems(First, write_physics_time.after(TimeSystem))
             .add_systems(Last, (update_force_timers, kill_timed_forces).chain());
+    }
+}
+
+/// Custom physics hooks.
+///
+/// This is important for computing contact points for melee weapons, without the constraints
+/// solver interfering.
+#[derive(Resource, SystemParam, Default)]
+pub struct GrinPhysicsHooks;
+
+impl BevyPhysicsHooks for GrinPhysicsHooks {
+    fn filter_contact_pair(&self, _context: PairFilterContextView) -> Option<SolverFlags> {
+        Some(SolverFlags::empty())
     }
 }
 

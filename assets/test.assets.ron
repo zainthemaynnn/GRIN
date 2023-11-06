@@ -36,14 +36,15 @@ CustomDynamicAssetCollection({
      "mesh.bullet_10cm": UVSphereMesh (
           radius: 0.10,
      ),
+     "mesh.sphere_100cm": UVSphereMesh (
+          radius: 1.0,
+     ),
 
-     // I give up on trying to reuse the main rig for all humanoids.
-     // I'll probably do it later if it turns out I REALLY need it.
-     // the base humanoid pretty low-poly anyways.
-     // the one thing I WILL reuse is humanoid animations,
-     // since those are easy to retrofit as long as the skeleton is the same.
      "rig.humanoid_skeleton": File (
           path: "meshes/skeleton.glb#Scene0",
+     ),
+     "rig.eightball": File (
+          path: "meshes/skeleton.glb#Scene1",
      ),
      // might want to move the pistol/hammer ones to another rig
      "anim.hammer.charge": File (

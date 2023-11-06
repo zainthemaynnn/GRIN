@@ -1,3 +1,4 @@
+pub mod impact;
 pub mod projectiles;
 
 use std::time::Duration;
@@ -6,6 +7,7 @@ use bevy::{ecs::query::QueryEntityError, prelude::*, utils::HashMap};
 use bevy_rapier3d::prelude::*;
 use grin_util::query::distinguish_by_query;
 
+use impact::ImpactPlugin;
 use projectiles::ProjectilePlugin;
 
 /// Health and damage calculations.
@@ -13,7 +15,7 @@ pub struct DamagePlugin;
 
 impl Plugin for DamagePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ProjectilePlugin)
+        app.add_plugins((ProjectilePlugin, ImpactPlugin))
             .add_event::<DamageEvent>()
             .configure_sets(
                 Update,

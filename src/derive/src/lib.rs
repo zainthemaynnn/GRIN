@@ -5,13 +5,13 @@ use syn::{parse_macro_input, punctuated::Punctuated, spanned::Spanned, DeriveInp
 
 #[proc_macro_derive(Cooldown, attributes(cooldown))]
 pub fn derive_cooldown(input: TokenStream) -> TokenStream {
-    match impls(parse_macro_input!(input as DeriveInput)) {
+    match impl_cooldown(parse_macro_input!(input as DeriveInput)) {
         Ok(stream) => stream.into(),
         Err(e) => e.to_compile_error().into(),
     }
 }
 
-fn impls(input: DeriveInput) -> Result<proc_macro2::TokenStream, syn::Error> {
+fn impl_cooldown(input: DeriveInput) -> Result<proc_macro2::TokenStream, syn::Error> {
     let ident = &input.ident;
     let mut duration = None;
 
@@ -60,6 +60,33 @@ fn impls(input: DeriveInput) -> Result<proc_macro2::TokenStream, syn::Error> {
             fn timer_mut(&mut self) -> &mut #bevy::prelude::Timer {
                 &mut self.0
             }
+        }
+    }))
+}
+
+#[proc_macro_derive(Spawnable)]
+pub fn derive_spawnable(input: TokenStream) -> TokenStream {
+    match impl_spawnable(parse_macro_input!(input as DeriveInput)) {
+        Ok(stream) => stream.into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+fn impl_spawnable(input: DeriveInput) -> Result<proc_macro2::TokenStream, syn::Error> {
+    let ident = &input.ident;
+    let event_ident = format_ident!("{}SpawnEvent", input.ident);
+
+    let bevy = get_crate("bevy");
+    let grin_util = get_crate("grin_util");
+
+    Ok(proc_macro2::TokenStream::from(quote! {
+        #[derive(#bevy::prelude::Event, Clone, Default)]
+        pub struct #event_ident {
+            pub transform: Transform,
+        }
+
+        impl #grin_util::event::Spawnable for #ident {
+            type Event = #event_ident;
         }
     }))
 }

@@ -156,8 +156,14 @@ pub fn die(mut commands: Commands, health_query: Query<(Entity, &Health)>) {
 }
 
 /// Items colliding with this entity will have damage propagated to it.
+/// This entity is then removed.
 #[derive(Component, Default)]
 pub struct ContactDamage;
+
+/// Items colliding with this entity will have damage propagated to it.
+/// This component is then removed.
+#[derive(Component, Default)]
+pub struct TemporaryContactDamage;
 
 /// PCs and NPCs with this are dead.
 #[derive(Component, Default)]
@@ -168,18 +174,40 @@ pub fn push_contact_damage(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
     damage_query: Query<&Damage, With<ContactDamage>>,
+    temp_damage_query: Query<&Damage, With<TemporaryContactDamage>>,
     mut hit_query: Query<&mut DamageBuffer>,
 ) {
     for collision_event in collision_events.iter() {
         let CollisionEvent::Started(entity_0, entity_1, ..) = collision_event else {
             continue;
         };
-        let Ok((e_damage, e_hit)) = distinguish_by_query(&damage_query, *entity_0, *entity_1) else {
-            continue;
+        trace!("Collision for {:?} on {:?}.", entity_0, entity_1);
+
+        let (temp, (e_damage, e_hit)) =
+            match distinguish_by_query(&damage_query, *entity_0, *entity_1) {
+                Ok(e) => (false, e),
+                Err(..) => match distinguish_by_query(&temp_damage_query, *entity_0, *entity_1) {
+                    Ok(e) => (true, e),
+                    Err(..) => continue,
+                },
+            };
+
+        trace!("Hit for {:?} on {:?}.", e_damage, e_hit);
+
+        let damage = match temp {
+            true => {
+                commands
+                    .get_or_spawn(e_damage)
+                    .remove::<TemporaryContactDamage>();
+                temp_damage_query.get(e_damage).unwrap()
+
+            },
+            false => {
+                commands.get_or_spawn(e_damage).despawn_recursive();
+                damage_query.get(e_damage).unwrap()
+            }
         };
 
-        commands.get_or_spawn(e_damage).despawn_recursive();
-        let damage = damage_query.get(e_damage).unwrap();
         let Ok(mut damage_buf) = hit_query.get_mut(e_hit) else {
             continue;
         };

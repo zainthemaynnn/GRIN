@@ -81,7 +81,10 @@ fn main() -> Result<(), io::Error> {
             LogDiagnosticsPlugin::default(),
             WorldInspectorPlugin::new(),
             TweenEventPlugin,
-            GrinPhysicsPlugin,
+            GrinPhysicsPlugin {
+                debug_enabled: false,
+                ..Default::default()
+            },
             RenderFXPlugins,
             HumanoidPlugin,
             ItemPlugins,

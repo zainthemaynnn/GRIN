@@ -5,12 +5,28 @@ use bevy_rapier3d::prelude::*;
 
 use grin_time::scaling::TimeScale;
 
-pub struct GrinPhysicsPlugin;
+#[derive(Default)]
+pub struct GrinPhysicsPlugin {
+    /// Is the debug-rendering enabled?
+    pub debug_enabled: bool,
+    /// Control some aspects of the render coloring.
+    pub debug_style: DebugRenderStyle,
+    /// Flags to select what part of physics scene is rendered (by default
+    /// everything is rendered).
+    pub debug_mode: DebugRenderMode,
+}
 
 impl Plugin for GrinPhysicsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PhysicsTime>()
-            .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
+            .add_plugins((
+                RapierPhysicsPlugin::<NoUserData>::default(),
+                RapierDebugRenderPlugin {
+                    enabled: self.debug_enabled,
+                    style: self.debug_style,
+                    mode: self.debug_mode,
+                },
+            ))
             .insert_resource(RapierConfiguration {
                 // gravity is scaled by human height / humanoid height.
                 // it's a magic number. I don't want to import `grin_character`.

@@ -1,8 +1,9 @@
 pub mod projectiles;
 
-use bevy::{prelude::*, utils::HashMap};
-use bevy_rapier3d::prelude::*;
+use std::time::Duration;
 
+use bevy::{ecs::query::QueryEntityError, prelude::*, utils::HashMap};
+use bevy_rapier3d::prelude::*;
 use grin_util::query::distinguish_by_query;
 
 use projectiles::ProjectilePlugin;
@@ -13,21 +14,24 @@ pub struct DamagePlugin;
 impl Plugin for DamagePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ProjectilePlugin)
+            .add_event::<DamageEvent>()
             .configure_sets(
                 Update,
                 (
                     DamageSet::Insert,
                     DamageSet::Resist,
+                    DamageSet::Propagate,
                     DamageSet::Clear,
                     DamageSet::Kill,
                 )
                     .chain(),
             )
+            .add_systems(PreUpdate, send_contact_damage_events)
             .add_systems(
                 Update,
                 (
                     push_contact_damage.in_set(DamageSet::Insert),
-                    propagate_damage_buffers,
+                    propagate_damage_buffers.in_set(DamageSet::Propagate),
                     apply_resist.in_set(DamageSet::Resist),
                     apply_damage_buffers.in_set(DamageSet::Clear),
                     die.in_set(DamageSet::Kill),
@@ -40,6 +44,8 @@ impl Plugin for DamagePlugin {
 pub enum DamageSet {
     /// `DamageBuffer`s are empty in this stage.
     Insert,
+    /// `DamageBuffer`s are propagated in this stage.
+    Propagate,
     /// `Resist` is applied in this stage.
     Resist,
     /// `DamageBuffer`s are cleared in this stage.
@@ -81,12 +87,13 @@ pub enum DamageVariant {
 }
 
 /// Damage.
-///
-/// `source` refers to the `Entity` that dealt the damage.
 #[derive(Component, Copy, Clone, Debug, Default)]
 pub struct Damage {
+    /// Damage type.
     pub ty: DamageVariant,
+    /// Damage amount.
     pub value: f32,
+    /// The `Entity` that dealt the damage.
     pub source: Option<Entity>,
 }
 
@@ -147,6 +154,7 @@ pub fn apply_damage_buffers(mut query: Query<(&mut Health, &mut DamageBuffer), W
     }
 }
 
+/// Inserts `Dead` component.
 pub fn die(mut commands: Commands, health_query: Query<(Entity, &Health)>) {
     for (entity, health) in health_query.iter() {
         if health.0 == 0.0 {
@@ -155,63 +163,107 @@ pub fn die(mut commands: Commands, health_query: Query<(Entity, &Health)>) {
     }
 }
 
-/// Items colliding with this entity will have damage propagated to it.
-/// This entity is then removed.
-#[derive(Component, Default)]
-pub struct ContactDamage;
-
-/// Items colliding with this entity will have damage propagated to it.
-/// This component is then removed.
-#[derive(Component, Default)]
-pub struct TemporaryContactDamage;
+/// Sends `DamageEvent::Contact` on collision. If this component has an adjacent `Damage`
+/// component, it will be applied automatically.
+#[derive(Component, Default, Copy, Clone)]
+pub enum ContactDamage {
+    /// This entity is despawned after contact damage event is fired.
+    #[default]
+    Despawn,
+    /// This component is removed after contact damage event is fired.
+    Once,
+    /// Contact damage events are disabled for `0`.
+    Debounce(Duration),
+}
 
 /// PCs and NPCs with this are dead.
 #[derive(Component, Default)]
 #[component(storage = "SparseSet")]
 pub struct Dead;
 
-pub fn push_contact_damage(
-    mut commands: Commands,
+/// Event for when... something takes damage.
+///
+/// Note that this event is not fired when `DamageBuffer`s are updated. `DamageBuffer`s are lower
+/// level structures that should be updated when `DamageEvent` is fired by something else.
+#[derive(Event)]
+pub enum DamageEvent {
+    /// Collision damage.
+    Contact {
+        kind: ContactDamage,
+        e_damage: Entity,
+        e_hit: Entity,
+    },
+    /// Direct damage.
+    // TODO: system to apply this damage, when it actually ends up getting used.
+    Direct {
+        damage: Damage,
+        e_hit: Entity,
+    }
+}
+
+pub fn send_contact_damage_events(
+    damage_query: Query<&ContactDamage>,
     mut collision_events: EventReader<CollisionEvent>,
-    damage_query: Query<&Damage, With<ContactDamage>>,
-    temp_damage_query: Query<&Damage, With<TemporaryContactDamage>>,
-    mut hit_query: Query<&mut DamageBuffer>,
+    mut damage_events: EventWriter<DamageEvent>,
 ) {
     for collision_event in collision_events.iter() {
         let CollisionEvent::Started(entity_0, entity_1, ..) = collision_event else {
             continue;
         };
-        trace!("Collision for {:?} on {:?}.", entity_0, entity_1);
+        debug!("Collision for {:?} on {:?}.", entity_0, entity_1);
 
-        let (temp, (e_damage, e_hit)) =
-            match distinguish_by_query(&damage_query, *entity_0, *entity_1) {
-                Ok(e) => (false, e),
-                Err(..) => match distinguish_by_query(&temp_damage_query, *entity_0, *entity_1) {
-                    Ok(e) => (true, e),
-                    Err(..) => continue,
-                },
-            };
+        let Ok((e_damage, e_hit)) = distinguish_by_query(&damage_query, *entity_0, *entity_1) else {
+            continue;
+        };
 
-        trace!("Hit for {:?} on {:?}.", e_damage, e_hit);
+        let contact_damage_kind = damage_query.get(e_damage).unwrap();
 
-        let damage = match temp {
-            true => {
-                commands
-                    .get_or_spawn(e_damage)
-                    .remove::<TemporaryContactDamage>();
-                temp_damage_query.get(e_damage).unwrap()
+        damage_events.send(DamageEvent::Contact {
+            kind: *contact_damage_kind,
+            e_damage,
+            e_hit,
+        })
+    }
+}
 
-            },
-            false => {
-                commands.get_or_spawn(e_damage).despawn_recursive();
-                damage_query.get(e_damage).unwrap()
+fn try_push_damage<'a>(
+    e_damage: Entity,
+    e_hit: Entity,
+    damage_query: &'a Query<&Damage>,
+    hit_query: &mut Query<&mut DamageBuffer>,
+) -> Result<&'a Damage, QueryEntityError> {
+    let damage = damage_query.get(e_damage)?;
+    let mut damage_buf = hit_query.get_mut(e_hit)?;
+    damage_buf.0.push(*damage);
+    Ok(damage)
+}
+
+pub fn push_contact_damage(
+    mut commands: Commands,
+    mut hit_query: Query<&mut DamageBuffer>,
+    mut damage_events: EventReader<DamageEvent>,
+    damage_query: Query<&Damage>,
+) {
+    for damage_event in damage_events.iter() {
+        let DamageEvent::Contact { kind, e_damage, e_hit } = damage_event else {
+            continue;
+        };
+
+        match kind {
+            ContactDamage::Despawn => {
+                commands.get_or_spawn(*e_damage).despawn_recursive();
+            }
+            ContactDamage::Once => {
+                commands.get_or_spawn(*e_damage).remove::<ContactDamage>();
+            }
+            ContactDamage::Debounce(_debounce) => {
+                todo!();
             }
         };
 
-        let Ok(mut damage_buf) = hit_query.get_mut(e_hit) else {
-            continue;
-        };
-        damage_buf.0.push(*damage);
+        if let Ok(damage) = try_push_damage(*e_damage, *e_hit, &damage_query, &mut hit_query) {
+            debug!("Contact damage for {:?} on {:?}.", *damage, *e_hit);
+        }
     }
 }
 

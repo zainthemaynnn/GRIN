@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use grin_asset::AssetLoadState;
-use grin_damage::{ContactDamage, Damage, DamageVariant};
-use grin_physics::{collider};
+use grin_damage::{Damage, DamageVariant, TemporaryContactDamage};
+use grin_physics::{collider, CollisionGroupsExt, CollisionGroupExt};
 use grin_render::sketched::SketchMaterial;
 use grin_rig::humanoid::Humanoid;
 use grin_util::event::Spawnable;
@@ -122,8 +122,9 @@ pub fn spawn(
                     fire_rate: FireRate(2.0),
                     ..Default::default()
                 },
-                RigidBody::Fixed,
+                RigidBody::Dynamic,
                 collider!(meshes, &assets.sledge),
+                CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE),
                 Sensor,
                 Damage {
                     ty: DamageVariant::Ballistic,
@@ -131,6 +132,9 @@ pub fn spawn(
                     source: None,
                 },
                 Ccd::enabled(),
+                ActiveEvents::COLLISION_EVENTS,
+                ColliderMassProperties::default(),
+                GravityScale(0.0),
             ))
             .set_parent(humanoid.dominant_hand())
             .id();
@@ -217,14 +221,9 @@ pub fn swing_or_cancel(
                     .start(sledge_assets.swing_animation.clone())
                     .set_speed(4.0);
                 commands.entity(e_item).insert((
-                    ContactDamage,
-                    Damage {
-                        ty: DamageVariant::Ballistic,
-                        value: 20.0,
-                        source: None,
-                    },
+                    TemporaryContactDamage,
                     Swinging {
-                        duration: swing_clip.duration(),
+                        duration: swing_clip.duration() / 4.0,
                     },
                 ));
             } else if wind.progress() > 0.0 {
@@ -233,6 +232,7 @@ pub fn swing_or_cancel(
                     // I almost made an issue about this, then I found a fix in this PR.
                     // which might be stale? I dunno. I'll see about taking over when I'm not lazy.
                     // https://github.com/bevyengine/bevy/pull/5912
+                    // update: this got fixed in 0.12. I'll keep it as a piece of history.
                     .set_elapsed(-winding.duration + elapsed)
                     .set_speed(-4.0);
             }
@@ -257,8 +257,8 @@ pub fn unswing(
             if animator.elapsed() >= swing.duration {
                 commands
                     .entity(e_item)
-                    .remove::<(Swinging, Damage, ContactDamage)>();
-                animator.start(sledge_assets.unswing_animation.clone());
+                    .remove::<(Swinging, TemporaryContactDamage)>();
+                animator.start(sledge_assets.unswing_animation.clone()).set_speed(2.0);
             }
         }
     }

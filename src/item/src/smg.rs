@@ -10,6 +10,8 @@ use grin_rig::humanoid::Humanoid;
 use grin_util::event::Spawnable;
 use rand::{distributions::Uniform, Rng};
 
+use crate::try_find_deepest_contact_point;
+
 use super::{
     aim_on_active, find_item_owner,
     firing::{self, AutoFireBundle, FireRate, FiringPlugin, FiringType, ItemSfx, ShotFired},
@@ -123,6 +125,9 @@ pub fn spawn(
     }
 }
 
+#[derive(Component)]
+pub struct SMGShot;
+
 pub fn spawn_bullet(
     mut commands: Commands,
     item_query: Query<(&Target, &Accuracy, &DamageCollisionGroups, &Children), With<SMG>>,
@@ -152,6 +157,7 @@ pub fn spawn_bullet(
             0.0,
         ));
         commands.spawn((
+            SMGShot,
             BulletProjectile,
             ProjectileBundle {
                 color: ProjectileColor::Orange,
@@ -166,6 +172,22 @@ pub fn spawn_bullet(
                 collision_groups: damage_collision_groups.into(),
                 ..Default::default()
             },
+        ));
+    }
+}
+
+pub fn smg_on_hit(
+    mut commands: Commands,
+    rapier_context: Res<RapierContext>,
+    item_query: Query<&GlobalTransform, With<SMG>>,
+    mut damage_events: EventReader<DamageEvent>,
+) {
+    for damage_event in damage_events.iter() {
+        commands.spawn((
+            TransformBundle::from_transform(Transform::from_translation(
+                try_find_deepest_contact_point(damage_event, &rapier_context, &item_query),
+            )),
+            Impact::from_burst_radius(2.0),
         ));
     }
 }

@@ -13,12 +13,13 @@ pub mod smg;
 use std::{marker::PhantomData, time::Duration};
 
 use bevy::{
-    app::PluginGroupBuilder, pbr::CubemapVisibleEntities, prelude::*,
+    app::PluginGroupBuilder, ecs::query::QueryEntityError, pbr::CubemapVisibleEntities, prelude::*,
     render::primitives::CubemapFrusta, utils::HashSet,
 };
 use bevy_asset_loader::{asset_collection::AssetCollection, prelude::LoadingStateAppExt};
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
+use grin_damage::{DamageEvent, impact::Impact};
 use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera};
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::SketchMaterial;
@@ -475,5 +476,52 @@ impl Default for Accuracy {
 impl From<f32> for Accuracy {
     fn from(value: f32) -> Self {
         Self(value)
+    }
+}
+
+#[derive(Debug)]
+pub enum DamageContactError {
+    EventMismatch(DamageEvent),
+    ItemQueryMismatch(QueryEntityError),
+    NoContactPair(Entity, Entity),
+    NoContact(Entity, Entity),
+}
+
+/// Helper function for finding a collision point.
+pub fn try_find_deepest_contact_point<T: Component>(
+    damage_event: DamageEvent,
+    rapier_context: &RapierContext,
+    item_query: &Query<&GlobalTransform, With<T>>,
+) -> Result<Vec3, DamageContactError> {
+    let DamageEvent::Contact { e_damage, e_hit, .. } = damage_event else {
+        return Err(DamageContactError::EventMismatch(damage_event));
+    };
+    let g_item_transform = item_query
+        .get(e_damage)
+        .map_err(|e| DamageContactError::ItemQueryMismatch(e))?;
+    let contact_pair = rapier_context
+        .contact_pair(e_hit, e_damage)
+        .ok_or(DamageContactError::NoContactPair(e_damage, e_hit))?;
+    let contact = contact_pair
+        .find_deepest_contact()
+        .ok_or(DamageContactError::NoContact(e_damage, e_hit))?;
+    let contact_point = g_item_transform.transform_point(contact.1.local_p1());
+    Ok(contact_point)
+}
+
+pub fn on_hit_render_impact<T: Component>(
+    impact: In<Impact>,
+    mut commands: Commands,
+    rapier_context: Res<RapierContext>,
+    item_query: Query<&GlobalTransform, With<T>>,
+    mut damage_events: EventReader<DamageEvent>,
+) {
+    for damage_event in damage_events.iter() {
+        commands.spawn((
+            TransformBundle::from_transform(Transform::from_translation(
+                try_find_deepest_contact_point(damage_event, &rapier_context, &item_query),
+            )),
+            Impact::from_burst_radius(2.0),
+        ));
     }
 }

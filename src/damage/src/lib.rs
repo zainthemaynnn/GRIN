@@ -187,7 +187,7 @@ pub struct Dead;
 ///
 /// Note that this event is not fired when `DamageBuffer`s are updated. `DamageBuffer`s are lower
 /// level structures that should be updated when `DamageEvent` is fired by something else.
-#[derive(Event)]
+#[derive(Event, Debug)]
 pub enum DamageEvent {
     /// Collision damage.
     Contact {

@@ -8,7 +8,7 @@ use bevy_tweening::{
     Animator, EaseFunction, Tracks, Tween,
 };
 use grin_asset::AssetLoadState;
-use grin_render::sketched::{SketchMaterial, OutlineScaleMode};
+use grin_render::sketched::{OutlineScaleMode, SketchMaterial};
 use grin_util::tween::TweenCompletedEvent;
 use rand::prelude::*;
 use rand_distr::UnitSphere;

@@ -10,7 +10,7 @@ use grin_render::sketched::SketchMaterial;
 use grin_rig::humanoid::Humanoid;
 use grin_util::event::Spawnable;
 
-use crate::{find_item_owner, Equipped};
+use crate::{find_item_owner, try_find_deepest_contact_point, Equipped};
 
 use super::{
     firing::{self, FireRate, FiringPlugin, FiringType, SemiFireBundle, ShotFired},
@@ -274,21 +274,10 @@ pub fn sledge_on_hit(
     mut damage_events: EventReader<DamageEvent>,
 ) {
     for damage_event in damage_events.iter() {
-        let DamageEvent::Contact { e_damage, e_hit, .. } = damage_event else {
-            continue;
-        };
-        let Ok(g_item_transform) = item_query.get(*e_damage) else {
-            continue;
-        };
-        let Some(contact_pair) = rapier_context.contact_pair(*e_hit, *e_damage) else {
-            continue;
-        };
-        let Some(contact) = contact_pair.find_deepest_contact() else {
-            continue;
-        };
-        let contact_point = g_item_transform.transform_point(contact.1.local_p1());
         commands.spawn((
-            TransformBundle::from_transform(Transform::from_translation(contact_point)),
+            TransformBundle::from_transform(Transform::from_translation(
+                try_find_deepest_contact_point(damage_event, &rapier_context, &item_query),
+            )),
             Impact::from_burst_radius(2.0),
         ));
     }

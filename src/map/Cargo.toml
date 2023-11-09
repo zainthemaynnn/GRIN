@@ -9,10 +9,10 @@ edition = "2021"
 grin_physics = { path = "../physics" }
 grin_rig = { path = "../rig" }
 grin_util = { path = "../util" }
-bevy = { version = "0.11", features = ["dynamic_linking"] }
-bevy_rapier3d = "0.22"
+bevy = { version = "0.12", features = ["dynamic_linking"] }
+bevy_rapier3d = "0.23"
 bevy_mod_outline = { git = "https://github.com/zainthemaynnn/bevy_mod_outline.git" }
-bevy_landmass = "0.2"
+bevy_landmass = { git = "https://github.com/zainthemaynnn/bevy_landmass.git" }
 landmass = "0.1"
 spade = "2.2"
 geo = "0.26"

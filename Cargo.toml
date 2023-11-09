@@ -1,6 +1,6 @@
 [package]
 name = "grin"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -20,9 +20,9 @@ grin_render = { path = "./src/render" }
 grin_rig = { path = "./src/rig" }
 grin_time = { path = "./src/time" }
 grin_util = { path = "./src/util" }
-bevy = { version = "0.11", features = ["dynamic_linking"] }
-bevy_mod_debugdump = "0.8"
-bevy-inspector-egui = "0.19"
+bevy = { version = "0.12", features = ["dynamic_linking"] }
+bevy_mod_debugdump = "0.9"
+bevy-inspector-egui = "0.21"
 image = "0.24"
 log = "0.4"
 

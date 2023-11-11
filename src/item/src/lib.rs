@@ -511,7 +511,7 @@ pub fn try_find_deepest_contact_point<T: Component>(
 }
 
 pub fn on_hit_render_impact<T: Component>(
-    _impact: In<Impact>,
+    In(impact): In<Impact>,
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
     item_query: Query<&GlobalTransform, With<T>>,
@@ -523,7 +523,7 @@ pub fn on_hit_render_impact<T: Component>(
         };
         commands.spawn((
             TransformBundle::from_transform(Transform::from_translation(contact)),
-            Impact::from_burst_radius(2.0),
+            impact.clone(),
         ));
     }
 }

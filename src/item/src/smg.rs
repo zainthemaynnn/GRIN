@@ -56,7 +56,7 @@ impl Plugin for SMGPlugin {
                     .in_set(SMGSystemSet::Input),
                 (spawn_bullet, aim_on_active::<SMG>, unaim_on_unactive::<SMG>)
                     .in_set(SMGSystemSet::Fire),
-                (|| Impact::from_burst_radius(2.0))
+                (|| Impact::from_burst_radius(1.0))
                     .pipe(on_hit_render_impact::<SMG>)
                     .in_set(SMGSystemSet::Effects),
             ),

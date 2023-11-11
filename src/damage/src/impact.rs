@@ -37,7 +37,7 @@ pub struct ImpactAssets {
 ///
 /// This is actually a component instead of an event so that entity histories can cache the
 /// effect description alone, and not every single particle, in order to save memory.
-#[derive(Component, Default)]
+#[derive(Component, Default, Clone)]
 pub struct Impact {
     pub particle_count: u32,
     pub particle_radius: f32,

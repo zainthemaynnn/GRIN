@@ -5,14 +5,12 @@ use bevy_asset_loader::prelude::*;
 use bevy_enum_filter::prelude::*;
 use bevy_landmass::Agent;
 use bevy_rapier3d::prelude::*;
-
 use grin_asset::AssetLoadState;
 use grin_character::PlayerCharacter;
 use grin_damage::{
     projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
     Damage, DamageVariant, Dead,
 };
-
 use grin_map::NavMesh;
 use grin_physics::ForceTimer;
 use grin_rig::humanoid::{
@@ -87,7 +85,7 @@ pub fn spawn(
     mut events: EventReader<BoomBoxSpawnEvent>,
     assets: Res<BoomBoxAssets>,
 ) {
-    for BoomBoxSpawnEvent { transform } in events.iter() {
+    for BoomBoxSpawnEvent { transform } in events.read() {
         commands.spawn((
             BoomBox,
             ShotCooldown::default(),

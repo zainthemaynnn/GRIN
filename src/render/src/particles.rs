@@ -46,9 +46,11 @@ impl Modifier for SetVelocityModifier {
 
 #[typetag::serde]
 impl InitModifier for SetVelocityModifier {
-    fn apply_init(&self, context: &mut InitContext) -> Result<(), ExprError> {
+    fn apply_init(&self, module: &mut Module, context: &mut InitContext) -> Result<(), ExprError> {
         let func_id = calc_func_id(self);
         let func_name = format!("set_velocity_{0:016X}", func_id);
+        let direction = context.eval(module, self.direction)?;
+        let speed = context.eval(module, self.speed)?;
 
         context.init_extra += &format!(
             r##"fn {0}(transform: mat4x4<f32>, particle: ptr<function, Particle>) {{
@@ -57,9 +59,9 @@ impl InitModifier for SetVelocityModifier {
 }}
 "##,
             func_name,
-            context.eval(self.direction)?,
+            direction,
             Attribute::VELOCITY.name(),
-            context.eval(self.speed)?,
+            speed,
         );
 
         context.init_code += &format!("{}(transform, &particle);\n", func_name);

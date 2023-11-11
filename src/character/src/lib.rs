@@ -1,11 +1,10 @@
 pub mod kit;
 
-use std::{array::IntoIter, marker::PhantomData};
+use std::marker::PhantomData;
 
 use bevy::{app::PluginGroupBuilder, prelude::*, render::view::RenderLayers};
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
-
 use grin_asset::AssetLoadState;
 use grin_damage::{DamageBuffer, Health, HealthBundle};
 use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera, PlayerCameraPlugin};
@@ -19,7 +18,7 @@ use grin_render::{
 use grin_rig::humanoid::{
     Dash, Humanoid, HumanoidPartType, HumanoidRace, HUMANOID_HEIGHT, HUMANOID_RADIUS,
 };
-use grin_util::{event::Spawnable, sound::Ears, vectors::Vec3Ext};
+use grin_util::{event::Spawnable, vectors::Vec3Ext};
 
 use kit::{eightball::EightBallPlugin, grin::GrinPlugin};
 
@@ -223,7 +222,7 @@ pub fn init_character_model(
         },
     ));
 
-    commands.entity(humanoid.head).insert(Ears(0.5));
+    commands.entity(humanoid.head).insert(SpatialListener::new(1.0));
 
     for e_part in humanoid.parts(HumanoidPartType::ALL) {
         commands.entity(e_part).insert(Player);
@@ -346,17 +345,9 @@ pub fn input_dash(
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[derive(States, Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum AvatarLoadState {
     #[default]
     NotLoaded,
     Loaded,
-}
-
-impl States for AvatarLoadState {
-    type Iter = IntoIter<AvatarLoadState, 2>;
-
-    fn variants() -> Self::Iter {
-        [Self::NotLoaded, Self::Loaded].into_iter()
-    }
 }

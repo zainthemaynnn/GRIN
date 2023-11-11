@@ -146,7 +146,8 @@ pub fn unload_gopros(
 ) {
     for (entity, camera) in query.iter() {
         if let RenderTarget::Image(target) = &camera.target {
-            if asset_server.get_load_state(target) == LoadState::Unloaded {
+            // TODO: changed in bevy 0.12. is this supposed to be `NotLoaded` or `None`?
+            if let Some(LoadState::NotLoaded) = asset_server.get_load_state(target) {
                 commands.entity(entity).despawn();
             }
         }

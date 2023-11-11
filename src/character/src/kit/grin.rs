@@ -1,12 +1,11 @@
 use bevy::prelude::*;
-
-use crate::{AvatarAssets, Character, CharacterSet, PlayerCharacter, GenericHumanoidCharacterPlugin};
 use grin_asset::AssetLoadState;
-
 use grin_rig::humanoid::{
     HumanoidAssets, HumanoidBuild, HumanoidBundle, HumanoidDominantHand, Humanoid,
 };
 use grin_util::event::Spawnable;
+
+use crate::{AvatarAssets, Character, CharacterSet, PlayerCharacter, GenericHumanoidCharacterPlugin};
 
 pub struct GrinPlugin;
 
@@ -45,7 +44,7 @@ pub fn spawn(
     hum_assets: Res<HumanoidAssets>,
     mut events: EventReader<<Grin as Spawnable>::Event>,
 ) {
-    for _ in events.iter() {
+    for _ in events.read() {
         commands.spawn((
             GrinUninit,
             PlayerCharacter,

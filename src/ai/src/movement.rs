@@ -3,11 +3,10 @@ use std::f32::consts::TAU;
 use bevy::{math::cubic_splines::CubicCurve, prelude::*};
 use bevy_landmass::{Agent, AgentDesiredVelocity, AgentTarget, AgentVelocity};
 use bevy_rapier3d::prelude::*;
-
 use grin_damage::Dead;
 use grin_physics::PhysicsTime;
 use grin_time::{scaling::TimeScale, Rewind};
-use grin_util::{numbers::MulStack, vectors::Vec3Ext, sound::TrackedSpatialAudioBundle};
+use grin_util::{numbers::MulStack, vectors::Vec3Ext};
 
 use super::bt::{Brain, Verdict};
 
@@ -280,7 +279,8 @@ impl IkProc {
         // use the midpoint with added step height for the middle two points
         let center = src_translation.lerp(dst_translation, 0.5) + Vec3::Y * step_height;
         self.step_state = Some(StepState {
-            curve: Bezier::new([[src_translation, center, center, dst_translation]]).to_curve(),
+            curve: CubicBezier::new([[src_translation, center, center, dst_translation]])
+                .to_curve(),
             quat0: src_rotation,
             quat1: dst_rotation,
             t: 0.0,
@@ -308,7 +308,7 @@ impl IkProc {
             // play sound
             if let Some(audio) = audio {
                 commands.spawn((
-                    TrackedSpatialAudioBundle {
+                    AudioBundle {
                         source: audio.clone(),
                         settings: PlaybackSettings::DESPAWN,
                         ..Default::default()

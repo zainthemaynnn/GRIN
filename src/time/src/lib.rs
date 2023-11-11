@@ -31,8 +31,7 @@ impl Default for RewindPlugin {
 
 impl Plugin for RewindPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Frame>()
-            .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP_SECS));
+        app.init_resource::<Frame>();
 
         let systems = (update_frame_index, update_rewind_frames, propagate_rewinds);
 

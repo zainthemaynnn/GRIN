@@ -19,7 +19,7 @@ use bevy::{
 use bevy_asset_loader::{asset_collection::AssetCollection, prelude::LoadingStateAppExt};
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_damage::{DamageEvent, impact::Impact};
+use grin_damage::{impact::Impact, DamageEvent};
 use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera};
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::SketchMaterial;
@@ -41,7 +41,7 @@ impl Plugin for ItemCommonPlugin {
             .add_collection_to_loading_state::<_, Sfx>(AssetLoadState::Loading)
             .add_collection_to_loading_state::<_, ProjectileAssets>(AssetLoadState::Loading)
             .add_collection_to_loading_state::<_, AimAssets>(AssetLoadState::Loading)
-            .configure_set(
+            .configure_sets(
                 Update,
                 ItemSet::Spawn.run_if(in_state(AssetLoadState::Success)),
             )
@@ -224,7 +224,8 @@ pub struct MuzzleBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub visibility: Visibility,
-    pub computed_visibility: ComputedVisibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
 }
 
 #[derive(Bundle, Default)]
@@ -253,7 +254,7 @@ pub fn ignite_muzzle_flashes(
     mut flash_query: Query<(&MuzzleFlash, &mut PointLight)>,
     mut events: EventReader<MuzzleFlashEvent>,
 ) {
-    for MuzzleFlashEvent(entity) in events.iter() {
+    for MuzzleFlashEvent(entity) in events.read() {
         let Ok((flash, mut point_light)) = flash_query.get_mut(*entity) else {
             return;
         };
@@ -323,7 +324,7 @@ pub fn equip_items<M: Send + Sync + 'static>(
         parent_entity,
         item_entity,
         ..
-    } in events.iter()
+    } in events.read()
     {
         match equipped_query.get_mut(*parent_entity) {
             // can't destructure `Mut` >:( >:(
@@ -489,12 +490,12 @@ pub enum DamageContactError {
 
 /// Helper function for finding a collision point.
 pub fn try_find_deepest_contact_point<T: Component>(
-    damage_event: DamageEvent,
+    damage_event: &DamageEvent,
     rapier_context: &RapierContext,
     item_query: &Query<&GlobalTransform, With<T>>,
 ) -> Result<Vec3, DamageContactError> {
-    let DamageEvent::Contact { e_damage, e_hit, .. } = damage_event else {
-        return Err(DamageContactError::EventMismatch(damage_event));
+    let &DamageEvent::Contact { e_damage, e_hit, .. } = damage_event else {
+        return Err(DamageContactError::EventMismatch(damage_event.clone()));
     };
     let g_item_transform = item_query
         .get(e_damage)
@@ -510,17 +511,18 @@ pub fn try_find_deepest_contact_point<T: Component>(
 }
 
 pub fn on_hit_render_impact<T: Component>(
-    impact: In<Impact>,
+    _impact: In<Impact>,
     mut commands: Commands,
     rapier_context: Res<RapierContext>,
     item_query: Query<&GlobalTransform, With<T>>,
     mut damage_events: EventReader<DamageEvent>,
 ) {
-    for damage_event in damage_events.iter() {
+    for damage_event in damage_events.read() {
+        let Ok(contact) = try_find_deepest_contact_point(damage_event, &rapier_context, &item_query) else {
+            return;
+        };
         commands.spawn((
-            TransformBundle::from_transform(Transform::from_translation(
-                try_find_deepest_contact_point(damage_event, &rapier_context, &item_query),
-            )),
+            TransformBundle::from_transform(Transform::from_translation(contact)),
             Impact::from_burst_radius(2.0),
         ));
     }

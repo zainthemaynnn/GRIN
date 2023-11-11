@@ -1,7 +1,5 @@
 use bevy::{prelude::*, render::view::RenderLayers};
 use bevy_rapier3d::prelude::*;
-
-use crate::{AvatarAssets, Character, CharacterSet, Player, PlayerCharacter, GenericHumanoidCharacterPlugin};
 use grin_asset::AssetLoadState;
 use grin_dialogue::Portrait;
 use grin_physics::{collider, CollisionGroupsExt};
@@ -10,6 +8,8 @@ use grin_rig::humanoid::{
     Humanoid, HumanoidAssets, HumanoidBuild, HumanoidBundle, HumanoidDominantHand,
 };
 use grin_util::event::Spawnable;
+
+use crate::{AvatarAssets, Character, CharacterSet, Player, PlayerCharacter, GenericHumanoidCharacterPlugin};
 
 pub struct EightBallPlugin;
 
@@ -48,7 +48,7 @@ pub fn spawn(
     hum_assets: Res<HumanoidAssets>,
     mut events: EventReader<<EightBall as Spawnable>::Event>,
 ) {
-    for _ in events.iter() {
+    for _ in events.read() {
         commands.spawn((
             PlayerCharacter,
             HumanoidBundle {

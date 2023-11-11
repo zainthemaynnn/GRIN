@@ -5,7 +5,6 @@
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
-
 use grin_asset::AssetLoadState;
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::{GlobalMeshOutline, SketchMaterial};
@@ -141,7 +140,8 @@ pub struct ProjectileBundle {
     pub mass_properties: ColliderMassProperties,
     pub spatial_constraints: LockedAxes,
     pub visibility: Visibility,
-    pub computed: ComputedVisibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }
@@ -182,7 +182,8 @@ impl Default for ProjectileBundle {
             mass_properties: ColliderMassProperties::default(),
             spatial_constraints: LockedAxes::TRANSLATION_LOCKED_Y,
             visibility: Visibility::default(),
-            computed: ComputedVisibility::default(),
+            inherited_visibility: InheritedVisibility::default(),
+            view_visibility: ViewVisibility::default(),
             transform: Transform::default(),
             global_transform: GlobalTransform::default(),
         }

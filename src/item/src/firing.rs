@@ -2,8 +2,6 @@ use std::marker::PhantomData;
 
 use bevy::prelude::*;
 
-use grin_util::sound::TrackedSpatialAudioBundle;
-
 use super::{Active, MuzzleFlashEvent};
 
 #[derive(Default)]
@@ -190,7 +188,7 @@ pub fn send_muzzle_flash<T: Component>(
     mut muzzle_flash_events: EventWriter<MuzzleFlashEvent>,
 ) {
     shot_fired
-        .iter()
+        .read()
         .for_each(|ShotFired { entity, .. }| muzzle_flash_events.send(MuzzleFlashEvent(*entity)));
 }
 
@@ -199,15 +197,15 @@ pub fn play_sfx_discrete<T: Component>(
     audio_query: Query<&ItemSfx, With<T>>,
     mut shot_fired: EventReader<ShotFired<T>>,
 ) {
-    for ShotFired { entity, .. } in shot_fired.iter() {
+    for ShotFired { entity, .. } in shot_fired.read() {
         let Ok(ItemSfx { on_fire }) = audio_query.get(*entity) else {
             continue;
         };
 
         commands.get_or_spawn(*entity).with_children(|parent| {
-            parent.spawn(TrackedSpatialAudioBundle {
+            parent.spawn(AudioBundle {
                 source: on_fire.clone(),
-                settings: PlaybackSettings::default(),
+                settings: PlaybackSettings::default().with_spatial(true),
                 ..Default::default()
             });
         });
@@ -221,7 +219,7 @@ pub fn play_sfx_continuous<T: Component>(
     mut shots_began: EventReader<ShotsBegan<T>>,
     mut shots_ended: EventReader<ShotsEnded<T>>,
 ) {
-    for ShotsBegan { entity, .. } in shots_began.iter() {
+    for ShotsBegan { entity, .. } in shots_began.read() {
         let Ok(ItemSfx { on_fire }) = sfx_query.get(*entity) else {
             continue;
         };
@@ -232,20 +230,20 @@ pub fn play_sfx_continuous<T: Component>(
 
         commands
             .get_or_spawn(*entity)
-            .insert(TrackedSpatialAudioBundle {
+            .insert(AudioBundle {
                 source: on_fire.clone(),
                 settings: PlaybackSettings::LOOP,
                 ..Default::default()
             });
     }
 
-    for ShotsEnded { entity, .. } in shots_ended.iter() {
+    for ShotsEnded { entity, .. } in shots_ended.read() {
         if let Ok(sound) = sink_query.get(*entity) {
             sound.stop();
             commands.get_or_spawn(*entity).remove::<SpatialAudioSink>();
         }
         commands
             .get_or_spawn(*entity)
-            .remove::<TrackedSpatialAudioBundle>();
+            .remove::<AudioBundle>();
     }
 }

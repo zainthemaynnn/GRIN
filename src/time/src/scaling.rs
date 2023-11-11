@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::{PhysicsSet, RigidBody, Velocity};
-
 use grin_util::numbers::{MulStack, MulStackError};
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]

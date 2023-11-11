@@ -167,7 +167,7 @@ pub fn die(mut commands: Commands, health_query: Query<(Entity, &Health)>) {
 
 /// Sends `DamageEvent::Contact` on collision. If this component has an adjacent `Damage`
 /// component, it will be applied automatically.
-#[derive(Component, Default, Copy, Clone)]
+#[derive(Component, Default, Copy, Clone, Debug)]
 pub enum ContactDamage {
     /// This entity is despawned after contact damage event is fired.
     #[default]
@@ -187,7 +187,7 @@ pub struct Dead;
 ///
 /// Note that this event is not fired when `DamageBuffer`s are updated. `DamageBuffer`s are lower
 /// level structures that should be updated when `DamageEvent` is fired by something else.
-#[derive(Event, Debug)]
+#[derive(Event, Debug, Clone)]
 pub enum DamageEvent {
     /// Collision damage.
     Contact {
@@ -208,7 +208,7 @@ pub fn send_contact_damage_events(
     mut collision_events: EventReader<CollisionEvent>,
     mut damage_events: EventWriter<DamageEvent>,
 ) {
-    for collision_event in collision_events.iter() {
+    for collision_event in collision_events.read() {
         let CollisionEvent::Started(entity_0, entity_1, ..) = collision_event else {
             continue;
         };
@@ -246,7 +246,7 @@ pub fn push_contact_damage(
     mut damage_events: EventReader<DamageEvent>,
     damage_query: Query<&Damage>,
 ) {
-    for damage_event in damage_events.iter() {
+    for damage_event in damage_events.read() {
         let DamageEvent::Contact { kind, e_damage, e_hit } = damage_event else {
             continue;
         };

@@ -10,12 +10,12 @@ use bevy_landmass::{
 };
 use bevy_mod_inverse_kinematics::InverseKinematicsPlugin;
 use bevy_rapier3d::prelude::*;
-
 use grin_damage::{DamageBuffer, Dead, Health, Resist};
 use grin_map::MapLoadState;
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
 use grin_rig::humanoid::{Humanoid, HumanoidPartType};
 use grin_time::Rewind;
+use grin_util::event::Spawnable;
 
 use self::{
     boombox::BoomBoxPlugin,
@@ -48,11 +48,11 @@ impl Plugin for MasterAiPlugin {
             )
                 .chain(),
         )
-        .configure_set(
+        .configure_sets(
             PreUpdate,
             AiSet::Load.run_if(in_state(MapLoadState::Success)),
         )
-        .configure_set(
+        .configure_sets(
             Update,
             AiSet::Spawn
                 .after(AiSet::RunTrees)
@@ -128,6 +128,36 @@ pub fn configure_humanoid_physics<T: Component>(
                 .insert(CollisionGroups::new(Group::ENEMY, Group::empty()));
         }
     }
+}
+
+/// Enemy metadata.
+#[derive(Debug)]
+pub struct EnemyMeta {
+    /// Enemy display name.
+    pub name: &'static str,
+    /// Enemy description.
+    pub description: &'static str,
+    /// Enemy flavor text.
+    pub flavor: Flavor,
+}
+
+/// Some flavor text. I'm thinking one per playable character.
+/// 
+/// Depends on how many jokes I can come up with. Might be hard...
+#[derive(Debug, Default)]
+pub struct Flavor {
+    pub grin: &'static str,
+    pub smirk: &'static str,
+    pub grizz: &'static str,
+    pub meh: &'static str,
+}
+
+pub trait EnemyAgent: Spawnable {
+    const DESCRIPTION: EnemyMeta;
+}
+
+pub struct DefaultAgentSpawnEvent {
+    pub transform: Transform,
 }
 
 #[derive(Bundle)]

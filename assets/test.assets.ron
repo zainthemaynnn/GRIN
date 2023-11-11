@@ -85,6 +85,9 @@ CustomDynamicAssetCollection({
           path: "meshes/boombox.glb#Animation1",
      ),
 
+     "gltf.humanoid": File (
+          path: "meshes/humanoid.glb",
+     ),
      "rig.screamer": File (
           path: "meshes/screamer.glb#Scene0",
      ),

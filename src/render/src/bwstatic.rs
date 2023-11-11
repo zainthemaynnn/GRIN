@@ -8,8 +8,8 @@ use bevy::{
         },
     },
     pbr::{
-        DrawMesh, MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup, MAX_CASCADES_PER_LIGHT,
-        MAX_DIRECTIONAL_LIGHTS,
+        DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, SetMeshViewBindGroup,
+        MAX_CASCADES_PER_LIGHT, MAX_DIRECTIONAL_LIGHTS,
     },
     prelude::*,
     render::{
@@ -21,7 +21,7 @@ use bevy::{
             SetItemPipeline, TrackedRenderPass,
         },
         render_resource::{
-            BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+            BindGroup, BindGroupEntry, BindGroupLayout,
             BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
             BufferBindingType, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
             DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
@@ -133,10 +133,10 @@ impl SpecializedMeshPipeline for BWStaticPipeline {
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             //Mesh::ATTRIBUTE_COLOR.at_shader_location(1),
         ])?;
-        let view_layout = match key.msaa_samples() {
-            1 => self.mesh_pipeline.view_layout.clone(),
-            _ => self.mesh_pipeline.view_layout_multisampled.clone(),
-        };
+        let view_layout = self
+            .mesh_pipeline
+            .get_view_layout(MeshPipelineViewLayoutKey::from(key))
+            .clone();
 
         Ok(RenderPipelineDescriptor {
             label: Some("bw_static_pipeline".into()),
@@ -264,6 +264,8 @@ fn queue_phase_item(
                     entity,
                     draw_function,
                     distance: 10000.0, // TODO: fix this LOL
+                    batch_range: 0..0, // TODO: I don't know what this does. figure it out.
+                    dynamic_offset: None,
                 });
             }
         }
@@ -282,14 +284,14 @@ fn queue_bind_group(
     uniforms: Res<ComponentUniforms<BWStaticUniform>>,
 ) {
     if let Some(buffer_binding) = uniforms.binding() {
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: Some("bw_static_bind_group"),
-            layout: &pipeline.effect_layout,
-            entries: &[BindGroupEntry {
+        let bind_group = device.create_bind_group(
+            Some("bw_static_bind_group"),
+            &pipeline.effect_layout,
+            &[BindGroupEntry {
                 binding: 0,
                 resource: buffer_binding,
             }],
-        });
+        );
 
         commands.insert_resource(BWStaticBindGroup { bind_group });
     }

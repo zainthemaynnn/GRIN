@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use bevy_enum_filter::prelude::*;
 use bevy_landmass::Agent;
 use bevy_rapier3d::prelude::*;
-
 use grin_character::PlayerCharacter;
 use grin_damage::{
     projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
@@ -102,7 +101,7 @@ pub fn spawn(
     nav_mesh: Res<NavMesh>,
     mut events: EventReader<DummySpawnEvent>,
 ) {
-    for DummySpawnEvent { transform } in events.iter() {
+    for DummySpawnEvent { transform } in events.read() {
         commands.spawn((
             Dummy,
             ShotCooldown::default(),

@@ -4,19 +4,19 @@ use bevy::prelude::*;
 use bevy_asset_loader::prelude::{AssetCollection, LoadingStateAppExt};
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_damage::{impact::Impact, ContactDamage, Damage, DamageEvent, DamageVariant};
+use grin_damage::{impact::Impact, ContactDamage, Damage, DamageVariant};
 use grin_physics::{collider, CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::SketchMaterial;
 use grin_rig::humanoid::Humanoid;
 use grin_util::event::Spawnable;
 
-use crate::{find_item_owner, try_find_deepest_contact_point, Equipped};
-
-use super::{
+use crate::{
+    find_item_owner,
     firing::{self, FireRate, FiringPlugin, FiringType, SemiFireBundle, ShotFired},
     insert_on_lmb,
     melee::{update_hammer_winds, Charging, Swinging, Wind, Winding},
-    Active, Item, ItemEquipEvent, ItemPlugin, ItemSet, ItemSpawnEvent, WeaponBundle,
+    on_hit_render_impact, Active, Equipped, Item, ItemEquipEvent,
+    ItemPlugin, ItemSet, ItemSpawnEvent, WeaponBundle,
 };
 
 pub struct SledgePlugin;
@@ -79,7 +79,9 @@ impl Plugin for SledgePlugin {
                 )
                     .chain()
                     .in_set(SledgeSystemSet::Input),
-                sledge_on_hit.in_set(SledgeSystemSet::Effects),
+                (|| Impact::from_burst_radius(2.0))
+                    .pipe(on_hit_render_impact::<Sledge>)
+                    .in_set(SledgeSystemSet::Effects),
             ),
         );
     }
@@ -105,7 +107,7 @@ pub fn spawn(
     mut spawn_events: EventReader<ItemSpawnEvent<Sledge>>,
     mut equip_events: EventWriter<ItemEquipEvent<Sledge>>,
 ) {
-    for ItemSpawnEvent { parent_entity, .. } in spawn_events.iter() {
+    for ItemSpawnEvent { parent_entity, .. } in spawn_events.read() {
         let humanoid = humanoid_query.get(*parent_entity).unwrap();
 
         let item_entity = commands
@@ -148,7 +150,7 @@ pub fn wind(
     parent_query: Query<&Parent>,
     mut animator_query: Query<&mut AnimationPlayer>,
 ) {
-    for ShotFired { entity: e_item, .. } in shot_events.iter() {
+    for ShotFired { entity: e_item, .. } in shot_events.read() {
         for e_animator in parent_query.iter_ancestors(*e_item) {
             let Ok(mut animator) = animator_query.get_mut(e_animator) else {
                 continue;
@@ -234,7 +236,7 @@ pub fn swing_or_cancel(
                     // which might be stale? I dunno. I'll see about taking over when I'm not lazy.
                     // https://github.com/bevyengine/bevy/pull/5912
                     // update: this got fixed in 0.12. I'll keep it as a piece of history.
-                    .set_elapsed(-winding.duration + elapsed)
+                    .seek_to(-winding.duration + elapsed)
                     .set_speed(-4.0);
             }
         }
@@ -264,21 +266,5 @@ pub fn unswing(
                     .set_speed(2.0);
             }
         }
-    }
-}
-
-pub fn sledge_on_hit(
-    mut commands: Commands,
-    rapier_context: Res<RapierContext>,
-    item_query: Query<&GlobalTransform, With<Sledge>>,
-    mut damage_events: EventReader<DamageEvent>,
-) {
-    for damage_event in damage_events.iter() {
-        commands.spawn((
-            TransformBundle::from_transform(Transform::from_translation(
-                try_find_deepest_contact_point(damage_event, &rapier_context, &item_query),
-            )),
-            Impact::from_burst_radius(2.0),
-        ));
     }
 }

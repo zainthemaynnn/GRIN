@@ -104,7 +104,7 @@ pub fn handle_mouse(
     let window = window_query.single();
 
     let look_info = mouse_info.as_mut();
-    for event in look_info.reader_motion.iter(&motion) {
+    for event in look_info.reader_motion.read(&motion) {
         look_info.yaw -= (event.delta.x * mouse_opts.sens_x).to_radians();
         look_info.pitch -= (event.delta.y * mouse_opts.sens_y).to_radians();
     }

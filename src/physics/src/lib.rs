@@ -171,11 +171,11 @@ pub fn new_physics_app() -> App {
 /// While `Time` represents actual real world time, `PhysicsTime` records
 /// physics simulation time, which might change during frame lag.
 #[derive(Resource, Default)]
-pub struct PhysicsTime(pub Time);
+pub struct PhysicsTime(pub Time<bevy::prelude::Real>);
 
 /// Updates `PhysicsTime`.
 pub fn write_physics_time(
-    time: Res<Time>,
+    time: Res<Time<bevy::prelude::Real>>,
     mut physics_time: ResMut<PhysicsTime>,
     rapier_config: Res<RapierConfiguration>,
 ) {

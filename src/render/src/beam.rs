@@ -54,7 +54,8 @@ pub struct BeamBundle<M: Material> {
     pub beam: Beam,
     pub material: Handle<M>,
     pub visibility: Visibility,
-    pub computed: ComputedVisibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }

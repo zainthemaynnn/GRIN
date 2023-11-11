@@ -9,8 +9,6 @@ use bevy_enum_filter::prelude::*;
 use bevy_landmass::Agent;
 use bevy_mod_inverse_kinematics::IkConstraint;
 use bevy_rapier3d::prelude::*;
-use itertools::Itertools;
-
 use grin_asset::AssetLoadState;
 use grin_character::PlayerCharacter;
 use grin_damage::{
@@ -19,8 +17,10 @@ use grin_damage::{
 };
 use grin_derive::Cooldown;
 use grin_map::NavMesh;
-use grin_util::{event::Spawnable, query::gltf_path_search, sound::TrackedSpatialAudioBundle, vectors::Vec3Ext};
+use grin_util::{event::Spawnable, query::gltf_path_search, vectors::Vec3Ext};
+use itertools::Itertools;
 
+use crate::bt;
 use super::{
     blocking_cooldown,
     bt::{
@@ -33,7 +33,6 @@ use super::{
     },
     protective_cooldown, set_closest_attack_target, AiSet, EnemyAgentBundle,
 };
-use crate::bt;
 
 #[derive(Component, Cooldown)]
 #[cooldown(duration = 2.0)]
@@ -155,7 +154,7 @@ pub fn spawn(
     assets: Res<ScreamerAssets>,
     mut events: EventReader<ScreamerSpawnEvent>,
 ) {
-    for ScreamerSpawnEvent { transform } in events.iter() {
+    for ScreamerSpawnEvent { transform } in events.read() {
         commands.spawn((
             Screamer,
             SceneBundle {
@@ -334,9 +333,9 @@ pub fn bass_cannon<T: Component>(
         let bullet_transform = Transform::from_translation(origin.translation())
             .looking_at(target.translation().with_y(origin.translation().y), Vec3::Y);
 
-        commands.spawn(TrackedSpatialAudioBundle {
+        commands.spawn(AudioBundle {
             source: assets.bass_sfx.clone(),
-            settings: PlaybackSettings::DESPAWN,
+            settings: PlaybackSettings::DESPAWN.with_spatial(true),
             ..Default::default()
         });
 

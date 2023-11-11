@@ -1,18 +1,17 @@
-use std::array::IntoIter;
+
 
 use bevy::{prelude::*, render::mesh::VertexAttributeValues};
 use bevy_landmass::Archipelago;
+use bevy_mod_outline::OutlineMode;
 use geo::{
     BooleanOps, Contains, ConvexHull, Coord, Line, LineString, LinesIter, MultiPolygon, OpType,
 };
 use geo_offset::Offset;
-use itertools::Itertools;
-use spade::{ConstrainedDelaunayTriangulation, Point2, Triangulation};
-
-use bevy_mod_outline::SetOutlineDepth;
 use grin_physics::collider;
 use grin_rig::humanoid::HUMANOID_RADIUS;
 use grin_util::vectors::Vec3Ext;
+use itertools::Itertools;
+use spade::{ConstrainedDelaunayTriangulation, Point2, Triangulation};
 
 /// How much to offset navmesh from obstacles.
 //
@@ -113,7 +112,7 @@ pub fn setup_map_navigation(
 
         commands.entity(e_node).insert(collider!(&meshes, mesh));
         if !restricted {
-            commands.entity(e_node).insert(SetOutlineDepth::Real);
+            commands.entity(e_node).insert(OutlineMode::RealVertex);
         }
     }
 
@@ -294,19 +293,11 @@ fn draw_navmesh_system_with_color(color: Color) -> impl Fn(Gizmos, Res<NavMeshGe
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[derive(States, Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum MapLoadState {
     #[default]
     NotLoaded,
     Loading,
     Success,
     Fail,
-}
-
-impl States for MapLoadState {
-    type Iter = IntoIter<MapLoadState, 4>;
-
-    fn variants() -> Self::Iter {
-        [Self::NotLoaded, Self::Loading, Self::Success, Self::Fail].into_iter()
-    }
 }

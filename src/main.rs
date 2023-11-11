@@ -1,7 +1,7 @@
-use std::{env, io, time::Duration};
+use std::{env, io};
 
 use bevy::{
-    asset::ChangeWatcher,
+    audio::{AudioPlugin, SpatialScale},
     diagnostic::LogDiagnosticsPlugin,
     log::{Level, LogPlugin},
     prelude::*,
@@ -15,18 +15,13 @@ use grin_damage::DamagePlugin;
 use grin_dialogue::{
     asset_gen::DialogueAssetLoadState, DialogueEvent, DialogueMap, DialoguePlugin,
 };
-use grin_input::camera::PlayerCamera;
 use grin_item::{ItemPlugins, ItemSet};
 use grin_map::{Map, MapLoadState, MapPlugin};
 use grin_physics::GrinPhysicsPlugin;
 use grin_render::RenderFXPlugins;
 use grin_rig::humanoid::HumanoidPlugin;
 use grin_time::{scaling::TimeScalePlugin, RewindComponentPlugin, RewindPlugin};
-use grin_util::{
-    event::{DefaultSpawnable, Spawnable},
-    sound::SoundPlugin,
-    tween::TweenEventPlugin,
-};
+use grin_util::event::{DefaultSpawnable, Spawnable, TweenEventPlugin};
 
 fn main() -> Result<(), io::Error> {
     let mut app = App::new();
@@ -53,10 +48,8 @@ fn main() -> Result<(), io::Error> {
             .unwrap();
     }
 
-    let default_plugins = DefaultPlugins.set(AssetPlugin {
-        watch_for_changes: Some(ChangeWatcher {
-            delay: Duration::from_secs(5),
-        }),
+    let default_plugins = DefaultPlugins.set(AudioPlugin {
+        spatial_scale: SpatialScale::new(16.0),
         ..Default::default()
     });
 
@@ -91,7 +84,6 @@ fn main() -> Result<(), io::Error> {
             CharacterPlugins,
             AiPlugins,
             DamagePlugin,
-            SoundPlugin::<PlayerCamera>::default(),
             DialoguePlugin,
             MapPlugin {
                 navmesh_debugging: None,
@@ -109,8 +101,8 @@ fn main() -> Result<(), io::Error> {
         )
         .add_systems(
             OnEnter(MapLoadState::Success),
-            (grin_ai::screamer::Screamer::spawn_with(
-                grin_ai::screamer::ScreamerSpawnEvent {
+            (grin_ai::dummy::Dummy::spawn_with(
+                grin_ai::dummy::DummySpawnEvent {
                     transform: Transform::from_xyz(10.0, 1E-2, 0.0),
                 },
             ),),

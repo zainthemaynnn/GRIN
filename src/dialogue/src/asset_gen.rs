@@ -2,21 +2,20 @@ use bevy::{
     asset::LoadState,
     ecs::query::QuerySingleError,
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::view::RenderLayers,
     utils::HashMap,
 };
 use bevy_asset_loader::prelude::*;
 use bevy_enum_filter::prelude::*;
-use html_parser::{Dom, Node};
-use itertools::Itertools;
-use serde::Deserialize;
-
 use grin_render::{
     gopro::{add_gopro_world, GoProSettings},
     sketched::SketchUiImage,
     RenderLayer,
 };
+use html_parser::{Dom, Node};
+use itertools::Itertools;
+use serde::Deserialize;
 
 #[derive(Resource)]
 pub struct DefaultTextStyle(pub TextStyle);
@@ -127,14 +126,19 @@ pub fn add_dialogue_assets(
 ) {
     let handles = vec![asset_server.load("dialogue/intro.dialogue.ron")];
 
-    match asset_server.get_group_load_state(handles.iter().map(|h| h.id())) {
-        LoadState::Loaded => next_state.set(DialogueAssetLoadState::Success),
-        LoadState::Failed => {
-            next_state.set(DialogueAssetLoadState::Failure);
-            return;
+    // TODO: this is a bit annoying. it looks like they got rid of `get_group_load_state` in 0.12.
+    // here is my janky substitute. I guess I'll have to do it the *real* way at some point.
+    for h in handles.iter() {
+        match asset_server.get_load_state(h) {
+            Some(LoadState::Loaded) => continue,
+            Some(LoadState::Failed) => {
+                next_state.set(DialogueAssetLoadState::Failure);
+                return;
+            },
+            _ => return,
         }
-        _ => return,
-    };
+    }
+    next_state.set(DialogueAssetLoadState::Success);
 
     for h_dialogue_map in handles.iter() {
         let unparsed_dialogue_map = dialogue_maps.get(h_dialogue_map).unwrap();
@@ -193,12 +197,14 @@ pub fn add_dialogue_assets(
         commands.insert_resource(dialogue_map);
     }
 
-    dialogue_maps.clear();
+    // that's random. why did they remove `Assets::clear`?
+    for h in handles.iter() {
+        dialogue_maps.remove(h);
+    }
 }
 
 // these are raw replacements for some of the structs in `super`
-#[derive(Debug, Deserialize, Clone, TypeUuid, TypePath)]
-#[uuid = "892b1e02-e963-4f09-a38f-ff02793aa915"]
+#[derive(Asset, Debug, Deserialize, Clone, TypePath)]
 pub struct DialogueMap(pub HashMap<String, Dialogue>);
 
 #[derive(Debug, Deserialize, Clone)]

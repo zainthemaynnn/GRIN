@@ -9,7 +9,7 @@ use bevy_tweening::{
 };
 use grin_asset::AssetLoadState;
 use grin_render::sketched::{OutlineScaleMode, SketchMaterial};
-use grin_util::tween::TweenCompletedEvent;
+use grin_util::event::TweenCompletedEvent;
 use rand::prelude::*;
 use rand_distr::UnitSphere;
 

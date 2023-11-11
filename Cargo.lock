@@ -2627,7 +2627,7 @@ checksum = "eec1c01eb1de97451ee0d60de7d81cf1e72aabefb021616027f3d1c3ec1c723c"
 
 [[package]]
 name = "grin"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",

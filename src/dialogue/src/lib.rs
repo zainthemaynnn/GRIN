@@ -9,17 +9,16 @@ pub mod asset_gen;
 
 use bevy::{
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     ui::FocusPolicy,
     utils::{HashMap, HashSet},
 };
 use bevy_asset_loader::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
-use itertools::Itertools;
-
 use grin_asset::AssetLoadState;
 use grin_render::sketched::SketchUiImage;
 use grin_util::keys::{InputExt, KeyCodeExt};
+use itertools::Itertools;
 
 pub use self::asset_gen::{DefaultTextStyle, DialogueAssetLoadState, Portrait};
 
@@ -37,7 +36,6 @@ impl Plugin for DialoguePlugin {
         app.init_resource::<DefaultTextStyle>()
             .init_resource::<StopChars>()
             .add_state::<DialogueAssetLoadState>()
-            .add_asset::<Dialogue>()
             .add_collection_to_loading_state::<_, asset_gen::DialogueAssets>(
                 AssetLoadState::Loading,
             )
@@ -47,6 +45,7 @@ impl Plugin for DialoguePlugin {
             .add_event::<DialogueEvent>()
             .add_event::<SelectedDialogueOptionEvent>()
             .add_event::<DialoguePortraitEvent>()
+            .init_asset::<Dialogue>()
             .add_systems(Startup, init_dialogue_box)
             .add_systems(Update, bevy_enum_filter::watch_for_enum::<Portrait>)
             .add_systems(
@@ -201,8 +200,7 @@ pub fn init_dialogue_box(mut commands: Commands) {
         });
 }
 
-#[derive(Default, Clone, TypeUuid, TypePath)]
-#[uuid = "25fec548-b7dd-4664-be6c-ced090b2787f"]
+#[derive(Asset, Default, Clone, TypePath)]
 pub struct Dialogue {
     pub text: Text,
     pub portrait: Portrait,
@@ -270,7 +268,7 @@ pub fn prepare_dialogue_block(
     mut portrait_events: EventWriter<DialoguePortraitEvent>,
 ) {
     let (e_text, mut text) = text_query.single_mut();
-    for event in events.iter() {
+    for event in events.read() {
         text.sections.clear();
         match event {
             DialogueEvent::Say(h_dialogue) => {
@@ -318,7 +316,7 @@ pub fn render_dialogue_portrait(world: &mut World) {
         .single(world);
 
     world.resource_scope::<Events<DialoguePortraitEvent>, _>(|world, events| {
-        for DialoguePortraitEvent { portrait } in events.get_reader().iter(&events) {
+        for DialoguePortraitEvent { portrait } in events.get_reader().read(&events) {
             match portrait.render_target(world) {
                 Ok(image) => {
                     world.entity_mut(e_portrait).insert(UiImage::new(image));
@@ -499,7 +497,7 @@ pub fn highlight_selected_dialogue(
         option,
         selected,
         deselected,
-    } in events.iter()
+    } in events.read()
     {
         let selector_children = selector_query.single();
         let selected = selector_children[*selected];

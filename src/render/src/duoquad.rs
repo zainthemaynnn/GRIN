@@ -45,7 +45,8 @@ pub struct DuoQuadBundle {
     pub duoquad: DuoQuad,
     pub material: Handle<SketchMaterial>,
     pub visibility: Visibility,
-    pub computed: ComputedVisibility,
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
 }

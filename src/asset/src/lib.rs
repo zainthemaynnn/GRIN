@@ -2,17 +2,16 @@ pub mod texture;
 
 use bevy::{
     prelude::*,
-    reflect::{TypePath, TypeUuid},
+    reflect::TypePath,
     render::render_resource::{Face, TextureViewDescriptor, TextureViewDimension},
     utils::HashMap,
 };
 use bevy_asset_loader::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
+use grin_render::sketched::{SketchMaterial, SketchMaterialInfo, SketchUiImage};
 use itertools::Itertools;
 use iyes_progress::prelude::*;
 use serde::Deserialize;
-
-use grin_render::sketched::{SketchMaterial, SketchUiImage};
 
 pub struct DynamicAssetPlugin;
 
@@ -28,6 +27,9 @@ impl Plugin for DynamicAssetPlugin {
                 LoadingState::new(AssetLoadState::Loading)
                     .continue_to_state(AssetLoadState::Success)
                     .on_failure_continue_to_state(AssetLoadState::Failure),
+            )
+            .register_dynamic_asset_collection::<_, CustomDynamicAssetCollection>(
+                AssetLoadState::Loading,
             )
             .add_systems(
                 Update,
@@ -72,7 +74,7 @@ impl FromWorld for FallbackImage {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, States)]
+#[derive(States, Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum AssetLoadState {
     #[default]
     Loading,
@@ -149,32 +151,37 @@ pub enum CustomDynamicAsset {
 }
 
 impl DynamicAsset for CustomDynamicAsset {
-    fn load(&self, asset_server: &AssetServer) -> Vec<HandleUntyped> {
+    fn load(&self, asset_server: &AssetServer) -> Vec<UntypedHandle> {
+
+        debug!("{:?}", self);
         match self {
-            Self::File { path } => vec![asset_server.load_untyped(path)],
+            // what's this about needing to untype an untyped now?
+            Self::File { path } => vec![asset_server.load_untyped(path).untyped()],
             Self::UVSphereMesh { .. } => vec![],
             Self::SketchMaterial {
                 base_color_texture, ..
             } => base_color_texture
                 .as_ref()
                 .map_or_else(Default::default, |path| {
-                    vec![asset_server.load_untyped(path)]
+                    vec![asset_server.load_untyped(path).untyped()]
                 }),
             Self::SketchUiImage { images } => images
                 .iter()
-                .map(|path| asset_server.load_untyped(path))
+                .map(|path| asset_server.load_untyped(path).untyped())
                 .collect_vec(),
         }
     }
 
-    fn build(&self, world: &mut World) -> Result<DynamicAssetType, bevy::asset::Error> {
+    fn build(&self, world: &mut World) -> Result<DynamicAssetType, anyhow::Error> {
         let world_cell = world.cell();
         let asset_server = world_cell
             .get_resource::<AssetServer>()
             .expect("Failed to get AssetServer.");
 
         match self {
-            Self::File { path } => Ok(DynamicAssetType::Single(asset_server.load_untyped(path))),
+            Self::File { path } => Ok(DynamicAssetType::Single(
+                asset_server.load_untyped(path).untyped(),
+            )),
             Self::UVSphereMesh { radius } => {
                 let mut meshes = world_cell
                     .get_resource_mut::<Assets<Mesh>>()
@@ -185,7 +192,7 @@ impl DynamicAsset for CustomDynamicAsset {
                             radius: *radius,
                             ..Default::default()
                         }))
-                        .into(),
+                        .untyped(),
                 ))
             }
             Self::SketchMaterial {
@@ -237,25 +244,33 @@ impl DynamicAsset for CustomDynamicAsset {
                     None => world_cell.resource::<FallbackImage>().texture.clone(),
                 };
 
-                let mat_default = SketchMaterial::default();
+                let mat_default = StandardMaterial::default();
 
                 Ok(DynamicAssetType::Single(
                     materials
                         .add(SketchMaterial {
-                            base_color: base_color.map_or(mat_default.base_color, Color::from),
-                            base_color_texture: Some(base_color_texture),
-                            perceptual_roughness: perceptual_roughness
-                                .unwrap_or(mat_default.perceptual_roughness),
-                            reflectance: reflectance.unwrap_or(mat_default.reflectance),
-                            emissive: emissive.map_or(mat_default.emissive, Color::from),
-                            double_sided: double_sided.unwrap_or(mat_default.double_sided),
-                            cull_mode: cull_mode
-                                .map_or(mat_default.cull_mode, Option::<Face>::from),
-                            alpha_mode: alpha_mode.map_or(mat_default.alpha_mode, AlphaMode::from),
-                            unlit: unlit.unwrap_or(mat_default.unlit),
-                            ..Default::default()
+                            base: StandardMaterial {
+                                base_color: base_color.map_or(mat_default.base_color, Color::from),
+                                base_color_texture: None,
+                                perceptual_roughness: perceptual_roughness
+                                    .unwrap_or(mat_default.perceptual_roughness),
+                                reflectance: reflectance.unwrap_or(mat_default.reflectance),
+                                emissive: emissive.map_or(mat_default.emissive, Color::from),
+                                double_sided: double_sided.unwrap_or(mat_default.double_sided),
+                                cull_mode: cull_mode
+                                    .map_or(mat_default.cull_mode, Option::<Face>::from),
+                                alpha_mode: alpha_mode
+                                    .map_or(mat_default.alpha_mode, AlphaMode::from),
+                                unlit: unlit.unwrap_or(mat_default.unlit),
+                                ..Default::default()
+                            },
+                            extension: SketchMaterialInfo {
+                                enabled: true as u32,
+                                layer: 0,
+                                base_color_texture: Some(base_color_texture),
+                            },
                         })
-                        .into(),
+                        .untyped(),
                 ))
             }
             Self::SketchUiImage { images } => {
@@ -268,15 +283,14 @@ impl DynamicAsset for CustomDynamicAsset {
                                 .map(|path| asset_server.load(path))
                                 .collect_vec(),
                         })
-                        .into(),
+                        .untyped(),
                 ))
             }
         }
     }
 }
 
-#[derive(Deserialize, TypeUuid, TypePath)]
-#[uuid = "18dc82eb-d5f5-4d72-b0c4-e2b234367c35"]
+#[derive(Asset, Deserialize, TypePath)]
 pub struct CustomDynamicAssetCollection(pub HashMap<String, CustomDynamicAsset>);
 
 impl DynamicAssetCollection for CustomDynamicAssetCollection {

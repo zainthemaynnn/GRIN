@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy_hanabi::prelude::*;
-
 use grin_physics::PhysicsTime;
 use grin_util::distr;
 
@@ -95,7 +94,7 @@ pub fn create_blaze_effect_assets(mut commands: Commands, mut assets: ResMut<Ass
             .init(lifetime)
             .render(color)
             .render(size)
-            .render(BillboardModifier);
+            .render(OrientModifier::default());
 
         assets.add(effect)
     };
@@ -154,7 +153,7 @@ pub fn create_blaze_effect_assets(mut commands: Commands, mut assets: ResMut<Ass
             .update(drag)
             .render(color)
             .render(size)
-            .render(BillboardModifier);
+            .render(OrientModifier::default());
 
         assets.add(effect)
     };

@@ -2,22 +2,21 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::{
+    impact::Impact,
     projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
     Damage, DamageVariant,
 };
-
 use grin_rig::humanoid::Humanoid;
 use grin_util::event::Spawnable;
 use rand::{distributions::Uniform, Rng};
 
-use crate::try_find_deepest_contact_point;
-
-use super::{
+use crate::{
     aim_on_active, find_item_owner,
     firing::{self, AutoFireBundle, FireRate, FiringPlugin, FiringType, ItemSfx, ShotFired},
-    insert_on_lmb, set_local_mouse_target, unaim_on_unactive, Accuracy, Active, AimType,
-    DamageCollisionGroups, Equipped, IdleType, Item, ItemEquipEvent, ItemPlugin, ItemSet,
-    ItemSpawnEvent, Muzzle, MuzzleBundle, ProjectileAssets, Sfx, Target, WeaponBundle,
+    insert_on_lmb, on_hit_render_impact, set_local_mouse_target,
+    unaim_on_unactive, Accuracy, Active, AimType, DamageCollisionGroups, Equipped, IdleType, Item,
+    ItemEquipEvent, ItemPlugin, ItemSet, ItemSpawnEvent, Muzzle, MuzzleBundle, ProjectileAssets,
+    Sfx, Target, WeaponBundle,
 };
 
 pub struct SMGPlugin;
@@ -48,17 +47,19 @@ impl Plugin for SMGPlugin {
             )
                 .chain(),
         )
-        .add_systems(Update, spawn.in_set(ItemSet::Spawn))
         .add_systems(
             Update,
-            (insert_on_lmb::<SMG, Active>, set_local_mouse_target::<SMG>)
-                .chain()
-                .in_set(SMGSystemSet::Input),
-        )
-        .add_systems(
-            Update,
-            (spawn_bullet, aim_on_active::<SMG>, unaim_on_unactive::<SMG>)
-                .in_set(SMGSystemSet::Fire),
+            (
+                spawn.in_set(ItemSet::Spawn),
+                (insert_on_lmb::<SMG, Active>, set_local_mouse_target::<SMG>)
+                    .chain()
+                    .in_set(SMGSystemSet::Input),
+                (spawn_bullet, aim_on_active::<SMG>, unaim_on_unactive::<SMG>)
+                    .in_set(SMGSystemSet::Fire),
+                (|| Impact::from_burst_radius(2.0))
+                    .pipe(on_hit_render_impact::<SMG>)
+                    .in_set(SMGSystemSet::Effects),
+            ),
         );
     }
 }
@@ -86,7 +87,7 @@ pub fn spawn(
     mut spawn_events: EventReader<ItemSpawnEvent<SMG>>,
     mut equip_events: EventWriter<ItemEquipEvent<SMG>>,
 ) {
-    for ItemSpawnEvent { parent_entity, .. } in spawn_events.iter() {
+    for ItemSpawnEvent { parent_entity, .. } in spawn_events.read() {
         let Ok(humanoid) = humanoid_query.get(*parent_entity) else {
             println!("The parent entity did not have a `Humanoid`. Only `Humanoid`s are supported for `SMG`.");
             continue;
@@ -135,7 +136,7 @@ pub fn spawn_bullet(
     muzzle_query: Query<&GlobalTransform, With<Muzzle>>,
     mut shot_events: EventReader<ShotFired<SMG>>,
 ) {
-    for ShotFired { entity: e_item, .. } in shot_events.iter() {
+    for ShotFired { entity: e_item, .. } in shot_events.read() {
         let (target, accuracy, damage_collision_groups, children) =
             item_query.get(*e_item).unwrap();
         let muzzle_g_transform = muzzle_query.get(*children.first().unwrap()).unwrap();
@@ -172,22 +173,6 @@ pub fn spawn_bullet(
                 collision_groups: damage_collision_groups.into(),
                 ..Default::default()
             },
-        ));
-    }
-}
-
-pub fn smg_on_hit(
-    mut commands: Commands,
-    rapier_context: Res<RapierContext>,
-    item_query: Query<&GlobalTransform, With<SMG>>,
-    mut damage_events: EventReader<DamageEvent>,
-) {
-    for damage_event in damage_events.iter() {
-        commands.spawn((
-            TransformBundle::from_transform(Transform::from_translation(
-                try_find_deepest_contact_point(damage_event, &rapier_context, &item_query),
-            )),
-            Impact::from_burst_radius(2.0),
         ));
     }
 }

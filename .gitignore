@@ -8,3 +8,4 @@ trace-*.json
 *.txt
 *.dialogue.ron
 *.wav
+src/**.lock

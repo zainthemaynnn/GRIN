@@ -1,5 +1,23 @@
 #define_import_path grin::fragment
 
+#import bevy_pbr::{
+    pbr_fragment::pbr_input_from_standard_material,
+    pbr_functions::alpha_discard,
+    mesh_view_bindings::view,
+}
+
+#ifdef PREPASS_PIPELINE
+#import bevy_pbr::{
+    prepass_io::{VertexOutput, FragmentOutput},
+    pbr_deferred_functions::deferred_output,
+}
+#else
+#import bevy_pbr::{
+    forward_io::{VertexOutput, FragmentOutput},
+    pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
+}
+#endif
+
 @group(1) @binding(100)
 var<uniform> sketch_enabled: u32;
 
@@ -7,16 +25,16 @@ var<uniform> sketch_enabled: u32;
 var<uniform> sketch_layer: u32;
 
 @group(1) @binding(102)
-var<uniform> sketch_texture_array: texture_2d_array<f32>;
+var sketch_texture_array: texture_2d_array<f32>;
 
 @group(1) @binding(103)
-var<uniform> sketch_texture_array_sampler: sampler;
+var sketch_texture_array_sampler: sampler;
 
 @fragment
 fn fragment(
-    in: MeshVertexOutput,
+    in: VertexOutput,
     @builtin(front_facing) is_front: bool,
-) -> @location(0) vec4<f32> {
+) -> FragmentOutput {
     var pbr_input = pbr_input_from_standard_material(in, is_front);
 
     // overwriting the base color with the array-texture base color.
@@ -32,8 +50,8 @@ fn fragment(
     // flag is going to be difficult as of bevy 0.12.
     // however, I think if the condition is a uniform it shouldn't be a problem?
     // I should ask someone more experienced about this.
-    if sketch_enabled == 1 {
-        pbr_input.material.base_color *= textureSampleBias(sketch_texture_array, sketch_texture_array_sampler, uv, sketch_layer, view.mip_bias);
+    if sketch_enabled == u32(1) {
+        pbr_input.material.base_color *= textureSampleBias(sketch_texture_array, sketch_texture_array_sampler, in.uv, sketch_layer, view.mip_bias);
     }
 
     pbr_input.material.base_color = alpha_discard(

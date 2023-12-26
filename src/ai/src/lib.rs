@@ -164,6 +164,7 @@ pub struct DefaultAgentSpawnEvent {
 pub struct EnemyAgentBundle<A: Action> {
     pub health: Health,
     pub resist: Resist,
+    pub damage_buffer: DamageBuffer,
     pub brain: Brain,
     pub action: A,
     pub path_behavior: PathBehavior,
@@ -181,6 +182,7 @@ impl<A: Action> EnemyAgentBundle<A> {
         Self {
             health: Health::default(),
             resist: Resist::default(),
+            damage_buffer: DamageBuffer::default(),
             brain: Brain::default(),
             action: A::no_op(),
             path_behavior: PathBehavior::default(),

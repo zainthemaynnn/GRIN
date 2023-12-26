@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::{PhysicsSet, RigidBody, Velocity};
+use bevy_rapier3d::prelude::{PhysicsSet, Velocity};
 use grin_util::numbers::{MulStack, MulStackError};
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -119,15 +119,17 @@ pub fn auto_insert_timescales(
     }
 }
 
-/// Adds `RawVelocity` to any freestanding `Velocity` with `RigidBody::Dynamic`.
+/// Adds `RawVelocity` to any freestanding `Velocity`.
+//
+// NOTE: I forget why I restricted this to `RigidBody::Dynamic`. removing it for now.
 pub fn auto_insert_raw_velocities(
     mut commands: Commands,
-    velocity_query: Query<(Entity, &Velocity, &RigidBody), Without<RawVelocity>>,
+    velocity_query: Query<(Entity, &Velocity/*, &RigidBody*/), Without<RawVelocity>>,
 ) {
-    for (e_velocity, velocity, body) in velocity_query.iter() {
-        let RigidBody::Dynamic = body else {
+    for (e_velocity, velocity/*, body*/) in velocity_query.iter() {
+        /*let RigidBody::Dynamic = body else {
             continue;
-        };
+        };*/
 
         commands
             .get_or_spawn(e_velocity)

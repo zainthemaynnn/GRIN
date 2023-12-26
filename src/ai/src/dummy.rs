@@ -1,7 +1,9 @@
 use bevy::prelude::*;
+use bevy_asset_loader::prelude::*;
 use bevy_enum_filter::prelude::*;
 use bevy_landmass::Agent;
 use bevy_rapier3d::prelude::*;
+use grin_asset::AssetLoadState;
 use grin_character::PlayerCharacter;
 use grin_damage::{
     projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
@@ -9,7 +11,7 @@ use grin_damage::{
 };
 use grin_derive::Cooldown;
 use grin_map::NavMesh;
-use grin_rig::humanoid::{Humanoid, HumanoidAssets, HumanoidBundle, HUMANOID_RADIUS};
+use grin_rig::humanoid::{Humanoid, HumanoidBundle, HUMANOID_RADIUS};
 use grin_time::Rewind;
 use grin_util::{
     distr,
@@ -37,6 +39,7 @@ pub struct DummyPlugin;
 impl Plugin for DummyPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<DummySpawnEvent>()
+            .add_collection_to_loading_state::<_, DummyAssets>(AssetLoadState::Loading)
             .add_plugins(EnumBehaviorPlugin::<DummyAi>::default())
             .insert_resource(AiModel {
                 bt: bt! {
@@ -75,13 +78,19 @@ impl Plugin for DummyPlugin {
 #[derive(Component, Default)]
 pub struct Dummy;
 
-impl Spawnable for Dummy {
-    type Event = DummySpawnEvent;
+#[derive(Resource, AssetCollection)]
+pub struct DummyAssets {
+    #[asset(key = "rig.dummy")]
+    pub rig: Handle<Scene>,
 }
 
 #[derive(Event, Clone, Default)]
 pub struct DummySpawnEvent {
     pub transform: Transform,
+}
+
+impl Spawnable for Dummy {
+    type Event = DummySpawnEvent;
 }
 
 #[derive(Component, EnumFilter, Clone, Copy, Debug, Default)]
@@ -97,7 +106,7 @@ pub enum DummyAi {
 
 pub fn spawn(
     mut commands: Commands,
-    hum_assets: Res<HumanoidAssets>,
+    assets: Res<DummyAssets>,
     nav_mesh: Res<NavMesh>,
     mut events: EventReader<DummySpawnEvent>,
 ) {
@@ -106,7 +115,7 @@ pub fn spawn(
             Dummy,
             ShotCooldown::default(),
             HumanoidBundle {
-                skeleton_gltf: hum_assets.skeleton.clone(),
+                rig: assets.rig.clone(),
                 spatial: SpatialBundle::from_transform(transform.clone()),
                 ..Default::default()
             },

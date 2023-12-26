@@ -3,7 +3,6 @@ pub mod kit;
 use std::marker::PhantomData;
 
 use bevy::{app::PluginGroupBuilder, prelude::*, render::view::RenderLayers};
-use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::{DamageBuffer, Health, HealthBundle};
@@ -12,7 +11,6 @@ use grin_item::{DamageCollisionGroups, Equipped, InputHandler, Item, ItemSpawnEv
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
 use grin_render::{
     gopro::{add_gopro, GoProSettings},
-    sketched::SketchMaterial,
     RenderLayer,
 };
 use grin_rig::humanoid::{
@@ -20,7 +18,7 @@ use grin_rig::humanoid::{
 };
 use grin_util::{event::Spawnable, vectors::Vec3Ext};
 
-use kit::{eightball::EightBallPlugin, grin::GrinPlugin};
+use kit::{grin::GrinPlugin, smirk::SmirkPlugin};
 
 pub const CHARACTER_WALKSPEED: f32 = 24.0;
 
@@ -36,7 +34,6 @@ pub enum CharacterSet {
 impl Plugin for MasterCharacterPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<AvatarLoadState>()
-            .add_collection_to_loading_state::<_, AvatarAssets>(AssetLoadState::Loading)
             .add_plugins(PlayerCameraPlugin::<PlayerCharacter>::default())
             .configure_sets(
                 Update,
@@ -58,6 +55,10 @@ impl Plugin for MasterCharacterPlugin {
                 apply_deferred
                     .after(CharacterSet::Init)
                     .before(CharacterSet::Load),
+            )
+            .add_systems(
+                Update,
+                set_avatar_load_state_on_humanoid_load.in_set(CharacterSet::Load),
             )
             .add_systems(OnEnter(AvatarLoadState::Loaded), insert_status_viewport)
             .add_systems(
@@ -88,18 +89,13 @@ impl<T: Character> Plugin for GenericHumanoidCharacterPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (
-                equip_spawn_item_on_humanoid_load::<T>,
-                set_avatar_load_state_on_humanoid_load::<T>,
-            )
-                .chain()
-                .in_set(CharacterSet::Load),
+            equip_spawn_item_on_humanoid_load::<T>.in_set(CharacterSet::Load),
         );
     }
 }
 
-pub fn set_avatar_load_state_on_humanoid_load<T: Component>(
-    character_query: Query<(), (With<T>, With<Humanoid>)>,
+pub fn set_avatar_load_state_on_humanoid_load(
+    character_query: Query<(), (With<Player>, With<Humanoid>)>,
     mut next_state: ResMut<NextState<AvatarLoadState>>,
 ) {
     if !character_query.is_empty() {
@@ -146,26 +142,12 @@ impl PluginGroup for CharacterPlugins {
         PluginGroupBuilder::start::<Self>()
             .add(MasterCharacterPlugin)
             .add(GrinPlugin)
-            .add(EightBallPlugin)
+            .add(SmirkPlugin)
     }
 }
 
 pub trait Character: Component + Sized + Spawnable {
     type StartItem: Item;
-}
-
-#[derive(Resource, AssetCollection)]
-pub struct AvatarAssets {
-    #[asset(key = "mesh.pizza_shades")]
-    pub pizza_shades: Handle<Mesh>,
-    #[asset(key = "mat.shades")]
-    pub matte_shades: Handle<SketchMaterial>,
-    #[asset(key = "mat.grin")]
-    pub face_grin: Handle<SketchMaterial>,
-    #[asset(key = "mat.smirk")]
-    pub face_smirk: Handle<SketchMaterial>,
-    #[asset(key = "mat.meh")]
-    pub face_meh: Handle<SketchMaterial>,
 }
 
 #[derive(Component, Default)]
@@ -180,14 +162,12 @@ pub fn init_character_model(
         (Entity, &Humanoid, &HumanoidRace),
         (With<PlayerCharacter>, Without<Player>),
     >,
+    mesh_query: Query<(), With<Handle<Mesh>>>,
     children_query: Query<&Children>,
 ) {
     let Ok((e_humanoid, humanoid, race)) = player_query.get_single_mut() else {
         return;
     };
-
-    let render_layers =
-        RenderLayers::from_layers(&[RenderLayer::STANDARD as u8, RenderLayer::AVATAR as u8]);
 
     commands.entity(e_humanoid).insert((
         Player,
@@ -222,14 +202,9 @@ pub fn init_character_model(
         },
     ));
 
-    commands.entity(humanoid.head).insert(SpatialListener::new(1.0));
-
-    for e_part in humanoid.parts(HumanoidPartType::ALL) {
-        commands.entity(e_part).insert(Player);
-        commands
-            .entity(children_query.get(e_part).unwrap()[0])
-            .insert(render_layers);
-    }
+    commands
+        .entity(humanoid.head)
+        .insert(SpatialListener::new(1.0));
 
     for e_part in humanoid.parts(HumanoidPartType::HITBOX) {
         commands.entity(e_part).insert((
@@ -242,6 +217,15 @@ pub fn init_character_model(
         commands
             .entity(e_part)
             .insert(CollisionGroups::from_group_default(Group::NONE));
+    }
+
+    for e_child in children_query.iter_descendants(e_humanoid) {
+        if mesh_query.get(e_child).is_ok() {
+            commands.entity(e_child).insert(RenderLayers::from_layers(&[
+                RenderLayer::STANDARD as u8,
+                RenderLayer::AVATAR as u8,
+            ]));
+        }
     }
 }
 

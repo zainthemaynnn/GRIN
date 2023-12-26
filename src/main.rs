@@ -12,9 +12,7 @@ use grin_ai::AiPlugins;
 use grin_asset::{texture_array, AssetLoadState, DynamicAssetPlugin};
 use grin_character::{CharacterPlugins, CharacterSet};
 use grin_damage::DamagePlugin;
-use grin_dialogue::{
-    asset_gen::DialogueAssetLoadState, DialogueEvent, DialogueMap, DialoguePlugin,
-};
+use grin_dialogue::{DialogueEvent, DialogueMap};
 use grin_item::{ItemPlugins, ItemSet};
 use grin_map::{Map, MapLoadState, MapPlugin};
 use grin_physics::GrinPhysicsPlugin;
@@ -56,7 +54,9 @@ fn main() -> Result<(), io::Error> {
     #[cfg(debug_assertions)]
     let default_plugins = default_plugins.set(LogPlugin {
         level: Level::DEBUG,
-        filter: "info,wgpu_core=warn,wgpu_hal=warn,naga=warn,grin=debug,grin_ai=warn".into(),
+        filter:
+            "info,wgpu_core=warn,wgpu_hal=warn,naga=warn,grin=debug,grin_ai=warn,bevy_gltf=error"
+                .into(),
     });
 
     #[cfg(not(debug_assertions))]
@@ -84,7 +84,7 @@ fn main() -> Result<(), io::Error> {
             CharacterPlugins,
             AiPlugins,
             DamagePlugin,
-            DialoguePlugin,
+            //DialoguePlugin,
             MapPlugin {
                 navmesh_debugging: None,
             },
@@ -97,7 +97,7 @@ fn main() -> Result<(), io::Error> {
         .add_systems(OnEnter(AssetLoadState::Success), load_scene)
         .add_systems(
             OnEnter(AssetLoadState::Success),
-            grin_character::kit::eightball::EightBall::spawn_default().before(CharacterSet::Spawn),
+            grin_character::kit::smirk::Smirk::spawn_default().before(CharacterSet::Spawn),
         )
         .add_systems(
             OnEnter(MapLoadState::Success),
@@ -107,7 +107,7 @@ fn main() -> Result<(), io::Error> {
                 },
             ),),
         )
-        .add_systems(OnEnter(DialogueAssetLoadState::Success), test_dialogue)
+        //.add_systems(OnEnter(DialogueAssetLoadState::Success), test_dialogue)
         .add_systems(
             Update,
             (

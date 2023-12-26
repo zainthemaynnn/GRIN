@@ -1,10 +1,12 @@
 pub mod texture;
 
 use bevy::{
+    asset::LoadState,
+    gltf::Gltf,
     prelude::*,
     reflect::TypePath,
     render::render_resource::{Face, TextureViewDescriptor, TextureViewDimension},
-    utils::HashMap,
+    utils::{thiserror::Error, HashMap},
 };
 use bevy_asset_loader::prelude::*;
 use bevy_common_assets::ron::RonAssetPlugin;
@@ -13,12 +15,15 @@ use itertools::Itertools;
 use iyes_progress::prelude::*;
 use serde::Deserialize;
 
+pub const GLTF_PRELOAD_FOLDER: &str = "gltf/";
+
 pub struct DynamicAssetPlugin;
 
 impl Plugin for DynamicAssetPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<AssetLoadState>()
             .init_resource::<FallbackImage>()
+            .init_resource::<GltfPreload>()
             .add_plugins((
                 ProgressPlugin::new(AssetLoadState::Loading).continue_to(AssetLoadState::Success),
                 RonAssetPlugin::<CustomDynamicAssetCollection>::new(&["assets.ron"]),
@@ -31,13 +36,18 @@ impl Plugin for DynamicAssetPlugin {
             .register_dynamic_asset_collection::<_, CustomDynamicAssetCollection>(
                 AssetLoadState::Loading,
             )
-            .add_systems(
-                Update,
-                log_load_progress.run_if(in_state(AssetLoadState::Loading)),
-            )
             .add_dynamic_collection_to_loading_state::<_, CustomDynamicAssetCollection>(
                 AssetLoadState::Loading,
                 "test.assets.ron",
+            )
+            .add_systems(OnEnter(AssetLoadState::PreLoading), begin_gltf_preload)
+            .add_systems(
+                Update,
+                end_gltf_preload.run_if(in_state(AssetLoadState::PreLoading)),
+            )
+            .add_systems(
+                Update,
+                log_load_progress.run_if(in_state(AssetLoadState::Loading)),
             );
     }
 }
@@ -48,6 +58,39 @@ pub fn log_load_progress(progress: Option<Res<ProgressCounter>>, mut last_done: 
             *last_done = progress.done;
             debug!("{:?}", progress);
         }
+    }
+}
+
+/// All GlTF files are loaded EARLY, so that the asset files can specify sub-assets directly
+/// and put them into asset collections.
+///
+/// This step will no longer be needed if bevy ever supports direct loading of named GLTF sub-assets.
+#[derive(Resource, Debug, Default)]
+pub struct GltfPreload(pub HashMap<String, Handle<Gltf>>);
+
+pub fn begin_gltf_preload(asset_server: Res<AssetServer>, mut gltf_preload: ResMut<GltfPreload>) {
+    // load everything in the `GLTF_PRELOAD_FOLDER` folder
+    for file in std::fs::read_dir("assets/".to_string() + GLTF_PRELOAD_FOLDER).unwrap() {
+        if let Ok(file) = file {
+            let fname = file.file_name().into_string().unwrap();
+            let fpath = GLTF_PRELOAD_FOLDER.to_string() + fname.as_str();
+            gltf_preload.0.insert(fname, asset_server.load(fpath));
+        }
+    }
+}
+
+pub fn end_gltf_preload(
+    asset_server: Res<AssetServer>,
+    gltf_preload: Res<GltfPreload>,
+    mut next_state: ResMut<NextState<AssetLoadState>>,
+) {
+    // check for preload completion
+    if gltf_preload
+        .0
+        .values()
+        .all(|h| matches!(asset_server.get_load_state(h), Some(LoadState::Loaded)))
+    {
+        next_state.set(AssetLoadState::Loading);
     }
 }
 
@@ -76,8 +119,9 @@ impl FromWorld for FallbackImage {
 
 #[derive(States, Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum AssetLoadState {
-    #[default]
     Loading,
+    #[default]
+    PreLoading,
     Success,
     Failure,
 }
@@ -124,10 +168,45 @@ impl From<AssetAlphaMode> for AlphaMode {
     }
 }
 
+#[derive(Debug, Deserialize, Copy, Clone)]
+pub enum GltfSubAssetType {
+    Scene,
+    Animation,
+    Mesh,
+    Material,
+    Node,
+}
+
+#[derive(Error, Debug)]
+pub enum GltfSubAssetLoadError {
+    SourceNotFound(String),
+    ItemNotFound(String),
+    GltfNotFound,
+}
+
+impl std::fmt::Display for GltfSubAssetLoadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::SourceNotFound(s) => {
+                f.write_fmt(format_args!("No GLTF source with name `{}`", s))
+            }
+            Self::ItemNotFound(s) => f.write_fmt(format_args!("No GLTF item with name `{}`", s)),
+            Self::GltfNotFound => {
+                f.write_str("[Internal error] `Assets<Gltf>` did not have the specified handle.")
+            }
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub enum CustomDynamicAsset {
     File {
         path: String,
+    },
+    GltfSubAsset {
+        source: String,
+        item: String,
+        ty: GltfSubAssetType,
     },
     UVSphereMesh {
         radius: f32,
@@ -152,12 +231,10 @@ pub enum CustomDynamicAsset {
 
 impl DynamicAsset for CustomDynamicAsset {
     fn load(&self, asset_server: &AssetServer) -> Vec<UntypedHandle> {
-
-        debug!("{:?}", self);
+        trace!("{:?}", self);
         match self {
-            // what's this about needing to untype an untyped now?
             Self::File { path } => vec![asset_server.load_untyped(path).untyped()],
-            Self::UVSphereMesh { .. } => vec![],
+            Self::UVSphereMesh { .. } | Self::GltfSubAsset { .. } => vec![],
             Self::SketchMaterial {
                 base_color_texture, ..
             } => base_color_texture
@@ -174,18 +251,45 @@ impl DynamicAsset for CustomDynamicAsset {
 
     fn build(&self, world: &mut World) -> Result<DynamicAssetType, anyhow::Error> {
         let world_cell = world.cell();
-        let asset_server = world_cell
-            .get_resource::<AssetServer>()
-            .expect("Failed to get AssetServer.");
+        let asset_server = world_cell.resource::<AssetServer>();
 
         match self {
             Self::File { path } => Ok(DynamicAssetType::Single(
-                asset_server.load_untyped(path).untyped(),
+                asset_server.get_handle_untyped(path).unwrap(),
             )),
+            Self::GltfSubAsset { source, item, ty } => {
+                let gltf_assets = world_cell.resource::<Assets<Gltf>>();
+                let gltf_preload = world_cell.resource::<GltfPreload>();
+                // get the corresponding gltf defined in `source`
+                let gltf_handle = gltf_preload
+                    .0
+                    .get(source)
+                    .ok_or(GltfSubAssetLoadError::SourceNotFound(source.clone()))?;
+                let gltf = gltf_assets.get(gltf_handle).unwrap();
+                // AVERAGE RUST PROGRAM
+                Ok(DynamicAssetType::Single(
+                    match ty {
+                        GltfSubAssetType::Scene => {
+                            gltf.named_scenes.get(item).map(|h| h.clone().untyped())
+                        }
+                        GltfSubAssetType::Animation => {
+                            gltf.named_animations.get(item).map(|h| h.clone().untyped())
+                        }
+                        GltfSubAssetType::Mesh => {
+                            gltf.named_meshes.get(item).map(|h| h.clone().untyped())
+                        }
+                        GltfSubAssetType::Material => {
+                            gltf.named_materials.get(item).map(|h| h.clone().untyped())
+                        }
+                        GltfSubAssetType::Node => {
+                            gltf.named_nodes.get(item).map(|h| h.clone().untyped())
+                        }
+                    }
+                    .ok_or(GltfSubAssetLoadError::ItemNotFound(item.clone()))?,
+                ))
+            }
             Self::UVSphereMesh { radius } => {
-                let mut meshes = world_cell
-                    .get_resource_mut::<Assets<Mesh>>()
-                    .expect("Failed to get Assets<Mesh>.");
+                let mut meshes = world_cell.resource_mut::<Assets<Mesh>>();
                 Ok(DynamicAssetType::Single(
                     meshes
                         .add(Mesh::from(shape::UVSphere {
@@ -211,31 +315,31 @@ impl DynamicAsset for CustomDynamicAsset {
                 // this is a problem because singly layered images
                 // are automatically interpreted as D2
                 // which leads to mismatches
-                let mut materials = world_cell
-                    .get_resource_mut::<Assets<SketchMaterial>>()
-                    .expect("Failed to get Assets<StandardMaterial>.");
+                let mut materials = world_cell.resource_mut::<Assets<SketchMaterial>>();
 
                 let base_color_texture = match base_color_texture {
                     Some(tex_path) => {
-                        let mut textures = world_cell
-                            .get_resource_mut::<Assets<Image>>()
-                            .expect("Failed to get Assets<Image>.");
+                        let mut textures = world_cell.resource_mut::<Assets<Image>>();
 
                         let tex_handle = asset_server.load(tex_path);
                         let tex = textures
                             .get_mut(&tex_handle)
                             .expect("Failed to get StandardMaterial texture.");
-                        let layers = layers.unwrap_or(1);
-                        tex.reinterpret_stacked_2d_as_array(layers);
 
-                        // force dimension to D2Array
-                        tex.texture_view_descriptor = Some(TextureViewDescriptor {
-                            label: Some("D2Array Texture View"),
-                            dimension: Some(TextureViewDimension::D2Array),
-                            format: Some(tex.texture_descriptor.format),
-                            array_layer_count: Some(layers),
-                            ..Default::default()
-                        });
+                        if tex.texture_descriptor.size.depth_or_array_layers == 1 {
+                            let layers = layers.unwrap_or(1);
+                            tex.reinterpret_stacked_2d_as_array(layers);
+
+                            // force dimension to D2Array
+                            tex.texture_view_descriptor = Some(TextureViewDescriptor {
+                                label: Some("D2Array Texture View"),
+                                dimension: Some(TextureViewDimension::D2Array),
+                                format: Some(tex.texture_descriptor.format),
+                                array_layer_count: Some(layers),
+                                ..Default::default()
+                            });
+                        }
+
                         tex_handle
                     }
                     // a custom FallbackImage is used

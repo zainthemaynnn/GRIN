@@ -1,13 +1,12 @@
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
-use rand::{distributions::Uniform, Rng};
-
 use grin_asset::AssetLoadState;
 use grin_damage::Dead;
 use grin_physics::{collider, CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::SketchMaterial;
 use grin_time::{scaling::RawVelocity, CommandsExt};
+use rand::{distributions::Uniform, Rng};
 
 pub const HUMANOID_HEIGHT: f32 = 2.625;
 pub const HUMANOID_RADIUS: f32 = 0.5;
@@ -55,8 +54,6 @@ pub struct HumanoidAssets {
     pub body_gray: Handle<SketchMaterial>,
     #[asset(key = "mat.skin")]
     pub skin: Handle<SketchMaterial>,
-    #[asset(key = "rig.humanoid_skeleton")]
-    pub skeleton: Handle<Scene>,
 }
 
 /// Root object for humanoid rigs.
@@ -183,7 +180,7 @@ impl From<Handle<SketchMaterial>> for HumanoidClothing {
 
 #[derive(Bundle, Default)]
 pub struct HumanoidBundle {
-    pub skeleton_gltf: Handle<Scene>,
+    pub rig: Handle<Scene>,
     pub skeleton: Skeleton,
     pub face: HumanoidFace,
     pub clothing: HumanoidClothing,
@@ -505,6 +502,7 @@ pub fn process_skeletons(
             let Ok(name) = name_query.get(e_node) else {
                 continue;
             };
+            trace!("{:?}", name);
             let Some(part_type) = HumanoidPartType::from_node_id(name.as_str()) else {
                 continue;
             };
@@ -603,19 +601,15 @@ pub enum HumanoidMorph {
 /// Note that at a weight of `1.0` the humanoid's head will have translated about `1.0` units.
 /// This is the hard cap, and should probably never happen, unless they're going at an extreme speed
 /// for whatever reason.
-pub const SPEED_MORPH_CONSTANT: f32 = 0.04;
+pub const MORPH_SPEED_CONSTANT: f32 = 0.04;
 
 /// Maximum rate of change for morph weights.
 pub const MORPH_EASE_CONSTANT: f32 = 4.0;
 
 /// Morphs humanoids according to their movement.
 ///
-/// This'll make them "slant" towards their effective direction of movement, which increases
-/// in intensity based on their speed. The slant is based on
-/// `KinematicCharacterControllerOutput.effective_translation`, so movement from other causes
-/// other than the character controller have no effect on morphing.
-
-// god, I could have made a 2d game and just ran a spritesheet
+/// This makes them "slant" towards their effective direction of movement, which increases
+/// in intensity based on their speed. The slant is based on `Velocity.linvel`.
 pub fn morph_moving_humanoids(
     time: Res<Time>,
     humanoid_query: Query<(&Humanoid, &Transform, &Velocity)>,
@@ -628,7 +622,7 @@ pub fn morph_moving_humanoids(
 
         // this should ease into the target weight smoothly
         let weight = |w0: f32, w1: f32| {
-            let w1 = w1 * speed * SPEED_MORPH_CONSTANT;
+            let w1 = w1 * speed * MORPH_SPEED_CONSTANT;
             let d = w1 - w0;
             (w0 + d.abs().min(MORPH_EASE_CONSTANT * time.delta_seconds()) * d.signum())
                 .clamp(-1.0, 1.0)

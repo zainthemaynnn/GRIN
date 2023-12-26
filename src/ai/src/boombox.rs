@@ -63,11 +63,13 @@ pub struct BoomBox;
 #[derive(Resource, AssetCollection)]
 pub struct BoomBoxAssets {
     #[asset(key = "rig.boombox")]
-    pub skeleton: Handle<Scene>,
-    #[asset(key = "anim.idle.boombox.left")]
+    pub rig: Handle<Scene>,
+    #[asset(key = "anim.tote.left")]
     pub idle_lt: Handle<AnimationClip>,
-    #[asset(key = "anim.idle.boombox.right")]
+    #[asset(key = "anim.tote.right")]
     pub idle_rt: Handle<AnimationClip>,
+    #[asset(key = "anim.headbang")]
+    pub headbang: Handle<AnimationClip>,
 }
 
 #[derive(Event, Clone, Default)]
@@ -90,7 +92,7 @@ pub fn spawn(
             BoomBox,
             ShotCooldown::default(),
             HumanoidBundle {
-                skeleton_gltf: assets.skeleton.clone(),
+                rig: assets.rig.clone(),
                 spatial: SpatialBundle::from_transform(transform.clone()),
                 ..Default::default()
             },
@@ -124,6 +126,7 @@ pub fn load(
                 HumanoidDominantHand::Right => assets.idle_rt.clone(),
             })
             .repeat();
+        animator.play(assets.headbang.clone()).repeat();
 
         let e_boombox = gltf_path_search(
             &EntityPath {

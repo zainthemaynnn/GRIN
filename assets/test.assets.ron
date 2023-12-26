@@ -1,7 +1,7 @@
 #![enable(implicit_some)]
 CustomDynamicAssetCollection({
      "mesh.mbody": File (
-          path: "meshes/skeleton.glb#Mesh3/Primitive0",
+          path: "meshes/mbody.glb#Mesh0/Primitive0",
      ),
      "mesh.fbody": File (
           path: "meshes/fbody.glb#Mesh0/Primitive0",
@@ -17,9 +17,6 @@ CustomDynamicAssetCollection({
      ),
      "model.head_shatter": File (
           path: "meshes/head_shatter.glb#Scene0",
-     ),
-     "mesh.pizza_shades": File (
-          path: "meshes/pizza_shades.glb#Mesh0/Primitive0",
      ),
      "mesh.gun": UVSphereMesh ( // TODO: make like, an actual gun
           radius: 0.15,
@@ -40,54 +37,110 @@ CustomDynamicAssetCollection({
           radius: 1.0,
      ),
 
-     "rig.humanoid_skeleton": File (
-          path: "meshes/skeleton.glb#Scene0",
-     ),
-     "rig.eightball": File (
-          path: "meshes/skeleton.glb#Scene1",
-     ),
-     // might want to move the pistol/hammer ones to another rig
-     "anim.hammer.charge": File (
-          path: "meshes/skeleton.glb#Animation0",
-     ),
-     "anim.hammer.equip": File (
-          path: "meshes/skeleton.glb#Animation1",
-     ),
-     "anim.hammer.swing": File (
-          path: "meshes/skeleton.glb#Animation2",
-     ),
-     "anim.hammer.unswing": File (
-          path: "meshes/skeleton.glb#Animation3",
-     ),
-     "anim.hammer.wind": File (
-          path: "meshes/skeleton.glb#Animation4",
-     ),
-     "anim.idle": File (
-          path: "meshes/skeleton.glb#Animation5",
-     ),
-     "anim.pistol.left": File (
-          path: "meshes/skeleton.glb#Animation6",
-     ),
-     "anim.pistol.right": File (
-          path: "meshes/skeleton.glb#Animation7",
-     ),
-     "anim.stretch": File (
-          path: "meshes/skeleton.glb#Animation8",
+     "rig.dummy": GltfSubAsset (
+          ty: Scene,
+          source: "humanoid.glb",
+          item: "0000.base",
      ),
 
-     "rig.boombox": File (
-          path: "meshes/boombox.glb#Scene0",
+     "rig.grin": GltfSubAsset (
+          ty: Scene,
+          source: "humanoid.glb",
+          item: "1000.grin",
      ),
-     "anim.idle.boombox.left": File (
-          path: "meshes/boombox.glb#Animation0",
+     "rig.smirk": GltfSubAsset (
+          ty: Scene,
+          source: "humanoid.glb",
+          item: "1001.smirk",
      ),
-     "anim.idle.boombox.right": File (
-          path: "meshes/boombox.glb#Animation1",
+     "rig.grizz": GltfSubAsset (
+          ty: Scene,
+          source: "humanoid.glb",
+          item: "1002.grizz",
+     ),
+     "rig.meh": GltfSubAsset (
+          ty: Scene,
+          source: "humanoid.glb",
+          item: "1003.meh",
      ),
 
-     "gltf.humanoid": File (
-          path: "meshes/humanoid.glb",
+     "rig.metalhead": GltfSubAsset (
+          ty: Scene,
+          source: "humanoid.glb",
+          item: "2000.metalhead",
      ),
+     "rig.boombox": GltfSubAsset (
+          ty: Scene,
+          source: "humanoid.glb",
+          item: "2001.boombox",
+     ),
+     "rig.raver": GltfSubAsset (
+          ty: Scene,
+          source: "humanoid.glb",
+          item: "2002.raver",
+     ),
+
+     "anim.idle": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "idle",
+     ),
+     "anim.stretch": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "tpose",
+     ),
+     "anim.pistol.left": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "aimsingle.left",
+     ),
+     "anim.pistol.right": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "aimsingle.right",
+     ),
+     "anim.tote.left": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "tote.left",
+     ),
+     "anim.tote.right": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "tote.right",
+     ),
+     "anim.headbang": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "headbang",
+     ),
+     "anim.hammer.charge": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "hammer.charge",
+     ),
+     "anim.hammer.swing": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "hammer.swing",
+     ),
+     "anim.hammer.unswing": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "hammer.unswing",
+     ),
+     "anim.hammer.wind": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "hammer.wind",
+     ),
+     "anim.hammer.equip": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "hammer.equip",
+     ),
+
      "rig.screamer": File (
           path: "meshes/screamer.glb#Scene0",
      ),
@@ -227,6 +280,7 @@ CustomDynamicAssetCollection({
           base_color: (1.0, 1.0, 1.0, 1.0),
           unlit: true,
      ),
+
      "sfx.uzi": File (
           path: "audio/uzi-1800-rpm.ogg",
      ),
@@ -236,15 +290,18 @@ CustomDynamicAssetCollection({
      "sfx.dialogue.eightball": File (
           path: "audio/eightball-blip.ogg",
      ),
+
      "shader.pbr_bindings": File (
           path: "shaders/pbr_bindings.wgsl",
      ),
      "shader.pbr_types": File (
           path: "shaders/pbr_types.wgsl",
      ),
+
      "font.fira-sans": File (
           path: "fonts/FiraSans-Regular.ttf",
      ),
+
      "image.grin-icon": SketchUiImage (
           images: ["images/grin-icon-0.png", "images/grin-icon-1.png"],
      ),

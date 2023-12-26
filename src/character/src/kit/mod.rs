@@ -1,2 +1,2 @@
-pub mod eightball;
+pub mod smirk;
 pub mod grin;

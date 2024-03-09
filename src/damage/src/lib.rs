@@ -1,3 +1,4 @@
+pub mod dot_region;
 pub mod impact;
 pub mod projectiles;
 
@@ -212,7 +213,7 @@ pub fn send_contact_damage_events(
         let CollisionEvent::Started(entity_0, entity_1, ..) = collision_event else {
             continue;
         };
-        debug!("Collision for {:?} on {:?}.", entity_0, entity_1);
+        trace!("Collision for {:?} on {:?}.", entity_0, entity_1);
 
         let Ok((e_damage, e_hit)) = distinguish_by_query(&damage_query, *entity_0, *entity_1) else {
             continue;

@@ -2758,6 +2758,7 @@ version = "0.3.0"
 dependencies = [
  "bevy",
  "bevy_rapier3d",
+ "grin_physics",
 ]
 
 [[package]]
@@ -2789,6 +2790,7 @@ dependencies = [
  "geo-booleanop",
  "geo-offset",
  "grin_physics",
+ "grin_render",
  "grin_rig",
  "grin_util",
  "itertools 0.10.5",

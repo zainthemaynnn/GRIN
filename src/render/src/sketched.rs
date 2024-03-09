@@ -33,7 +33,11 @@ impl Plugin for SketchEffectPlugin {
         .init_asset::<SketchUiImage>()
         .add_systems(
             PreUpdate,
-            autofill_sketch_effect.run_if(move || autofill_enabled == true),
+            (
+                autofill_sketch_effect.run_if(move || autofill_enabled == true),
+                purge_sketch_effects,
+                
+            ),
         )
         .add_systems(
             Update,
@@ -203,6 +207,15 @@ pub fn autofill_sketch_effect(
         commands
             .get_or_spawn(entity)
             .insert(SketchAnimation::default());
+    }
+}
+
+pub fn purge_sketch_effects(
+    mut commands: Commands,
+    mut query: Query<Entity, (With<OutlineVolume>, With<NoOutline>)>,
+) {
+    for e_outline in query.iter() {
+        commands.entity(e_outline).remove::<OutlineVolume>();
     }
 }
 

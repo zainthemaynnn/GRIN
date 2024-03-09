@@ -31,7 +31,7 @@ use super::{
 use crate::bt;
 
 #[derive(Component, Cooldown)]
-#[cooldown(duration = 1.0)]
+#[cooldown(duration = 2.0)]
 pub struct ShotCooldown(pub Timer);
 
 pub struct DummyPlugin;
@@ -126,6 +126,7 @@ pub fn spawn(
                 },
                 ..EnemyAgentBundle::from_archipelago(nav_mesh.archipelago)
             },
+            grin_character::kit::grin::FreezeTargettable,
         ));
     }
 }

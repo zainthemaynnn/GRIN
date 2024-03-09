@@ -64,12 +64,10 @@ pub struct BoomBox;
 pub struct BoomBoxAssets {
     #[asset(key = "rig.boombox")]
     pub rig: Handle<Scene>,
-    #[asset(key = "anim.tote.left")]
+    #[asset(key = "anim.boombox.left")]
     pub idle_lt: Handle<AnimationClip>,
-    #[asset(key = "anim.tote.right")]
+    #[asset(key = "anim.boombox.right")]
     pub idle_rt: Handle<AnimationClip>,
-    #[asset(key = "anim.headbang")]
-    pub headbang: Handle<AnimationClip>,
 }
 
 #[derive(Event, Clone, Default)]
@@ -126,11 +124,10 @@ pub fn load(
                 HumanoidDominantHand::Right => assets.idle_rt.clone(),
             })
             .repeat();
-        animator.play(assets.headbang.clone()).repeat();
 
         let e_boombox = gltf_path_search(
             &EntityPath {
-                parts: vec!["BoomBox".into()],
+                parts: vec!["Boombox".into()],
             },
             humanoid.rhand,
             &children_query,
@@ -153,7 +150,7 @@ pub fn load(
 }
 
 pub const BULLET_SIZE: f32 = 0.5;
-pub const END_SPEED: f32 = 3.0;
+pub const END_SPEED: f32 = 5.0;
 pub const DRAG_DURATION: f32 = 0.5;
 pub const DRAG_DISTANCE: f32 = 8.0;
 

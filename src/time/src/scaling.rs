@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_rapier3d::prelude::{PhysicsSet, Velocity};
+use bevy_rapier3d::{prelude::{PhysicsSet, Velocity}, dynamics::RigidBody};
 use grin_util::numbers::{MulStack, MulStackError};
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -138,18 +138,20 @@ pub fn auto_insert_raw_velocities(
 }
 
 /// Adjusts velocity speeds with `TimeScale`. Calculates `RawVelocity`.
-pub fn scale_velocities(mut velocity_query: Query<(&mut Velocity, &mut RawVelocity, &TimeScale)>) {
-    for (mut v_scaled, mut v_raw, time_scale) in velocity_query.iter_mut() {
+pub fn scale_velocities(mut velocity_query: Query<(&mut Velocity, &mut RawVelocity, &TimeScale, &RigidBody)>) {
+    for (mut v_scaled, mut v_raw, time_scale, rigid_body) in velocity_query.iter_mut() {
         let applied = time_scale.memoed;
         let scale = f32::from(time_scale);
 
         // if timescale > 0 then the direction might have changed, so reassign the cached velocity
-        if applied > 0.0 {
-            // NOTE: this might cause floating point errors. watch for it.
-            v_raw.0 = Velocity {
-                linvel: v_scaled.linvel / applied,
-                angvel: v_scaled.angvel / applied,
-            };
+        if let RigidBody::Dynamic = rigid_body {
+            if applied > 0.0 {
+                // NOTE: this might cause floating point errors. watch for it.
+                v_raw.0 = Velocity {
+                    linvel: v_scaled.linvel / applied,
+                    angvel: v_scaled.angvel / applied,
+                };
+            }
         }
 
         *v_scaled = Velocity {
@@ -167,7 +169,7 @@ pub fn scale_audio(audio_query: Query<(&AudioSink, &TimeScale), Changed<TimeScal
 }
 
 /// Adjusts animation speed with `TimeScale`.
-pub fn scale_animations(mut animator_query: Query<(&mut AnimationPlayer, &TimeScale)>) {
+pub fn scale_animations(mut animator_query: Query<(&mut AnimationPlayer, &TimeScale), Changed<TimeScale>>) {
     for (mut animator, time_scale) in animator_query.iter_mut() {
         animator.set_speed(time_scale.into());
     }

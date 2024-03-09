@@ -1,4 +1,5 @@
 pub mod kit;
+pub mod util;
 
 use std::marker::PhantomData;
 
@@ -20,7 +21,7 @@ use grin_util::{event::Spawnable, vectors::Vec3Ext};
 
 use kit::{grin::GrinPlugin, smirk::SmirkPlugin};
 
-pub const CHARACTER_WALKSPEED: f32 = 24.0;
+pub const CHARACTER_WALKSPEED: f32 = 6.0;
 
 pub struct MasterCharacterPlugin;
 

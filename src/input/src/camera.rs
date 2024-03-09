@@ -1,10 +1,11 @@
-use std::{ops::Range, marker::PhantomData};
+use std::{marker::PhantomData, ops::Range};
 
 use bevy::{ecs::event::ManualEventReader, input::mouse::MouseMotion, prelude::*};
 use bevy_rapier3d::{
     na::clamp,
     prelude::{CollisionGroups, Group, QueryFilter, RapierContext},
 };
+use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 
 pub struct PlayerCameraPlugin<T: Component> {
     phantom_data: PhantomData<T>,
@@ -22,7 +23,10 @@ impl<T: Component> Plugin for PlayerCameraPlugin<T> {
     fn build(&self, app: &mut App) {
         app.init_resource::<LookInfo>()
             .init_resource::<MouseOpts>()
-            .add_systems(Update, (handle_mouse, cam_update, spawn_camera::<T>).chain());
+            .add_systems(
+                Update,
+                (handle_mouse, cam_update, spawn_camera::<T>).chain(),
+            );
     }
 }
 
@@ -47,7 +51,7 @@ pub struct LookInfo {
     pub pitch: f32,
     pub yaw: f32,
     pub viewport_ray: Ray,
-    pub y_ray: Ray,
+    pub mouse_ray: Ray,
     pub target_distance: f32,
 }
 
@@ -57,9 +61,9 @@ impl LookInfo {
     }
 
     pub fn vertical_target_point(&self, plane_origin: Vec3, plane_normal: Vec3) -> Option<Vec3> {
-        self.y_ray
+        self.mouse_ray
             .intersect_plane(plane_origin, plane_normal)
-            .map(|t| self.y_ray.get_point(t))
+            .map(|t| self.mouse_ray.get_point(t))
     }
 }
 
@@ -118,7 +122,7 @@ pub fn handle_mouse(
             .unwrap_or_default();
 
         if let Some(cursor_pos) = window.cursor_position() {
-            look_info.y_ray = camera
+            look_info.mouse_ray = camera
                 .viewport_to_world(camera_transform, cursor_pos)
                 .unwrap_or_default();
         }
@@ -129,9 +133,8 @@ pub fn handle_mouse(
                 look_info.viewport_ray.direction,
                 mouse_opts.target_distance_cap,
                 false,
-                QueryFilter::new().groups(CollisionGroups::new(
-                    Group::all(),
-                    Group::all().difference(Group::GROUP_1),
+                QueryFilter::new().groups(CollisionGroups::from_group_default(
+                    Group::PLAYER_PROJECTILE,
                 )),
             )
             .map_or(mouse_opts.target_distance_cap, |hit| hit.1);

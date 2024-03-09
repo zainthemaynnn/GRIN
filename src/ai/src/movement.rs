@@ -1,17 +1,18 @@
-use std::f32::consts::TAU;
-
 use bevy::{math::cubic_splines::CubicCurve, prelude::*};
 use bevy_landmass::{Agent, AgentDesiredVelocity, AgentTarget, AgentVelocity};
 use bevy_rapier3d::prelude::*;
 use grin_damage::Dead;
 use grin_physics::PhysicsTime;
-use grin_time::{scaling::TimeScale, Rewind};
+use grin_time::{
+    scaling::{RawVelocity, TimeScale},
+    Rewind,
+};
 use grin_util::{numbers::MulStack, vectors::Vec3Ext};
 
 use super::bt::{Brain, Verdict};
 
-// TODO: again, find good number
-pub const MAX_AGENT_ANGULAR_VELOCITY: f32 = TAU;
+/// Proportional constant for the angular velocity P controller.
+pub const AGENT_ANGULAR_VELOCITY_P: f32 = 1.0;
 
 #[derive(Bundle, Default)]
 pub struct MovementBundle {
@@ -60,9 +61,11 @@ pub fn propagate_attack_target_to_agent_target<T: Component, A: Component>(
     mut agent_query: Query<
         (
             &mut Brain,
-            &mut Transform,
             &mut Agent,
             &mut AgentTarget,
+            &mut RawVelocity,
+            &Velocity,
+            &Transform,
             &AttackTarget,
             &PathBehavior,
         ),
@@ -73,9 +76,11 @@ pub fn propagate_attack_target_to_agent_target<T: Component, A: Component>(
     let dt = time.0.delta_seconds();
     for (
         mut brain,
-        mut transform,
         mut agent,
         mut agent_target,
+        mut raw_velocity,
+        velocity,
+        transform,
         AttackTarget(e_target),
         path_behavior,
     ) in agent_query.iter_mut()
@@ -122,10 +127,10 @@ pub fn propagate_attack_target_to_agent_target<T: Component, A: Component>(
             angle_diff *= -1.0;
         }
 
-        transform.rotation *= Quat::from_rotation_y(angle_diff.clamp(
-            -MAX_AGENT_ANGULAR_VELOCITY * dt,
-            MAX_AGENT_ANGULAR_VELOCITY * dt,
-        ));
+        raw_velocity.0.angvel = Vec3::Y * AGENT_ANGULAR_VELOCITY_P * angle_diff;
+        dbg!("next");
+        dbg!(raw_velocity.0.angvel);
+        dbg!(velocity.angvel);
 
         brain.write_verdict(Verdict::Success);
     }

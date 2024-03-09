@@ -51,3 +51,51 @@ pub fn gltf_path_search(
 
     Ok(current_entity)
 }
+
+
+
+pub struct PotentialAncestorIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery>
+where
+    Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+{
+    parent_query: &'w Query<'w, 's, Q, ()>,
+    filter_query: &'w Query<'w, 's, (), F>,
+    next: Option<Entity>,
+}
+
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> PotentialAncestorIter<'w, 's, Q, F>
+where
+    Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+{
+    pub fn new(parent_query: &'w Query<'w, 's, Q, ()>, filter_query: &'w Query<'w, 's, (), F>, entity: Entity) -> Self {
+        PotentialAncestorIter {
+            parent_query,
+            filter_query,
+            next: Some(entity),
+        }
+    }
+}
+
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for PotentialAncestorIter<'w, 's, Q, F>
+where
+    Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
+{
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            self.next = self.parent_query.get(self.next?).ok().map(|p| p.get());
+            match self.next {
+                Some(e_next) => {
+                    self.next = Some(e_next);
+                    if self.filter_query.get(e_next).is_ok() {
+                        return self.next;
+                    }
+                }
+                None => {
+                    return None;
+                }
+            }
+        }
+    }
+}

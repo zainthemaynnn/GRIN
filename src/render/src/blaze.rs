@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy_hanabi::prelude::*;
-use grin_physics::PhysicsTime;
 use grin_util::distr;
 
 use super::particles::SetVelocityModifier;
@@ -10,7 +9,7 @@ pub struct BlazePlugin;
 impl Plugin for BlazePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, create_blaze_effect_assets)
-            .add_systems(PostUpdate, (spawn_blaze_particles, tick_blaze_particles));
+            .add_systems(PostUpdate, spawn_blaze_particles);
     }
 }
 
@@ -18,8 +17,6 @@ impl Plugin for BlazePlugin {
 // TODO: collision detection
 #[derive(Component, Default)]
 pub struct Blaze {
-    /// Effect timer. The timer is automatically updated and the entity is despawned when finished.
-    pub timer: Timer,
     /// Particle effect asset.
     pub effect: Handle<EffectAsset>,
     /// Spawner to use for this effect.
@@ -180,17 +177,5 @@ pub fn spawn_blaze_particles(
             CompiledParticleEffect::default()
                 .set_property(Blaze::RADIUS_PROPERTY_TAG, blaze.radius.into()),
         ));
-    }
-}
-
-pub fn tick_blaze_particles(
-    mut commands: Commands,
-    time: Res<PhysicsTime>,
-    mut blaze_query: Query<(Entity, &mut Blaze)>,
-) {
-    for (e_blaze, mut blaze) in blaze_query.iter_mut() {
-        if blaze.timer.tick(time.0.delta()).just_finished() {
-            commands.entity(e_blaze).despawn();
-        }
     }
 }

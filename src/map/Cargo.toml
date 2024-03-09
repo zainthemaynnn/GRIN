@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 grin_physics = { path = "../physics" }
+grin_render = { path = "../render" }
 grin_rig = { path = "../rig" }
 grin_util = { path = "../util" }
 bevy = { version = "0.12", features = ["dynamic_linking"] }

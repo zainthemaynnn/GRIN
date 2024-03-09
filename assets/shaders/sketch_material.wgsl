@@ -15,6 +15,7 @@
 #import bevy_pbr::{
     forward_io::{VertexOutput, FragmentOutput},
     pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
+    pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
 }
 #endif
 
@@ -60,7 +61,13 @@ fn fragment(
     );
 
     var out: FragmentOutput;
-    out.color = apply_pbr_lighting(pbr_input);
+
+    if (pbr_input.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
+        out.color = apply_pbr_lighting(pbr_input);
+    } else {
+        out.color = pbr_input.material.base_color;
+    }
+
     out.color = main_pass_post_lighting_processing(pbr_input, out.color);
     return out;
 }

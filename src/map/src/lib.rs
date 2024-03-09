@@ -8,6 +8,7 @@ use geo::{
 };
 use geo_offset::Offset;
 use grin_physics::collider;
+use grin_render::sketched::NoOutline;
 use grin_rig::humanoid::HUMANOID_RADIUS;
 use grin_util::vectors::Vec3Ext;
 use itertools::Itertools;
@@ -113,6 +114,8 @@ pub fn setup_map_navigation(
         commands.entity(e_node).insert(collider!(&meshes, mesh));
         if !restricted {
             commands.entity(e_node).insert(OutlineMode::RealVertex);
+        } else {
+            commands.entity(e_node).insert(NoOutline);
         }
     }
 

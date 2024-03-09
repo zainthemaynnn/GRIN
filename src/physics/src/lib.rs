@@ -32,6 +32,11 @@ impl Plugin for GrinPhysicsPlugin {
                 // it's a magic number. I don't want to import `grin_character`.
                 // deal with it.
                 gravity: Vec3::NEG_Y * 9.81 * (2.625 / 1.8),
+                timestep_mode: TimestepMode::Variable {
+                    max_dt: 1.0,
+                    time_scale: 1.0,
+                    substeps: 1,
+                },
                 ..Default::default()
             })
             .add_systems(

@@ -110,6 +110,16 @@ CustomDynamicAssetCollection({
           source: "humanoid.glb",
           item: "tote.right",
      ),
+     "anim.boombox.left": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "boombox.idle.left",
+     ),
+     "anim.boombox.right": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "boombox.idle.right",
+     ),
      "anim.headbang": GltfSubAsset (
           ty: Animation,
           source: "humanoid.glb",

@@ -7,6 +7,7 @@
 
 pub mod firing;
 pub mod melee;
+pub mod metal_pipe;
 pub mod sledge;
 pub mod smg;
 

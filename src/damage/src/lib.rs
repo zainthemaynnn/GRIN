@@ -198,10 +198,7 @@ pub enum DamageEvent {
     },
     /// Direct damage.
     // TODO: system to apply this damage, when it actually ends up getting used.
-    Direct {
-        damage: Damage,
-        e_hit: Entity,
-    }
+    Direct { damage: Damage, e_hit: Entity },
 }
 
 pub fn send_contact_damage_events(
@@ -249,7 +246,12 @@ pub fn push_contact_damage(
     damage_query: Query<&Damage>,
 ) {
     for damage_event in damage_events.read() {
-        let DamageEvent::Contact { kind, e_damage, e_hit } = damage_event else {
+        let DamageEvent::Contact {
+            kind,
+            e_damage,
+            e_hit,
+        } = damage_event
+        else {
             continue;
         };
 

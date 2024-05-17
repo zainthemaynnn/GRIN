@@ -345,6 +345,7 @@ impl DynamicAsset for CustomDynamicAsset {
                     // a custom FallbackImage is used
                     // because bevy's is always D2 even if the binding isn't
                     // (this will be fixed in 0.11)
+                    // update may 2024: ha-ha. let's just leave it here for fun.
                     None => world_cell.resource::<FallbackImage>().texture.clone(),
                 };
 

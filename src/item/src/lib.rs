@@ -500,7 +500,10 @@ pub fn try_find_deepest_contact_point<T: Component>(
     rapier_context: &RapierContext,
     item_query: &Query<&GlobalTransform, With<T>>,
 ) -> Result<Vec3, DamageContactError> {
-    let &DamageEvent::Contact { e_damage, e_hit, .. } = damage_event else {
+    let &DamageEvent::Contact {
+        e_damage, e_hit, ..
+    } = damage_event
+    else {
         return Err(DamageContactError::EventMismatch(damage_event.clone()));
     };
     let g_item_transform = item_query
@@ -524,7 +527,9 @@ pub fn on_hit_render_impact<T: Component>(
     mut damage_events: EventReader<DamageEvent>,
 ) {
     for damage_event in damage_events.read() {
-        let Ok(contact) = try_find_deepest_contact_point(damage_event, &rapier_context, &item_query) else {
+        let Ok(contact) =
+            try_find_deepest_contact_point(damage_event, &rapier_context, &item_query)
+        else {
             return;
         };
         commands.spawn((

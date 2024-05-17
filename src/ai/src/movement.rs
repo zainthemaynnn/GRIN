@@ -371,9 +371,12 @@ pub fn update_biped_procedural_walk_cycle(
 
         if !ik_procs.stepping() && !ik_procs.all_in_range(&g_transform_query) {
             // copy these cause borrow checker
-            let active_batch = ik_procs.active_proc;
-            let step_height = ik_procs.step_height;
-            let step_duration = ik_procs.step_duration;
+            let IkProcs {
+                active_proc,
+                step_height,
+                step_duration,
+                ..
+            };
 
             ik_procs.procs[active_batch].begin_step(
                 step_height,

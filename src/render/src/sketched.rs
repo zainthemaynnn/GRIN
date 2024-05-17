@@ -212,7 +212,7 @@ pub fn autofill_sketch_effect(
 
 pub fn purge_sketch_effects(
     mut commands: Commands,
-    mut query: Query<Entity, (With<OutlineVolume>, With<NoOutline>)>,
+    query: Query<Entity, (With<OutlineVolume>, With<NoOutline>)>,
 ) {
     for e_outline in query.iter() {
         commands.entity(e_outline).remove::<OutlineVolume>();

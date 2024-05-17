@@ -25,17 +25,20 @@ use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::SketchMaterial;
 use grin_rig::humanoid::HumanoidDominantHand;
 use grin_util::event::Spawnable;
+use melee::{GltfHitboxAutoGenConfig, GltfHitboxGenerationPlugin};
 
 use self::{sledge::SledgePlugin, smg::SMGPlugin};
+
+pub const GLTF_HITBOX_IDENTIFIER: &str = "__HB";
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum ItemSet {
     Spawn,
 }
 
-pub struct ItemCommonPlugin;
+pub struct MasterItemPlugin;
 
-impl Plugin for ItemCommonPlugin {
+impl Plugin for MasterItemPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<MuzzleFlashEvent>()
             .add_collection_to_loading_state::<_, Sfx>(AssetLoadState::Loading)
@@ -74,7 +77,10 @@ pub struct ItemPlugins;
 impl PluginGroup for ItemPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(ItemCommonPlugin)
+            .add(MasterItemPlugin)
+            .add(GltfHitboxGenerationPlugin {
+                config: GltfHitboxAutoGenConfig(GLTF_HITBOX_IDENTIFIER.into()),
+            })
             .add(SMGPlugin)
             .add(SledgePlugin)
     }

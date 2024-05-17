@@ -23,7 +23,7 @@ use grin_damage::{impact::Impact, DamageEvent};
 use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera};
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::SketchMaterial;
-use grin_rig::humanoid::HumanoidDominantHand;
+use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
 use grin_util::event::Spawnable;
 use melee::{GltfHitboxAutoGenConfig, GltfHitboxGenerationPlugin};
 
@@ -536,5 +536,32 @@ pub fn on_hit_render_impact<T: Component>(
             TransformBundle::from_transform(Transform::from_translation(contact)),
             impact.clone(),
         ));
+    }
+}
+
+
+/// Pipe from a system that returns a spawned item bundle, and it will parent to the humanoid's
+/// 'dominant_hand`.
+pub fn equip_to_humanoid<T: Component>(
+    In(e_item): In<Entity>,
+    mut commands: Commands,
+    humanoid_query: Query<&Humanoid>,
+    mut spawn_events: EventReader<ItemSpawnEvent<T>>,
+    mut equip_events: EventWriter<ItemEquipEvent<T>>,
+) {
+    for ItemSpawnEvent {
+        parent_entity: e_parent,
+        ..
+    } in spawn_events.read()
+    {
+        match humanoid_query.get(*e_parent) {
+            Ok(humanoid) => {
+                commands.entity(e_item).set_parent(humanoid.dominant_hand());
+                equip_events.send(ItemEquipEvent::new(*e_parent, e_item));
+            }
+            Err(..) => {
+                error!("Attempted humanoid equip to non-humanoid.");
+            }
+        }
     }
 }

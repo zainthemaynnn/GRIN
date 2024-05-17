@@ -1,7 +1,9 @@
 use bevy::{
     ecs::query::{QueryEntityError, ReadOnlyWorldQuery, WorldQuery},
     prelude::*,
+    scene::{InstanceId, SceneInstance},
 };
+use itertools::Itertools;
 
 /// Matches two entities against a query. The entity that matches occurs first in the tuple.
 ///
@@ -10,12 +12,12 @@ pub fn distinguish_by_query<Q: WorldQuery, F: ReadOnlyWorldQuery>(
     query: &Query<Q, F>,
     entity_0: Entity,
     entity_1: Entity,
-) -> Result<(Entity, Entity), QueryEntityError> {
-    match query.get(entity_0) {
-        Ok(_) => Ok((entity_0, entity_1)),
-        Err(_) => match query.get(entity_1) {
-            Ok(_) => Ok((entity_1, entity_0)),
-            Err(e) => Err(e),
+) -> Option<(Entity, Entity)> {
+    match query.contains(entity_0) {
+        true => Some((entity_0, entity_1)),
+        false => match query.contains(entity_1) {
+            true => Some((entity_1, entity_0)),
+            false => None,
         },
     }
 }
@@ -24,16 +26,16 @@ pub fn distinguish_by_query<Q: WorldQuery, F: ReadOnlyWorldQuery>(
 pub fn gltf_path_search(
     path: &EntityPath,
     root: Entity,
-    children: &Query<&Children>,
-    names: &Query<&Name>,
+    children_query: &Query<&Children>,
+    name_query: &Query<&Name>,
 ) -> Result<Entity, ()> {
     let mut current_entity = root;
 
     for part in path.parts.iter() {
         let mut found = false;
-        if let Ok(children) = children.get(current_entity) {
+        if let Ok(children) = children_query.get(current_entity) {
             for child in children.iter() {
-                if let Ok(name) = names.get(*child) {
+                if let Ok(name) = name_query.get(*child) {
                     if name == part {
                         // Found a children with the right name, continue to the next part
                         current_entity = *child;
@@ -52,7 +54,21 @@ pub fn gltf_path_search(
     Ok(current_entity)
 }
 
-
+/// Searches the GLTF tree for all nodes with the corresponding prefix.
+pub fn gltf_prefix_search(
+    prefix: &str,
+    root: &InstanceId,
+    scene_manager: &SceneSpawner,
+    name_query: &Query<&Name>,
+) -> Vec<Entity> {
+    return scene_manager
+        .iter_instance_entities(*root)
+        .filter(|e_node| match name_query.get(*e_node) {
+            Ok(name) => name.starts_with(prefix),
+            Err(_) => false,
+        })
+        .collect_vec();
+}
 
 pub struct PotentialAncestorIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery>
 where
@@ -67,7 +83,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> PotentialAncestorIter<'w, 's,
 where
     Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
 {
-    pub fn new(parent_query: &'w Query<'w, 's, Q, ()>, filter_query: &'w Query<'w, 's, (), F>, entity: Entity) -> Self {
+    pub fn new(
+        parent_query: &'w Query<'w, 's, Q, ()>,
+        filter_query: &'w Query<'w, 's, (), F>,
+        entity: Entity,
+    ) -> Self {
         PotentialAncestorIter {
             parent_query,
             filter_query,
@@ -96,6 +116,61 @@ where
                     return None;
                 }
             }
+        }
+    }
+}
+
+/// Designates the marker component `T` as an initializer for `SceneInstance` entities.
+///
+/// This removes the component when the scene is ready, and returns the corresponding entities.
+/// Ideally you should pipe this into other systems. It does not use mutable access.
+//
+// this is courtesy of here. thanks: https://github.com/bevyengine/bevy/discussions/8533
+pub fn labelled_scene_initializer<T: Component>(
+    mut commands: Commands,
+    scene_manager: Res<SceneSpawner>,
+    unloaded_instances: Query<(Entity, &SceneInstance), With<T>>,
+) -> Vec<(Entity, InstanceId)> {
+    let mut scenes = Vec::new();
+    for (entity, instance) in unloaded_instances.iter() {
+        if scene_manager.instance_is_ready(**instance) {
+            commands.entity(entity).remove::<T>();
+            // I dunno if duping the uuid is really necessary, but it's nice to have so far
+            scenes.push((entity, **instance));
+        }
+    }
+    return scenes;
+}
+
+/// Variant of `labelled_scene_intializer` which additionally provides a clone of `T`.
+pub fn cloned_scene_initializer<T: Component + Clone>(
+    mut commands: Commands,
+    scene_manager: Res<SceneSpawner>,
+    unloaded_instances: Query<(Entity, &SceneInstance, &T)>,
+) -> Vec<(Entity, InstanceId, T)> {
+    let mut scenes = Vec::new();
+    for (entity, instance, init) in unloaded_instances.iter() {
+        if scene_manager.instance_is_ready(**instance) {
+            commands.entity(entity).remove::<T>();
+            scenes.push((entity, **instance, init.clone()));
+        }
+    }
+    return scenes;
+}
+
+/// Finds the closest ancestor node with an `AnimationPlayer` and mutably gets it.
+#[macro_export]
+macro_rules! animator_mut {
+    ( $entity:expr, $parent_query:expr, $animator_query:expr ) => {
+        {
+            let Some(e_animator) = $parent_query
+                .iter_ancestors($entity)
+                .find(|&e_node| $animator_query.contains(e_node))
+            else {
+                error!("Missing animator instance when playing animation.");
+                continue;
+            };
+            $animator_query.get_mut(e_animator).unwrap()
         }
     }
 }

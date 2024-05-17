@@ -215,7 +215,8 @@ pub fn send_contact_damage_events(
         };
         trace!("Collision for {:?} on {:?}.", entity_0, entity_1);
 
-        let Ok((e_damage, e_hit)) = distinguish_by_query(&damage_query, *entity_0, *entity_1) else {
+        let Some((e_damage, e_hit)) = distinguish_by_query(&damage_query, *entity_0, *entity_1)
+        else {
             continue;
         };
 

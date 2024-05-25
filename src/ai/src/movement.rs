@@ -376,9 +376,9 @@ pub fn update_biped_procedural_walk_cycle(
                 step_height,
                 step_duration,
                 ..
-            };
+            } = *ik_procs;
 
-            ik_procs.procs[active_batch].begin_step(
+            ik_procs.procs[active_proc].begin_step(
                 step_height,
                 step_duration,
                 &g_transform_query,

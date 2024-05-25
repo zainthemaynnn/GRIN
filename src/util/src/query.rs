@@ -1,5 +1,5 @@
 use bevy::{
-    ecs::query::{QueryEntityError, ReadOnlyWorldQuery, WorldQuery},
+    ecs::query::{ReadOnlyWorldQuery, WorldQuery},
     prelude::*,
     scene::{InstanceId, SceneInstance},
 };
@@ -65,7 +65,7 @@ pub fn gltf_prefix_search(
         .iter_instance_entities(*root)
         .filter(|e_node| match name_query.get(*e_node) {
             Ok(name) => name.starts_with(prefix),
-            Err(_) => false,
+            Err(..) => false,
         })
         .collect_vec();
 }
@@ -158,19 +158,32 @@ pub fn cloned_scene_initializer<T: Component + Clone>(
     return scenes;
 }
 
-/// Finds the closest ancestor node with an `AnimationPlayer` and mutably gets it.
+/// Finds the closest ancestor node with an `AnimationPlayer` and borrows it.
+#[macro_export]
+macro_rules! animator {
+    ( $entity:expr, $parent_query:expr, $animator_query:expr ) => {{
+        let Some(e_animator) = $parent_query
+            .iter_ancestors($entity)
+            .find(|&e_node| $animator_query.contains(e_node))
+        else {
+            error!("Missing animator instance when playing animation.");
+            continue;
+        };
+        $animator_query.get(e_animator).unwrap()
+    }};
+}
+
+/// Finds the closest ancestor node with an `AnimationPlayer` and mutably borrows it.
 #[macro_export]
 macro_rules! animator_mut {
-    ( $entity:expr, $parent_query:expr, $animator_query:expr ) => {
-        {
-            let Some(e_animator) = $parent_query
-                .iter_ancestors($entity)
-                .find(|&e_node| $animator_query.contains(e_node))
-            else {
-                error!("Missing animator instance when playing animation.");
-                continue;
-            };
-            $animator_query.get_mut(e_animator).unwrap()
-        }
-    }
+    ( $entity:expr, $parent_query:expr, $animator_query:expr ) => {{
+        let Some(e_animator) = $parent_query
+            .iter_ancestors($entity)
+            .find(|&e_node| $animator_query.contains(e_node))
+        else {
+            error!("Missing animator instance when playing animation.");
+            continue;
+        };
+        $animator_query.get_mut(e_animator).unwrap()
+    }};
 }

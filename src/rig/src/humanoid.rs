@@ -77,6 +77,14 @@ impl Humanoid {
     }
 
     #[inline]
+    pub fn off_hand(&self) -> Entity {
+        match &self.dominant_hand_type {
+            HumanoidDominantHand::Left => self.rhand,
+            HumanoidDominantHand::Right => self.lhand,
+        }
+    }
+
+    #[inline]
     pub fn part(&self, part: HumanoidPartType) -> Entity {
         match part {
             HumanoidPartType::Body => self.body,

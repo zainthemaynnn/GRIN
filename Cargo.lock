@@ -2627,7 +2627,7 @@ checksum = "eec1c01eb1de97451ee0d60de7d81cf1e72aabefb021616027f3d1c3ec1c723c"
 
 [[package]]
 name = "grin"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
@@ -2652,7 +2652,7 @@ dependencies = [
 
 [[package]]
 name = "grin_ai"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
@@ -2693,7 +2693,7 @@ dependencies = [
 
 [[package]]
 name = "grin_character"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
@@ -2712,7 +2712,7 @@ dependencies = [
 
 [[package]]
 name = "grin_damage"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
@@ -2763,7 +2763,7 @@ dependencies = [
 
 [[package]]
 name = "grin_item"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
@@ -2774,6 +2774,7 @@ dependencies = [
  "grin_physics",
  "grin_render",
  "grin_rig",
+ "grin_time",
  "grin_util",
  "rand",
 ]
@@ -2853,7 +2854,7 @@ dependencies = [
 
 [[package]]
 name = "grin_util"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "approx 0.5.1",
  "bevy",

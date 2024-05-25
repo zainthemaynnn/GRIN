@@ -1,6 +1,6 @@
 [package]
 name = "grin_item"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,6 +12,7 @@ grin_input = { path = "../input" }
 grin_physics = { path = "../physics" }
 grin_render = { path = "../render" }
 grin_rig = { path = "../rig" }
+grin_time = { path = "../time" }
 grin_util = { path = "../util" }
 bevy = { version = "0.12", features = ["dynamic_linking"] }
 bevy_asset_loader = { version = "0.18", features = ["3d", "progress_tracking"] }

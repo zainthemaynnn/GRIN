@@ -170,8 +170,10 @@ pub fn die(mut commands: Commands, health_query: Query<(Entity, &Health)>) {
 /// component, it will be applied automatically.
 #[derive(Component, Default, Copy, Clone, Debug)]
 pub enum ContactDamage {
-    /// This entity is despawned after contact damage event is fired.
+    /// Disabled.
     #[default]
+    None,
+    /// This entity is despawned after contact damage event is fired.
     Despawn,
     /// This component is removed after contact damage event is fired.
     Once,
@@ -265,6 +267,7 @@ pub fn push_contact_damage(
             ContactDamage::Debounce(_debounce) => {
                 todo!();
             }
+            ContactDamage::None => continue,
         };
 
         if let Ok(damage) = try_push_damage(*e_damage, *e_hit, &damage_query, &mut hit_query) {

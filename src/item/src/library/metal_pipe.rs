@@ -102,27 +102,24 @@ pub fn spawn(mut commands: Commands, assets: Res<MetalPipeAssets>) -> Entity {
                 ..Default::default()
             },
             GltfHitboxAutoGen,
+            CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE),
         ))
         .id()
 }
 
 /// Primary attack.
 pub fn bonk(
+    mut commands: Commands,
     assets: Res<MetalPipeAssets>,
     mut shot_events: EventReader<ShotFired<MetalPipe>>,
     parent_query: Query<&Parent>,
     mut animator_query: Query<&mut AnimationPlayer>,
-    mut item_query: Query<&mut CollisionGroups, With<MetalPipe>>,
 ) {
     for ShotFired { entity: e_item, .. } in shot_events.read() {
         let mut animator = animator_mut!(*e_item, parent_query, animator_query);
 
         animator.start(assets.bonk.clone());
 
-        let Ok(mut collision_groups) = item_query.get_mut(*e_item) else {
-            continue;
-        };
-
-        *collision_groups = CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE);
+        commands.entity(*e_item).insert(ContactDamage::Once);
     }
 }

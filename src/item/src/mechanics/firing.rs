@@ -2,12 +2,54 @@ use std::marker::PhantomData;
 
 use bevy::prelude::*;
 
-use super::{Active, MuzzleFlashEvent};
+use super::fx::MuzzleFlashEvent;
 
-#[derive(Default)]
-pub struct FiringPlugin<T: Component> {
-    pub ty: FiringType,
-    pub phantom_data: PhantomData<T>,
+/// Commonly used for AI or weapon targetting.
+#[derive(Component, Debug, Copy, Clone)]
+pub struct Target {
+    pub transform: Transform,
+    pub distance: f32,
+}
+
+impl Default for Target {
+    fn default() -> Self {
+        Self {
+            transform: Transform::default(),
+            distance: std::f32::MAX,
+        }
+    }
+}
+
+impl Target {
+    pub fn from_pair(origin: Vec3, target: Vec3) -> Self {
+        Self {
+            transform: Transform::from_translation(target),
+            distance: target.distance(origin),
+        }
+    }
+}
+
+/// Whether the item is being "used."
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Default)]
+#[component(storage = "SparseSet")]
+pub struct Active;
+
+/// For most items, affects the accuracy of projectiles in different ways. A higher number is better.
+///
+/// `1.0` is the default. Can't go below zero.
+#[derive(Component, Debug, Copy, Clone, PartialEq)]
+pub struct Accuracy(pub f32);
+
+impl Default for Accuracy {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+impl From<f32> for Accuracy {
+    fn from(value: f32) -> Self {
+        Self(value)
+    }
 }
 
 #[derive(Default)]
@@ -15,6 +57,12 @@ pub enum FiringType {
     #[default]
     SemiAutomatic,
     Automatic,
+}
+
+#[derive(Default)]
+pub struct FiringPlugin<T: Component> {
+    pub ty: FiringType,
+    pub phantom_data: PhantomData<T>,
 }
 
 impl<T: Component> Plugin for FiringPlugin<T> {

@@ -6,6 +6,7 @@ use grin_rig::humanoid::{HumanoidBuild, HumanoidBundle, HumanoidDominantHand};
 use grin_util::event::Spawnable;
 
 use crate::{Character, CharacterSet, GenericHumanoidCharacterPlugin, PlayerCharacter};
+
 pub struct SmirkPlugin;
 
 impl Plugin for SmirkPlugin {
@@ -39,7 +40,7 @@ pub struct Smirk;
 pub struct SmirkUninit;
 
 impl Character for Smirk {
-    type StartItem = grin_item::smg::SMG;
+    type StartItem = grin_item::library::fist::Fist;
 }
 
 impl Spawnable for Smirk {

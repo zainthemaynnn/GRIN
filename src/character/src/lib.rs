@@ -8,7 +8,12 @@ use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::{DamageBuffer, Health, HealthBundle};
 use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera, PlayerCameraPlugin};
-use grin_item::{DamageCollisionGroups, Equipped, InputHandler, Item, ItemSpawnEvent};
+use grin_item::{
+    equip::Equipped,
+    mechanics::{hitbox::DamageCollisionGroups, util::InputHandler},
+    plugin::Item,
+    spawn::ItemSpawnEvent,
+};
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
 use grin_render::{
     gopro::{add_gopro, GoProSettings},
@@ -119,11 +124,10 @@ pub fn equip_spawn_item_on_humanoid_load<T: Character>(
 pub fn enable_input_for_player_items(
     mut commands: Commands,
     character_query: Query<&Equipped, (With<PlayerCharacter>, Changed<Equipped>)>,
-    _item_query: Query<Entity, Without<Equipped>>,
 ) {
     for equipped in character_query.iter() {
-        for e_item in equipped.0.iter() {
-            commands.entity(*e_item).insert((
+        for e_item in [equipped.left, equipped.right] {
+            commands.entity(e_item).insert((
                 InputHandler,
                 DamageCollisionGroups(CollisionGroups::from_group_default(
                     Group::PLAYER_PROJECTILE,
@@ -170,13 +174,17 @@ pub fn init_character_model(
         return;
     };
 
+    // PLACEHOLDERS
+    let left = commands.spawn_empty().id();
+    let right = commands.spawn_empty().id();
+
     commands.entity(e_humanoid).insert((
         Player,
         HealthBundle {
             health: Health(100.0),
             ..Default::default()
         },
-        Equipped::default(),
+        Equipped { left, right },
         RigidBody::KinematicPositionBased,
         Velocity::default(),
         KinematicCharacterController {

@@ -13,7 +13,7 @@ use grin_asset::{texture_array, AssetLoadState, DynamicAssetPlugin};
 use grin_character::{CharacterPlugins, CharacterSet};
 use grin_damage::DamagePlugin;
 use grin_dialogue::{DialogueEvent, DialogueMap};
-use grin_item::{ItemPlugins, ItemSet};
+use grin_item::{library::plugin::ItemLibrary, plugin::{ItemPlugins, ItemSet}};
 use grin_map::{Map, MapLoadState, MapPlugin};
 use grin_physics::GrinPhysicsPlugin;
 use grin_render::RenderFXPlugins;
@@ -81,6 +81,7 @@ fn main() -> Result<(), io::Error> {
             RenderFXPlugins,
             HumanoidPlugin,
             ItemPlugins,
+            ItemLibrary,
             CharacterPlugins,
             AiPlugins,
             DamagePlugin,

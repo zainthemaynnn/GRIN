@@ -1,9 +1,8 @@
-use bevy::{ecs::query::QuerySingleError, prelude::*};
+use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_input::camera::{CameraAlignment, LookInfo, MouseOpts, PlayerCamera};
-use grin_item::Target;
+use grin_input::camera::LookInfo;
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::SketchMaterial;
 use grin_rig::humanoid::{Humanoid, HumanoidBuild, HumanoidBundle, HumanoidDominantHand};
@@ -46,7 +45,7 @@ pub struct Grin;
 pub struct GrinUninit;
 
 impl Character for Grin {
-    type StartItem = grin_item::sledge::Sledge;
+    type StartItem = grin_item::library::fist::Fist;
 }
 
 impl Spawnable for Grin {
@@ -121,7 +120,9 @@ pub fn freeze(
         |e_hit, _| {
             commands.entity(e_hit).log_components();
 
-            let Some(e_target) = PotentialAncestorIter::new(&parent_query, &freezeable_query, e_hit).next() else {
+            let Some(e_target) =
+                PotentialAncestorIter::new(&parent_query, &freezeable_query, e_hit).next()
+            else {
                 return false;
             };
 

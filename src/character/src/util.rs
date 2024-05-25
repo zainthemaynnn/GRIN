@@ -1,6 +1,6 @@
 use bevy::{ecs::query::QuerySingleError, prelude::*};
 use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera};
-use grin_item::Target;
+use grin_item::mechanics::firing::Target;
 
 use crate::PlayerCharacter;
 

@@ -80,10 +80,10 @@ macro_rules! models {
 
             let mut map = HashMap::new();
             $(
-                map[$key] = $commands.spawn(SceneBundle {
+                map.insert($key, $commands.spawn(SceneBundle {
                     scene: $handle,
                     ..Default::default()
-                });
+                }).id());
             )*
             Models::from(map)
         }
@@ -95,7 +95,7 @@ pub fn equip_items<M: Send + Sync + 'static>(
     mut commands: Commands,
     mut events: EventReader<ItemEquipEvent<M>>,
     mut humanoid_query: Query<(&Humanoid, &mut Equipped)>,
-    mut item_query: Query<(&Models, &SlotAlignment)>,
+    mut item_query: Query<(&Models, &mut SlotAlignment)>,
 ) {
     for ItemEquipEvent {
         parent_entity,
@@ -109,7 +109,7 @@ pub fn equip_items<M: Send + Sync + 'static>(
             continue;
         };
 
-        let Ok((models, mut slot_alignment)) = item_query.get(*item_entity) else {
+        let Ok((models, mut slot_alignment)) = item_query.get_mut(*item_entity) else {
             error!("Missing equipment-related components.");
             continue;
         };

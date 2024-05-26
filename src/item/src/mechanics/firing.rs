@@ -1,6 +1,9 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, time::Duration};
 
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashSet};
+use bevy_enum_filter::{Enum, EnumFilter};
+use grin_physics::PhysicsTime;
+use grin_time::scaling::TimeScale;
 
 use super::fx::MuzzleFlashEvent;
 
@@ -52,8 +55,8 @@ impl From<f32> for Accuracy {
     }
 }
 
-#[derive(Default)]
-pub enum FiringType {
+#[derive(Component, Debug, Default, Hash, Eq, PartialEq)]
+pub enum FiringBehavior {
     #[default]
     SemiAutomatic,
     Automatic,
@@ -61,76 +64,76 @@ pub enum FiringType {
 
 #[derive(Default)]
 pub struct FiringPlugin<T: Component> {
-    pub ty: FiringType,
+    pub supported_modes: HashSet<FiringBehavior>,
     pub phantom_data: PhantomData<T>,
 }
 
 impl<T: Component> Plugin for FiringPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_event::<ShotFired<T>>()
-            .add_systems(Update, (send_muzzle_flash::<T>, update_cooldown::<T>));
+            .add_systems(Update, (send_muzzle_flash::<T>, step_cooldowns::<T>));
 
-        match self.ty {
-            FiringType::SemiAutomatic => {
-                app.add_systems(
-                    Update,
-                    (
-                        semi_fire::<T>.after(update_cooldown::<T>),
-                        play_sfx_discrete::<T>,
-                    ),
-                );
-            }
-            FiringType::Automatic => {
-                app.add_event::<ShotsBegan<T>>()
-                    .add_event::<ShotsEnded<T>>()
-                    .add_systems(
+        for ty in &self.supported_modes {
+            match ty {
+                FiringBehavior::SemiAutomatic => {
+                    app.add_systems(
                         Update,
                         (
-                            auto_fire::<T>.after(update_cooldown::<T>),
-                            play_sfx_continuous::<T>,
+                            semi_fire::<T>.after(step_cooldowns::<T>),
+                            play_sfx_discrete::<T>,
                         ),
                     );
+                }
+                FiringBehavior::Automatic => {
+                    app.add_event::<ShotsBegan<T>>()
+                        .add_event::<ShotsEnded<T>>()
+                        .add_systems(
+                            Update,
+                            (
+                                auto_fire::<T>.after(step_cooldowns::<T>),
+                                play_sfx_continuous::<T>,
+                            ),
+                        );
+                }
             }
         }
     }
 }
 
-impl<T: Component> From<FiringType> for FiringPlugin<T> {
-    fn from(firing_type: FiringType) -> Self {
+impl<T: Component> From<HashSet<FiringBehavior>> for FiringPlugin<T> {
+    fn from(supported_modes: HashSet<FiringBehavior>) -> Self {
         Self {
-            ty: firing_type,
+            supported_modes,
             phantom_data: PhantomData::default(),
         }
     }
 }
 
-#[derive(Bundle, Default)]
-pub struct SemiFireBundle {
-    pub fire_rate: FireRate,
-    pub cooldown: Cooldown,
-}
-
-#[derive(Bundle, Default)]
-pub struct AutoFireBundle {
-    pub fire_rate: FireRate,
-    pub cooldown: Cooldown,
-    pub firing: AutoFire,
-}
-
 #[derive(Component)]
-pub struct FireRate(pub f32);
+pub struct FireRate(pub Duration);
 
 impl Default for FireRate {
     fn default() -> Self {
-        Self(1.0)
+        Self(Duration::from_millis(1000))
     }
 }
 
 #[derive(Component, Default)]
-pub struct Cooldown(pub f32);
+pub struct ShotCooldown(pub Duration);
 
-#[derive(Component, Default)]
-pub struct AutoFire(pub bool);
+impl ShotCooldown {
+    pub fn ready(&self) -> bool {
+        self.0.is_zero()
+    }
+
+    pub fn step(&mut self, dt: Duration) {
+        self.0 = self.0.saturating_sub(dt);
+    }
+
+    pub fn reset(&mut self, duration: Duration) {
+        self.0 = duration
+    }
+}
 
 #[derive(Component)]
 pub struct ItemSfx {
@@ -155,30 +158,38 @@ pub struct ShotsEnded<T: Component> {
     pub phantom_data: PhantomData<T>,
 }
 
-pub fn update_cooldown<T: Component>(
-    time: Res<Time>,
-    mut query: Query<(&mut Cooldown, &FireRate), With<T>>,
+#[derive(Component, EnumFilter, Debug, Default)]
+pub enum FiringMode {
+    #[default]
+    SemiAuto,
+    Auto {
+        firing: bool,
+    },
+}
+
+pub fn step_cooldowns<T: Component>(
+    time: Res<PhysicsTime>,
+    mut query: Query<(&mut ShotCooldown, &TimeScale), With<T>>,
 ) {
-    for (mut cooldown, fire_rate) in query.iter_mut() {
-        if cooldown.0 < fire_rate.0 {
-            cooldown.0 += time.delta_seconds();
-        }
+    for (mut cooldown, time_scale) in query.iter_mut() {
+        cooldown.step(time.0.delta().mul_f32(f32::from(time_scale)));
     }
 }
 
 pub fn semi_fire<T: Component>(
-    mut query: Query<(Entity, &mut Cooldown, &FireRate, Option<Ref<Active>>), With<T>>,
+    mut query: Query<
+        (Entity, &mut ShotCooldown, &FireRate),
+        (With<T>, With<Enum!(FiringMode::SemiAuto)>, Added<Active>),
+    >,
     mut shot_events: EventWriter<ShotFired<T>>,
 ) {
-    for (entity, mut cooldown, fire_rate, active) in query.iter_mut() {
-        if let Some(active) = active {
-            if active.is_added() && cooldown.0 >= fire_rate.0 {
-                shot_events.send(ShotFired {
-                    entity,
-                    phantom_data: PhantomData::default(),
-                });
-                cooldown.0 = 0.0;
-            }
+    for (entity, mut cooldown, fire_rate) in query.iter_mut() {
+        if cooldown.ready() {
+            shot_events.send(ShotFired {
+                entity,
+                phantom_data: PhantomData::default(),
+            });
+            cooldown.reset(fire_rate.0);
         }
     }
 }
@@ -187,46 +198,42 @@ pub fn auto_fire<T: Component>(
     mut query: Query<
         (
             Entity,
-            &mut Cooldown,
+            &mut ShotCooldown,
             &FireRate,
             Option<&Active>,
-            &mut AutoFire,
+            &mut FiringMode,
         ),
-        With<T>,
+        (With<T>, With<Enum!(FiringMode::Auto)>),
     >,
     mut shot_events: EventWriter<ShotFired<T>>,
     mut shots_began: EventWriter<ShotsBegan<T>>,
     mut shots_ended: EventWriter<ShotsEnded<T>>,
 ) {
-    for (entity, mut cooldown, fire_rate, active, mut firing) in query.iter_mut() {
-        if active.is_some() {
-            if cooldown.0 >= fire_rate.0 {
-                if !firing.0 {
-                    firing.0 = true;
-                    shots_began.send(ShotsBegan {
-                        entity,
-                        phantom_data: PhantomData::default(),
-                    });
-                }
+    for (entity, mut cooldown, fire_rate, active, mut firing_mode) in query.iter_mut() {
+        let FiringMode::Auto { ref mut firing } = *firing_mode else {
+            continue;
+        };
 
-                // need to use loops to account for frame lag
-                // (might need to fire multiple at once if it spiked)
-                while cooldown.0 >= fire_rate.0 {
-                    cooldown.0 -= fire_rate.0;
-                    shot_events.send(ShotFired {
-                        entity,
-                        phantom_data: PhantomData::default(),
-                    });
-                }
-            }
-        } else {
-            if firing.0 {
-                firing.0 = false;
-                shots_ended.send(ShotsEnded {
-                    entity,
-                    phantom_data: PhantomData::default(),
-                });
-            }
+        if active.is_some() && !*firing && cooldown.ready() {
+            *firing = true;
+            shots_began.send(ShotsBegan {
+                entity,
+                phantom_data: PhantomData::default(),
+            });
+        } else if active.is_none() && *firing {
+            *firing = false;
+            shots_ended.send(ShotsEnded {
+                entity,
+                phantom_data: PhantomData::default(),
+            });
+        }
+
+        if *firing && cooldown.ready() {
+            shot_events.send(ShotFired {
+                entity,
+                phantom_data: PhantomData::default(),
+            });
+            cooldown.reset(fire_rate.0);
         }
     }
 }
@@ -242,7 +249,7 @@ pub fn send_muzzle_flash<T: Component>(
 
 pub fn play_sfx_discrete<T: Component>(
     mut commands: Commands,
-    audio_query: Query<&ItemSfx, With<T>>,
+    audio_query: Query<&ItemSfx, (With<T>, With<Enum!(FiringMode::SemiAuto)>)>,
     mut shot_fired: EventReader<ShotFired<T>>,
 ) {
     for ShotFired { entity, .. } in shot_fired.read() {
@@ -262,7 +269,7 @@ pub fn play_sfx_discrete<T: Component>(
 
 pub fn play_sfx_continuous<T: Component>(
     mut commands: Commands,
-    sfx_query: Query<&ItemSfx, With<T>>,
+    sfx_query: Query<&ItemSfx, (With<T>, With<Enum!(FiringMode::Auto)>)>,
     sink_query: Query<&mut SpatialAudioSink>,
     mut shots_began: EventReader<ShotsBegan<T>>,
     mut shots_ended: EventReader<ShotsEnded<T>>,
@@ -276,13 +283,11 @@ pub fn play_sfx_continuous<T: Component>(
             sound.stop();
         }
 
-        commands
-            .get_or_spawn(*entity)
-            .insert(AudioBundle {
-                source: on_fire.clone(),
-                settings: PlaybackSettings::LOOP,
-                ..Default::default()
-            });
+        commands.get_or_spawn(*entity).insert(AudioBundle {
+            source: on_fire.clone(),
+            settings: PlaybackSettings::LOOP,
+            ..Default::default()
+        });
     }
 
     for ShotsEnded { entity, .. } in shots_ended.read() {
@@ -290,8 +295,6 @@ pub fn play_sfx_continuous<T: Component>(
             sound.stop();
             commands.get_or_spawn(*entity).remove::<SpatialAudioSink>();
         }
-        commands
-            .get_or_spawn(*entity)
-            .remove::<AudioBundle>();
+        commands.get_or_spawn(*entity).remove::<AudioBundle>();
     }
 }

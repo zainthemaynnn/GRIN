@@ -7,7 +7,7 @@
 
 use std::time::Duration;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashSet};
 use bevy_asset_loader::prelude::{AssetCollection, LoadingStateAppExt};
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
@@ -16,13 +16,16 @@ use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 use grin_util::{animator, animator_mut};
 
 use crate::{
-    equip::{self, Grip, Handedness, Models, SlotAlignment}, mechanics::{
+    equip::{self, Grip, Handedness, Models, SlotAlignment},
+    mechanics::{
         combo::{ComboPlugin, ComboStack},
-        firing::{self, Active, FireRate, FiringPlugin, FiringType, SemiFireBundle, ShotFired},
+        firing::{self, Active, FireRate, FiringBehavior, FiringPlugin, ShotFired},
         fx::on_hit_render_impact,
         hitbox::DamageCollisionGroups,
         util::insert_on_lmb,
-    }, models, plugin::{Item, ItemPlugin, ItemSet, WeaponBundle}
+    },
+    models,
+    plugin::{Item, ItemPlugin, ItemSet, WeaponBundle},
 };
 
 pub struct FistPlugin;
@@ -61,7 +64,7 @@ impl Plugin for FistPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             ItemPlugin::<Fist>::default(),
-            FiringPlugin::<Fist>::from(FiringType::SemiAutomatic),
+            FiringPlugin::<Fist>::from(HashSet::from([FiringBehavior::SemiAutomatic])),
             ComboPlugin::<FistCombo>::default(),
         ))
         .add_collection_to_loading_state::<_, FistAssets>(AssetLoadState::Loading)
@@ -120,10 +123,7 @@ pub fn spawn(mut commands: Commands, assets: Res<FistAssets>) -> Entity {
             // TODO: I think contact damage needs to be reworked
             // also, `Debounce` isn't even implemented yet
             contact_damage: ContactDamage::Debounce(Duration::from_millis(200)),
-            ..Default::default()
-        },
-        SemiFireBundle {
-            fire_rate: FireRate(0.8),
+            fire_rate: FireRate(Duration::from_millis(800)),
             ..Default::default()
         },
     );

@@ -9,7 +9,7 @@ use crate::{
     equip::{equip_items, Handedness, ItemEquipEvent, Models},
     mechanics::{
         combo::ComboStack,
-        firing::{Accuracy, Target},
+        firing::{Accuracy, FireRate, FiringMode, ShotCooldown, Target},
         fx::ItemFxPlugin,
         hitbox::{
             DamageCollisionGroups, GltfHitboxAutoGen, GltfHitboxAutoGenConfig,
@@ -106,6 +106,12 @@ pub struct WeaponBundle<C: Send + Sync + 'static> {
     pub hitboxes: HitboxManager,
     /// Contact damage (default: `Disabled`).
     pub contact_damage: ContactDamage,
+    /// Weapon fire rate.
+    pub fire_rate: FireRate,
+    /// Weapon attack cooldown.
+    pub cooldown: ShotCooldown,
+    /// Weapon firing mode (default: `SemiAuto`).
+    pub firing_mode: FiringMode,
 }
 
 // I love rust it really is my favourite language :) :) <333
@@ -122,6 +128,9 @@ impl<C: Send + Sync + 'static> Default for WeaponBundle<C> {
             models: Models::default(),
             hitboxes: HitboxManager::default(),
             contact_damage: ContactDamage::default(),
+            fire_rate: FireRate::default(),
+            cooldown: ShotCooldown::default(),
+            firing_mode: FiringMode::default(),
         }
     }
 }

@@ -3,11 +3,9 @@ use std::marker::PhantomData;
 use bevy::{app::PluginGroupBuilder, prelude::*};
 use grin_asset::AssetLoadState;
 use grin_damage::ContactDamage;
-use grin_util::event::Spawnable;
 
 use crate::{
-    equip::{equip_items, Handedness, ItemEquipEvent, Models},
-    mechanics::{
+    equip::{Handedness, ItemEquipEvent, Models}, library::plugin::ItemIdentifier, mechanics::{
         combo::ComboStack,
         firing::{Accuracy, FireRate, FiringMode, ShotCooldown, Target},
         fx::ItemFxPlugin,
@@ -15,22 +13,10 @@ use crate::{
             DamageCollisionGroups, GltfHitboxAutoGen, GltfHitboxAutoGenConfig,
             GltfHitboxGenerationPlugin, HitboxManager,
         },
-    },
-    spawn::ItemSpawnEvent,
+    }, spawn::ItemSpawnEvent
 };
 
 pub const GLTF_HITBOX_IDENTIFIER: &str = "__HB";
-
-pub trait Item: Component {}
-
-/// I hate this SO MUCH WHAT THE HELL IS THE POINT I MADE THE OTHER CRATE
-pub struct SpawnableItem<I: Item> {
-    phantom_data: PhantomData<I>,
-}
-
-impl<I: Item + Clone> Spawnable for SpawnableItem<I> {
-    type Event = ItemSpawnEvent<I>;
-}
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum ItemSet {
@@ -63,8 +49,7 @@ impl<I: Component> Default for ItemPlugin<I> {
 impl<I: Component> Plugin for ItemPlugin<I> {
     fn build(&self, app: &mut App) {
         app.add_event::<ItemSpawnEvent<I>>()
-            .add_event::<ItemEquipEvent<I>>()
-            .add_systems(Update, equip_items::<I>);
+            .add_event::<ItemEquipEvent<I>>();
     }
 }
 
@@ -88,6 +73,8 @@ pub struct Weapon;
 pub struct WeaponBundle<C: Send + Sync + 'static> {
     /// Generic weapon marker component.
     pub weapon: Weapon,
+    /// Item ID.
+    pub identifier: ItemIdentifier,
     /// Weapon target (ignore during init).
     pub target: Target,
     /// Weapon accuracy.
@@ -120,6 +107,7 @@ impl<C: Send + Sync + 'static> Default for WeaponBundle<C> {
         Self {
             combo_stack: ComboStack::<C>::default(), // WHY
             weapon: Weapon::default(),
+            identifier: ItemIdentifier::default(),
             target: Target::default(),
             accuracy: Accuracy::default(),
             damage_collision_groups: DamageCollisionGroups::default(),

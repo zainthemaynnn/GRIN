@@ -16,7 +16,7 @@ use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 use grin_util::{animator, animator_mut};
 
 use crate::{
-    equip::{self, Grip, Handedness, Models, SlotAlignment},
+    equip::{Grip, Handedness, Models, SlotAlignment},
     mechanics::{
         combo::{ComboPlugin, ComboStack},
         firing::{self, Active, FireRate, FiringBehavior, FiringPlugin, ShotFired},
@@ -25,15 +25,19 @@ use crate::{
         util::insert_on_lmb,
     },
     models,
-    plugin::{Item, ItemPlugin, ItemSet, WeaponBundle},
+    plugin::{ItemPlugin, ItemSet, WeaponBundle},
+    spawn::item_spawner,
 };
+
+pub use super::plugin::item_identifier_filters::Fist;
+use super::plugin::ItemIdentifier;
 
 pub struct FistPlugin;
 
 #[derive(Resource, AssetCollection)]
 pub struct FistAssets {
     // there's nothing visual here; just hitboxes
-    #[asset(key = "gltf.fist")]
+    #[asset(key = "scene.fist")]
     pub fist: Handle<Scene>,
     #[asset(key = "anim.punch.left")]
     pub lpunch: Handle<AnimationClip>,
@@ -84,9 +88,23 @@ impl Plugin for FistPlugin {
         .add_systems(
             Update,
             (
-                spawn
-                    .pipe(equip::auto_equip_to_humanoid::<Fist>)
-                    .in_set(ItemSet::Spawn),
+                item_spawner::<Fist, _, _>(|mut commands: Commands, assets: Res<FistAssets>| {
+                    WeaponBundle::<FistCombo> {
+                        identifier: ItemIdentifier::Fist,
+                        models: models![
+                            commands,
+                            (Grip::Hand, assets.fist.clone()),
+                            (Grip::Offhand, assets.fist.clone()),
+                        ],
+                        handedness: Handedness::Double,
+                        // TODO: I think contact damage needs to be reworked
+                        // also, `Debounce` isn't even implemented yet
+                        contact_damage: ContactDamage::Debounce(Duration::from_millis(200)),
+                        fire_rate: FireRate(Duration::from_millis(800)),
+                        ..Default::default()
+                    }
+                })
+                .in_set(ItemSet::Spawn),
                 (insert_on_lmb::<Fist, Active>,)
                     .chain()
                     .in_set(FistSystemSet::Input),
@@ -98,37 +116,11 @@ impl Plugin for FistPlugin {
     }
 }
 
-#[derive(Component, Clone, Default)]
-pub struct Fist;
-
-impl Item for Fist {}
-
 #[derive(Clone, Copy, Debug)]
 pub enum FistCombo {
     LPunch,
     RPunch,
     SpinPunch,
-}
-
-pub fn spawn(mut commands: Commands, assets: Res<FistAssets>) -> Entity {
-    let bundle = (
-        Fist,
-        WeaponBundle::<FistCombo> {
-            handedness: Handedness::Double,
-            models: models![
-                commands,
-                (Grip::Hand, assets.fist.clone()),
-                (Grip::Offhand, assets.fist.clone()),
-            ],
-            // TODO: I think contact damage needs to be reworked
-            // also, `Debounce` isn't even implemented yet
-            contact_damage: ContactDamage::Debounce(Duration::from_millis(200)),
-            fire_rate: FireRate(Duration::from_millis(800)),
-            ..Default::default()
-        },
-    );
-
-    commands.spawn(bundle).id()
 }
 
 /// Primary attack.

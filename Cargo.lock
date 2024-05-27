@@ -2652,7 +2652,7 @@ dependencies = [
 
 [[package]]
 name = "grin_ai"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
@@ -2678,7 +2678,7 @@ dependencies = [
 
 [[package]]
 name = "grin_asset"
-version = "0.3.0"
+version = "0.3.2"
 dependencies = [
  "anyhow",
  "bevy",
@@ -2693,7 +2693,7 @@ dependencies = [
 
 [[package]]
 name = "grin_character"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
@@ -2712,7 +2712,7 @@ dependencies = [
 
 [[package]]
 name = "grin_damage"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
@@ -2728,7 +2728,7 @@ dependencies = [
 
 [[package]]
 name = "grin_derive"
-version = "0.3.0"
+version = "0.3.2"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -2763,7 +2763,7 @@ dependencies = [
 
 [[package]]
 name = "grin_item"
-version = "0.4.0"
+version = "0.3.2"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
@@ -2803,7 +2803,7 @@ dependencies = [
 
 [[package]]
 name = "grin_physics"
-version = "0.3.0"
+version = "0.3.2"
 dependencies = [
  "bevy",
  "bevy_rapier3d",

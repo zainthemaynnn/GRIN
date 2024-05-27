@@ -79,6 +79,11 @@ CustomDynamicAssetCollection({
           source: "humanoid.glb",
           item: "2002.raver",
      ),
+     "scene.fist": GltfSubAsset (
+          ty: Scene,
+          source: "fist.glb",
+          item: "fist",
+     ),
 
      "anim.idle": GltfSubAsset (
           ty: Animation,
@@ -149,6 +154,21 @@ CustomDynamicAssetCollection({
           ty: Animation,
           source: "humanoid.glb",
           item: "hammer.equip",
+     ),
+     "anim.punch.left": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "punch.left",
+     ),
+     "anim.punch.right": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "punch.right",
+     ),
+     "anim.punch.spin": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "punch.spin",
      ),
 
      "rig.screamer": File (

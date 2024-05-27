@@ -11,7 +11,6 @@ use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera, PlayerCameraPl
 use grin_item::{
     equip::Equipped,
     mechanics::{hitbox::DamageCollisionGroups, util::InputHandler},
-    plugin::Item,
     spawn::ItemSpawnEvent,
 };
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
@@ -115,9 +114,10 @@ pub fn equip_spawn_item_on_humanoid_load<T: Character>(
     mut weapon_events: EventWriter<ItemSpawnEvent<<T as Character>::StartItem>>,
 ) {
     for e_character in character_query.iter() {
-        weapon_events.send(ItemSpawnEvent::<<T as Character>::StartItem>::new(
-            e_character,
-        ));
+        weapon_events.send(ItemSpawnEvent::<<T as Character>::StartItem> {
+            parent_entity: Some(e_character),
+            ..Default::default()
+        });
     }
 }
 
@@ -152,7 +152,7 @@ impl PluginGroup for CharacterPlugins {
 }
 
 pub trait Character: Component + Sized + Spawnable {
-    type StartItem: Item;
+    type StartItem: Component;
 }
 
 #[derive(Component, Default)]

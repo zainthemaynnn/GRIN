@@ -1,7 +1,9 @@
 use proc_macro::TokenStream;
 use proc_macro_crate::FoundCrate;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, punctuated::Punctuated, spanned::Spanned, DeriveInput, Meta, Token};
+use syn::{
+    parse_macro_input, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Meta, Token,
+};
 
 #[proc_macro_derive(Cooldown, attributes(cooldown))]
 pub fn derive_cooldown(input: TokenStream) -> TokenStream {
@@ -91,9 +93,40 @@ fn impl_spawnable(input: DeriveInput) -> Result<proc_macro2::TokenStream, syn::E
     }))
 }
 
+#[proc_macro_derive(TypedEvents)]
+pub fn derive_typed_events(input: TokenStream) -> TokenStream {
+    match impl_typed_events(parse_macro_input!(input as DeriveInput)) {
+        Ok(stream) => stream.into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+fn impl_typed_events(input: DeriveInput) -> Result<proc_macro2::TokenStream, syn::Error> {
+    let ident = &input.ident;
+
+    let grin_util = get_crate("grin_util");
+    let bevy_enum_filter = get_crate("bevy_enum_filter");
+    let Data::Enum(data_enum) = &input.data else {
+        return Err(syn::Error::new(ident.span(), "Cannot derive for non-enum."));
+    };
+    let variants = data_enum.variants.iter().map(|var| &var.ident);
+
+    Ok(proc_macro2::TokenStream::from(quote! {
+        impl #ident {
+            /// Converts an `UntypedEvent` to its typed counterpart, annotated with the enum filter struct
+            /// for this variant.
+            pub fn typed_event<E: #grin_util::event::UntypedEvent>(&self, ev: &E) -> E::TypedEvent<impl Component> {
+                match self {
+                    #( #ident::#variants => ev.typed::<#bevy_enum_filter::Enum!(#ident::#variants)>() ),*
+                }
+            }
+        }
+    }))
+}
+
 fn get_crate(name: &str) -> proc_macro2::TokenStream {
     let found_crate = proc_macro_crate::crate_name(name)
-        .expect(&format!("`{}` is present in `Cargo.toml`", name));
+        .expect(&format!("`{}` is not present in `Cargo.toml`", name));
 
     match found_crate {
         FoundCrate::Itself => quote!(crate),

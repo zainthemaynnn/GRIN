@@ -2771,6 +2771,7 @@ dependencies = [
  "bevy_rapier3d",
  "grin_asset",
  "grin_damage",
+ "grin_derive",
  "grin_input",
  "grin_physics",
  "grin_render",

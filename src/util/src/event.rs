@@ -45,3 +45,9 @@ pub trait DefaultSpawnable<E: Event + Clone + Default>: Spawnable<Event = E> {
 }
 
 impl<E: Event + Clone + Default, T: Spawnable<Event = E>> DefaultSpawnable<E> for T {}
+
+pub trait UntypedEvent: Event {
+    type TypedEvent<I>;
+
+    fn typed<I>(&self) -> Self::TypedEvent<I>;
+}

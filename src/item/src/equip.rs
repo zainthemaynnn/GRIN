@@ -1,19 +1,66 @@
 use std::marker::PhantomData;
 
 use bevy::{prelude::*, utils::HashMap};
-use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
+use grin_rig::humanoid::Humanoid;
+use grin_util::event::UntypedEvent;
 
-use crate::spawn::ItemSpawnEvent;
+use crate::library::plugin::ItemIdentifier;
 
+pub struct EquipPlugin;
+
+impl Plugin for EquipPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_event::<UntypedItemEquipEvent>()
+            .add_systems(Update, convert_untyped_events);
+    }
+}
+
+/// Event that can be used to equip items to a player or NPC.
 #[derive(Event, Clone)]
-pub struct ItemEquipEvent<M> {
+pub struct UntypedItemEquipEvent {
+    /// Entity that the item is being equipped to.
+    pub parent_entity: Entity,
+    /// Item to be equipped.
+    pub item_entity: Entity,
+    /// Item slots that will be occupied by this item. This should always be:
+    ///
+    /// - `SlotAlignment::Left` or `SlotAlignment::Right` for `Handedness::Single` items
+    /// - `SlotAlignment::Double` for `Handedness::Double` items
+    /// - `SlotAlignment::None` for items that are being unequipped
+    ///
+    /// There are no compile checks. You have been warned.
+    pub slot: SlotAlignment,
+}
+
+impl UntypedEvent for UntypedItemEquipEvent {
+    type TypedEvent<I> = ItemEquipEvent<I>;
+
+    fn typed<I>(&self) -> Self::TypedEvent<I> {
+        ItemEquipEvent {
+            parent_entity: self.parent_entity,
+            item_entity: self.item_entity,
+            slot: self.slot,
+            phantom_data: PhantomData::default(),
+        }
+    }
+}
+
+/// The typed equivalent of `UntypedEquipEvent`. The generic corresponds to the item being
+/// equipped.
+///
+/// If sending an equip event, prefer using the untyped version over this version. The reason
+/// behind this is that untyped events will be converted to typed events and sent again,
+/// while the reverse does not apply. The typed event is generally used for internal
+/// item implementations.
+#[derive(Event, Clone)]
+pub struct ItemEquipEvent<I> {
     pub parent_entity: Entity,
     pub item_entity: Entity,
     pub slot: SlotAlignment,
-    pub phantom_data: PhantomData<M>,
+    pub phantom_data: PhantomData<I>,
 }
 
-impl<M> ItemEquipEvent<M> {
+impl<I> ItemEquipEvent<I> {
     pub fn new(parent_entity: Entity, item_entity: Entity, slot: SlotAlignment) -> Self {
         Self {
             parent_entity,
@@ -90,18 +137,38 @@ macro_rules! models {
     }
 }
 
+// I don't know if this is a good idea TBH, but whatever. the exclusive world access seems
+// necessary due to the sheer number of event writers that exist. the alternative is
+// to make separate systems for each item which all read the event queue, but I *assume*
+// that would be even slower.
+/// Consumes all `UntypedItemEquipEvent`s, sending `ItemEquipEvent<T>` where `T` is the
+/// corresponding item identifier type.
+pub fn convert_untyped_events(world: &mut World) {
+    world.resource_scope::<Events<UntypedItemEquipEvent>, _>(|world, events| {
+        // TODO?: figure out if I can batch send? it's difficult cause of borrowing rules.
+        let mut reader = events.get_reader();
+        for ev in reader.read(&events) {
+            world.send_event(
+                world
+                    .get::<ItemIdentifier>(ev.item_entity)
+                    .unwrap()
+                    .typed_event(ev),
+            );
+        }
+    });
+}
+
 /// Updates the `Equipped` component when sending `ItemEquippedEvent`s.
-pub fn equip_items<M: Send + Sync + 'static>(
+pub fn equip_items(
     mut commands: Commands,
-    mut events: EventReader<ItemEquipEvent<M>>,
+    mut events: EventReader<UntypedItemEquipEvent>,
     mut humanoid_query: Query<(&Humanoid, &mut Equipped)>,
     mut item_query: Query<(&Models, &mut SlotAlignment)>,
 ) {
-    for ItemEquipEvent {
+    for UntypedItemEquipEvent {
         parent_entity,
         item_entity,
         slot,
-        ..
     } in events.read()
     {
         let Ok((humanoid, mut equipped)) = humanoid_query.get_mut(*parent_entity) else {
@@ -153,43 +220,5 @@ pub fn equip_items<M: Send + Sync + 'static>(
             }
             SlotAlignment::None => unimplemented!(), // may use this for unequip?
         }
-    }
-}
-
-/// Automatically sends an equip event to the player character.
-pub fn auto_equip_to_humanoid<T: Component>(
-    In(e_item): In<Entity>,
-    humanoid_query: Query<&HumanoidDominantHand, With<Humanoid>>,
-    handedness_query: Query<&Handedness>,
-    mut spawn_events: EventReader<ItemSpawnEvent<T>>,
-    mut equip_events: EventWriter<ItemEquipEvent<T>>,
-) {
-    for ItemSpawnEvent {
-        parent_entity: e_parent,
-        ..
-    } in spawn_events.read()
-    {
-        let Ok(handedness) = handedness_query.get(e_item) else {
-            error!("Missing item `Handedness`.");
-            continue;
-        };
-
-        let Ok(dominant) = humanoid_query.get(*e_parent) else {
-            error!("Attempted humanoid equip to non-humanoid.");
-            continue;
-        };
-
-        equip_events.send(ItemEquipEvent::new(
-            *e_parent,
-            e_item,
-            // jeez man... too many hand-related components...
-            match handedness {
-                Handedness::Double => SlotAlignment::Double,
-                Handedness::Single => match dominant {
-                    HumanoidDominantHand::Left => SlotAlignment::Left,
-                    HumanoidDominantHand::Right => SlotAlignment::Right,
-                },
-            },
-        ));
     }
 }

@@ -2811,7 +2811,7 @@ dependencies = [
 
 [[package]]
 name = "grin_render"
-version = "0.3.0"
+version = "0.3.2"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
@@ -2831,7 +2831,7 @@ dependencies = [
 
 [[package]]
 name = "grin_rig"
-version = "0.3.0"
+version = "0.3.2"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
@@ -2855,7 +2855,7 @@ dependencies = [
 
 [[package]]
 name = "grin_util"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "approx 0.5.1",
  "bevy",

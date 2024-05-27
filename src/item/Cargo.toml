@@ -1,6 +1,6 @@
 [package]
 name = "grin_item"
-version = "0.4.0"
+version = "0.3.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 grin_asset = { path = "../asset" }
 grin_damage = { path = "../damage" }
+grin_derive = { path = "../derive" }
 grin_input = { path = "../input" }
 grin_physics = { path = "../physics" }
 grin_render = { path = "../render" }

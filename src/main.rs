@@ -148,7 +148,7 @@ fn load_scene(
     commands.spawn((
         Map,
         SceneBundle {
-            scene: asset_server.load("meshes/roof.glb#Scene0"),
+            scene: asset_server.load("gltf/rooftop.glb#Scene0"),
             ..Default::default()
         },
     ));

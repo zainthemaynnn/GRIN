@@ -88,7 +88,7 @@ impl Plugin for FistPlugin {
         .add_systems(
             Update,
             (
-                item_spawner::<Fist, _, _>(|mut commands: Commands, assets: Res<FistAssets>| {
+                item_spawner::<Fist, _, _, _>(|mut commands: Commands, assets: Res<FistAssets>| {
                     WeaponBundle::<FistCombo> {
                         identifier: ItemIdentifier::Fist,
                         models: models![

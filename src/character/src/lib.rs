@@ -93,7 +93,7 @@ impl<T: Character> Default for GenericHumanoidCharacterPlugin<T> {
 impl<T: Character> Plugin for GenericHumanoidCharacterPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            Update,
+            OnEnter(AvatarLoadState::Loaded),
             equip_spawn_item_on_humanoid_load::<T>.in_set(CharacterSet::Load),
         );
     }
@@ -104,7 +104,7 @@ pub fn set_avatar_load_state_on_humanoid_load(
     mut next_state: ResMut<NextState<AvatarLoadState>>,
 ) {
     if !character_query.is_empty() {
-        info!("character loaded; advancing state");
+        info!("Character loaded; advancing state");
         next_state.set(AvatarLoadState::Loaded);
     }
 }

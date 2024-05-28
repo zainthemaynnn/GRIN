@@ -12,7 +12,7 @@ impl PluginGroup for ItemLibrary {
     }
 }
 
-#[derive(Component, EnumFilter, TypedEvents, Default)]
+#[derive(Component, Copy, Clone, Debug, EnumFilter, TypedEvents, Default)]
 pub enum ItemIdentifier {
     #[default]
     Fist,

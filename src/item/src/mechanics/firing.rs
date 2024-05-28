@@ -109,7 +109,7 @@ impl<T: Component> From<HashSet<FiringBehavior>> for FiringPlugin<T> {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Copy, Clone, Debug)]
 pub struct FireRate(pub Duration);
 
 impl Default for FireRate {
@@ -118,7 +118,7 @@ impl Default for FireRate {
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Copy, Clone, Debug, Default)]
 pub struct ShotCooldown(pub Duration);
 
 impl ShotCooldown {
@@ -158,7 +158,7 @@ pub struct ShotsEnded<T: Component> {
     pub phantom_data: PhantomData<T>,
 }
 
-#[derive(Component, EnumFilter, Debug, Default)]
+#[derive(Component, EnumFilter, Copy, Clone, Debug, Default)]
 pub enum FiringMode {
     #[default]
     SemiAuto,

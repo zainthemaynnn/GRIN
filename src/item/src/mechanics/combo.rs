@@ -11,7 +11,7 @@ pub struct ComboClip {
     pub chain_cd: Duration,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Debug)]
 pub struct ComboStack<T> {
     pub sequence: Vec<T>,
     pub t: Duration,

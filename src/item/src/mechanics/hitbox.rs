@@ -49,7 +49,7 @@ impl std::fmt::Display for HitboxGenerationError {
 }
 
 /// Contains a list of hitbox colliders related to this object.
-#[derive(Component, Default)]
+#[derive(Component, Clone, Debug, Default)]
 pub struct HitboxManager {
     pub colliders: Vec<Entity>, // TODO?: better way to make this work with ECS?
 }

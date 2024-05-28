@@ -1,17 +1,19 @@
 use std::marker::PhantomData;
 
 use bevy::{prelude::*, utils::HashMap};
-use grin_rig::humanoid::Humanoid;
+use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
 use grin_util::event::UntypedEvent;
 
-use crate::library::plugin::ItemIdentifier;
+use crate::{library::plugin::ItemIdentifier, plugin::ItemSet};
 
 pub struct EquipPlugin;
 
 impl Plugin for EquipPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<UntypedItemEquipEvent>()
-            .add_systems(Update, convert_untyped_events);
+        app.add_event::<UntypedItemEquipEvent>().add_systems(
+            PostUpdate,
+            (convert_untyped_events, equip_items).in_set(ItemSet::Equip),
+        );
     }
 }
 
@@ -22,14 +24,23 @@ pub struct UntypedItemEquipEvent {
     pub parent_entity: Entity,
     /// Item to be equipped.
     pub item_entity: Entity,
-    /// Item slots that will be occupied by this item. This should always be:
+    /// Item slots that will be occupied by this item. If using `Manual`, this should always be:
     ///
     /// - `SlotAlignment::Left` or `SlotAlignment::Right` for `Handedness::Single` items
     /// - `SlotAlignment::Double` for `Handedness::Double` items
     /// - `SlotAlignment::None` for items that are being unequipped
     ///
     /// There are no compile checks. You have been warned.
-    pub slot: SlotAlignment,
+    pub slot: ItemEquipEventSlot,
+}
+
+#[derive(Copy, Clone, Default)]
+pub enum ItemEquipEventSlot {
+    Manual {
+        alignment: SlotAlignment,
+    },
+    #[default]
+    Auto,
 }
 
 impl UntypedEvent for UntypedItemEquipEvent {
@@ -56,19 +67,8 @@ impl UntypedEvent for UntypedItemEquipEvent {
 pub struct ItemEquipEvent<I> {
     pub parent_entity: Entity,
     pub item_entity: Entity,
-    pub slot: SlotAlignment,
+    pub slot: ItemEquipEventSlot,
     pub phantom_data: PhantomData<I>,
-}
-
-impl<I> ItemEquipEvent<I> {
-    pub fn new(parent_entity: Entity, item_entity: Entity, slot: SlotAlignment) -> Self {
-        Self {
-            parent_entity,
-            item_entity,
-            slot,
-            phantom_data: PhantomData::default(),
-        }
-    }
 }
 
 /// Keeps references to currently bound items.
@@ -106,7 +106,7 @@ pub enum Handedness {
     Double,
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Clone, Debug, Default)]
 pub struct Models {
     pub targets: HashMap<Grip, Entity>,
 }
@@ -141,6 +141,8 @@ macro_rules! models {
 // necessary due to the sheer number of event writers that exist. the alternative is
 // to make separate systems for each item which all read the event queue, but I *assume*
 // that would be even slower.
+// TODO: now that I know how to use `SystemParam`, I think this can be done better,
+// but it will need some more macro generation.
 /// Consumes all `UntypedItemEquipEvent`s, sending `ItemEquipEvent<T>` where `T` is the
 /// corresponding item identifier type.
 pub fn convert_untyped_events(world: &mut World) {
@@ -163,12 +165,12 @@ pub fn equip_items(
     mut commands: Commands,
     mut events: EventReader<UntypedItemEquipEvent>,
     mut humanoid_query: Query<(&Humanoid, &mut Equipped)>,
-    mut item_query: Query<(&Models, &mut SlotAlignment)>,
+    mut item_query: Query<(&ItemIdentifier, &Models, &Handedness, &mut SlotAlignment)>,
 ) {
     for UntypedItemEquipEvent {
         parent_entity,
         item_entity,
-        slot,
+        slot: event_slot,
     } in events.read()
     {
         let Ok((humanoid, mut equipped)) = humanoid_query.get_mut(*parent_entity) else {
@@ -176,14 +178,25 @@ pub fn equip_items(
             continue;
         };
 
-        let Ok((models, mut slot_alignment)) = item_query.get_mut(*item_entity) else {
+        let Ok((item_id, models, handedness, mut slot_alignment)) =
+            item_query.get_mut(*item_entity)
+        else {
             error!("Missing equipment-related components.");
             continue;
         };
 
-        *slot_alignment = *slot;
+        let slot = match event_slot {
+            ItemEquipEventSlot::Manual { alignment } => *alignment,
+            ItemEquipEventSlot::Auto => match handedness {
+                Handedness::Double => SlotAlignment::Double,
+                Handedness::Single => match humanoid.dominant_hand_type {
+                    HumanoidDominantHand::Left => SlotAlignment::Left,
+                    HumanoidDominantHand::Right => SlotAlignment::Right,
+                },
+            },
+        };
 
-        info!("Equipped item {:?} to {:?}.", parent_entity, item_entity);
+        *slot_alignment = slot;
 
         if let Some(&e_model) = models.targets.get(&Grip::Head) {
             commands.entity(e_model).set_parent(humanoid.head);
@@ -220,5 +233,10 @@ pub fn equip_items(
             }
             SlotAlignment::None => unimplemented!(), // may use this for unequip?
         }
+
+        info!(
+            "Equipped {:?} ({:?}) to {:?}.",
+            parent_entity, item_id, item_entity,
+        );
     }
 }

@@ -5,7 +5,9 @@ use grin_asset::AssetLoadState;
 use grin_damage::ContactDamage;
 
 use crate::{
-    equip::{Handedness, ItemEquipEvent, Models}, library::plugin::ItemIdentifier, mechanics::{
+    equip::{EquipPlugin, Handedness, ItemEquipEvent, Models, SlotAlignment},
+    library::plugin::ItemIdentifier,
+    mechanics::{
         combo::ComboStack,
         firing::{Accuracy, FireRate, FiringMode, ShotCooldown, Target},
         fx::ItemFxPlugin,
@@ -13,7 +15,8 @@ use crate::{
             DamageCollisionGroups, GltfHitboxAutoGen, GltfHitboxAutoGenConfig,
             GltfHitboxGenerationPlugin, HitboxManager,
         },
-    }, spawn::ItemSpawnEvent
+    },
+    spawn::ItemSpawnEvent,
 };
 
 pub const GLTF_HITBOX_IDENTIFIER: &str = "__HB";
@@ -21,6 +24,7 @@ pub const GLTF_HITBOX_IDENTIFIER: &str = "__HB";
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum ItemSet {
     Spawn,
+    Equip,
 }
 
 pub struct MasterItemPlugin;
@@ -30,6 +34,10 @@ impl Plugin for MasterItemPlugin {
         app.configure_sets(
             Update,
             ItemSet::Spawn.run_if(in_state(AssetLoadState::Success)),
+        )
+        .configure_sets(
+            PostUpdate,
+            ItemSet::Equip.run_if(in_state(AssetLoadState::Success)),
         );
     }
 }
@@ -59,6 +67,7 @@ impl PluginGroup for ItemPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(MasterItemPlugin)
+            .add(EquipPlugin)
             .add(ItemFxPlugin)
             .add(GltfHitboxGenerationPlugin {
                 config: GltfHitboxAutoGenConfig(GLTF_HITBOX_IDENTIFIER.into()),

@@ -62,6 +62,12 @@ pub enum FiringBehavior {
     Automatic,
 }
 
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+pub enum FiringSet {
+    Fire,
+    Effects,
+}
+
 #[derive(Default)]
 pub struct FiringPlugin<T: Component> {
     pub supported_modes: HashSet<FiringBehavior>,
@@ -79,8 +85,10 @@ impl<T: Component> Plugin for FiringPlugin<T> {
                     app.add_systems(
                         Update,
                         (
-                            semi_fire::<T>.after(step_cooldowns::<T>),
-                            play_sfx_discrete::<T>,
+                            semi_fire::<T>
+                                .after(step_cooldowns::<T>)
+                                .in_set(FiringSet::Fire),
+                            play_sfx_discrete::<T>.in_set(FiringSet::Effects),
                         ),
                     );
                 }
@@ -90,8 +98,10 @@ impl<T: Component> Plugin for FiringPlugin<T> {
                         .add_systems(
                             Update,
                             (
-                                auto_fire::<T>.after(step_cooldowns::<T>),
-                                play_sfx_continuous::<T>,
+                                auto_fire::<T>
+                                    .after(step_cooldowns::<T>)
+                                    .in_set(FiringSet::Fire),
+                                play_sfx_continuous::<T>.in_set(FiringSet::Effects),
                             ),
                         );
                 }

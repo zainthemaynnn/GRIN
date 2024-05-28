@@ -19,7 +19,7 @@ use crate::{
     mechanics::{
         animation::{AnimatorSystemParams, ReadOnlyAnimatorSystemParams},
         combo::{ComboPlugin, ComboStack},
-        firing::{self, Active, FireRate, FiringBehavior, FiringPlugin, ShotFired},
+        firing::{self, Active, FireRate, FiringBehavior, FiringPlugin, FiringSet, ShotFired},
         fx::on_hit_render_impact,
         hitbox::DamageCollisionGroups,
         util::insert_on_lmb,
@@ -86,6 +86,10 @@ impl Plugin for FistPlugin {
                 .chain(),
         )
         .add_systems(
+            PreUpdate,
+            insert_on_lmb::<Fist, Active>.in_set(FistSystemSet::Input),
+        )
+        .add_systems(
             Update,
             (
                 item_spawner::<Fist, _, _, _>(|mut commands: Commands, assets: Res<FistAssets>| {
@@ -105,9 +109,9 @@ impl Plugin for FistPlugin {
                     }
                 })
                 .in_set(ItemSet::Spawn),
-                (insert_on_lmb::<Fist, Active>,)
-                    .chain()
-                    .in_set(FistSystemSet::Input),
+                punch
+                    .after(FiringSet::Fire)
+                    .run_if(in_state(AssetLoadState::Success)),
                 (|| Impact::from_burst_radius(2.0))
                     .pipe(on_hit_render_impact::<Fist>)
                     .in_set(FistSystemSet::Effects),
@@ -146,7 +150,6 @@ pub fn punch(
             },
             SlotAlignment::Left => FistCombo::LPunch,
             SlotAlignment::Right => FistCombo::RPunch,
-            SlotAlignment::None => continue,
         };
 
         animator.play(assets.attack_anim(attack));

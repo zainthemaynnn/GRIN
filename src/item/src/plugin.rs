@@ -108,6 +108,8 @@ pub struct WeaponBundle<C: Send + Sync + 'static> {
     pub cooldown: ShotCooldown,
     /// Weapon firing mode (default: `SemiAuto`).
     pub firing_mode: FiringMode,
+    /// Weapon slot, if equipped.
+    pub slot: SlotAlignment,
 }
 
 // I love rust it really is my favourite language :) :) <333
@@ -128,6 +130,7 @@ impl<C: Send + Sync + 'static> Default for WeaponBundle<C> {
             fire_rate: FireRate::default(),
             cooldown: ShotCooldown::default(),
             firing_mode: FiringMode::default(),
+            slot: SlotAlignment::default(),
         }
     }
 }

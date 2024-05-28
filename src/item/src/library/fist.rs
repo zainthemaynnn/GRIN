@@ -13,11 +13,11 @@ use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::{impact::Impact, ContactDamage};
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
-use grin_util::{animator, animator_mut};
 
 use crate::{
     equip::{Grip, Handedness, Models, SlotAlignment},
     mechanics::{
+        animation::{AnimatorSystemParams, ReadOnlyAnimatorSystemParams},
         combo::{ComboPlugin, ComboStack},
         firing::{self, Active, FireRate, FiringBehavior, FiringPlugin, ShotFired},
         fx::on_hit_render_impact,
@@ -127,8 +127,7 @@ pub enum FistCombo {
 pub fn punch(
     assets: Res<FistAssets>,
     mut shot_events: EventReader<ShotFired<Fist>>,
-    parent_query: Query<&Parent>,
-    mut animator_query: Query<&mut AnimationPlayer>,
+    mut animator_params: AnimatorSystemParams,
     mut item_query: Query<(
         &mut ComboStack<FistCombo>,
         &mut DamageCollisionGroups,
@@ -137,7 +136,7 @@ pub fn punch(
 ) {
     for ShotFired { entity: e_item, .. } in shot_events.read() {
         let (mut combo, mut collision_groups, alignment) = item_query.get_mut(*e_item).unwrap();
-        let mut animator = animator_mut!(*e_item, parent_query, animator_query);
+        let mut animator = animator_params.get_mut(*e_item).unwrap();
 
         let attack = match alignment {
             SlotAlignment::Double => match combo.sequence.last() {
@@ -160,11 +159,10 @@ pub fn punch(
 
 pub fn deactivate_colliders(
     mut item_query: Query<(Entity, &mut DamageCollisionGroups), With<Fist>>,
-    parent_query: Query<&Parent>,
-    animator_query: Query<&AnimationPlayer>,
+    animator_params: ReadOnlyAnimatorSystemParams,
 ) {
     for (e_item, mut collision_groups) in item_query.iter_mut() {
-        let animator = animator!(e_item, parent_query, animator_query);
+        let animator = animator_params.get(e_item).unwrap();
         if animator.is_finished() {
             collision_groups.0 = CollisionGroups::default();
         }

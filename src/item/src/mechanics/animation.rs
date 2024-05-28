@@ -1,9 +1,11 @@
 use std::time::Duration;
 
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_asset_loader::{asset_collection::AssetCollection, loading_state::LoadingStateAppExt};
 use grin_asset::AssetLoadState;
-use grin_rig::humanoid::HumanoidDominantHand;
+use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
+
+use crate::equip::EquippedTo;
 
 use super::firing::Active;
 
@@ -103,4 +105,57 @@ pub fn unaim_on_unactive<T: Component>(
             break;
         }
     }
+}
+
+/// Helper struct to find the animator corresponding to the rig of the item's owner.
+#[derive(SystemParam)]
+pub struct AnimatorSystemParams<'w, 's> {
+    pub owner_query: Query<'w, 's, &'static EquippedTo>,
+    pub humanoid_query: Query<'w, 's, &'static Humanoid>,
+    pub animator_query: Query<'w, 's, &'static mut AnimationPlayer>,
+}
+
+impl<'w, 's> AnimatorSystemParams<'w, 's> {
+    pub fn get_mut(&mut self, entity: Entity) -> Result<Mut<AnimationPlayer>, AnimatorQueryError> {
+        match self.owner_query.get(entity) {
+            Ok(EquippedTo { target }) => match self.humanoid_query.get(*target) {
+                Ok(humanoid) => match self.animator_query.get_mut(humanoid.armature) {
+                    Ok(animator) => Ok(animator),
+                    Err(..) => Err(AnimatorQueryError::AnimatorNotFound),
+                },
+                Err(..) => Err(AnimatorQueryError::RigNotSupported),
+            },
+            Err(..) => Err(AnimatorQueryError::ItemNotEquipped),
+        }
+    }
+}
+
+/// Helper struct to find the animator corresponding to the rig of the item's owner.
+#[derive(SystemParam)]
+pub struct ReadOnlyAnimatorSystemParams<'w, 's> {
+    pub owner_query: Query<'w, 's, &'static EquippedTo>,
+    pub humanoid_query: Query<'w, 's, &'static Humanoid>,
+    pub animator_query: Query<'w, 's, &'static AnimationPlayer>,
+}
+
+impl<'w, 's> ReadOnlyAnimatorSystemParams<'w, 's> {
+    pub fn get(&self, entity: Entity) -> Result<&AnimationPlayer, AnimatorQueryError> {
+        match self.owner_query.get(entity) {
+            Ok(EquippedTo { target }) => match self.humanoid_query.get(*target) {
+                Ok(humanoid) => match self.animator_query.get(humanoid.armature) {
+                    Ok(animator) => Ok(animator),
+                    Err(..) => Err(AnimatorQueryError::AnimatorNotFound),
+                },
+                Err(..) => Err(AnimatorQueryError::RigNotSupported),
+            },
+            Err(..) => Err(AnimatorQueryError::ItemNotEquipped),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum AnimatorQueryError {
+    ItemNotEquipped,
+    RigNotSupported,
+    AnimatorNotFound,
 }

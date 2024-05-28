@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
+use bevy_enum_filter::prelude::AddEnumFilter;
 use grin_asset::AssetLoadState;
 use grin_damage::ContactDamage;
 
@@ -31,14 +32,16 @@ pub struct MasterItemPlugin;
 
 impl Plugin for MasterItemPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_sets(
-            Update,
-            ItemSet::Spawn.run_if(in_state(AssetLoadState::Success)),
-        )
-        .configure_sets(
-            PostUpdate,
-            ItemSet::Equip.run_if(in_state(AssetLoadState::Success)),
-        );
+        app.add_enum_filter::<ItemIdentifier>()
+            .add_enum_filter::<FiringMode>()
+            .configure_sets(
+                Update,
+                ItemSet::Spawn.run_if(in_state(AssetLoadState::Success)),
+            )
+            .configure_sets(
+                PostUpdate,
+                ItemSet::Equip.run_if(in_state(AssetLoadState::Success)),
+            );
     }
 }
 
@@ -128,7 +131,6 @@ impl<C: Send + Sync + 'static> Default for WeaponBundle<C> {
             fire_rate: FireRate::default(),
             cooldown: ShotCooldown::default(),
             firing_mode: FiringMode::default(),
-            slot: SlotAlignment::default(),
         }
     }
 }

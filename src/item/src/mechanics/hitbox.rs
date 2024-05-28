@@ -74,17 +74,20 @@ pub fn init_hitboxes(
 
             match mesh_query.get(e_hitbox) {
                 Ok(hitbox_geo) => {
-                    commands.entity(e_hitbox).insert((
-                        Hitbox::default(),
-                        collider!(meshes, hitbox_geo),
-                        // I doubt the below properties need to be customized
-                        RigidBody::Dynamic,
-                        ActiveEvents::COLLISION_EVENTS,
-                        ActiveHooks::FILTER_CONTACT_PAIRS,
-                        ColliderMassProperties::default(),
-                        CollisionGroups::from_group_default(Group::DEBRIS),
-                        GravityScale(1.0),
-                    ));
+                    commands
+                        .entity(e_hitbox)
+                        .insert((
+                            Hitbox::default(),
+                            collider!(meshes, hitbox_geo),
+                            Visibility::Hidden,
+                            // I doubt the below properties need to be customized
+                            RigidBody::Dynamic,
+                            ActiveEvents::COLLISION_EVENTS,
+                            ActiveHooks::FILTER_CONTACT_PAIRS,
+                            ColliderMassProperties::default(),
+                            CollisionGroups::from_group_default(Group::DEBRIS),
+                            GravityScale(1.0),
+                        ));
                 }
                 Err(..) => {
                     error!("{}", HitboxGenerationError::NoMeshPrimitive { node_id });
@@ -179,6 +182,7 @@ pub fn insert_autogen_markers(
                     .insert(GltfHitboxAutoGenTarget { master: e_master });
             }
         }
+        commands.entity(e_master).remove::<GltfHitboxAutoGen>();
     }
 }
 

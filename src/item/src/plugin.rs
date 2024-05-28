@@ -5,7 +5,7 @@ use grin_asset::AssetLoadState;
 use grin_damage::ContactDamage;
 
 use crate::{
-    equip::{EquipPlugin, Handedness, ItemEquipEvent, Models, SlotAlignment},
+    equip::{EquipPlugin, Handedness, ItemEquipEvent, Models},
     library::plugin::ItemIdentifier,
     mechanics::{
         combo::ComboStack,
@@ -108,8 +108,6 @@ pub struct WeaponBundle<C: Send + Sync + 'static> {
     pub cooldown: ShotCooldown,
     /// Weapon firing mode (default: `SemiAuto`).
     pub firing_mode: FiringMode,
-    /// Weapon slot, if equipped.
-    pub slot: SlotAlignment,
 }
 
 // I love rust it really is my favourite language :) :) <333

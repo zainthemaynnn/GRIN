@@ -28,7 +28,6 @@ pub struct UntypedItemEquipEvent {
     ///
     /// - `SlotAlignment::Left` or `SlotAlignment::Right` for `Handedness::Single` items
     /// - `SlotAlignment::Double` for `Handedness::Double` items
-    /// - `SlotAlignment::None` for items that are being unequipped
     ///
     /// There are no compile checks. You have been warned.
     pub slot: ItemEquipEventSlot,
@@ -78,14 +77,17 @@ pub struct Equipped {
     pub right: Entity,
 }
 
-/// Corresponding item slot. `None` means the item is not equipped.
-#[derive(Component, Clone, Copy, Debug, Default)]
+#[derive(Component, Clone, Debug)]
+pub struct EquippedTo {
+    pub target: Entity,
+}
+
+/// Corresponding item slot.
+#[derive(Component, Clone, Copy, Debug)]
 pub enum SlotAlignment {
     Left,
     Right,
     Double,
-    #[default]
-    None,
 }
 
 /// Location for item to be parented on a rig. If it's a single-handed item,
@@ -165,7 +167,7 @@ pub fn equip_items(
     mut commands: Commands,
     mut events: EventReader<UntypedItemEquipEvent>,
     mut humanoid_query: Query<(&Humanoid, &mut Equipped)>,
-    mut item_query: Query<(&ItemIdentifier, &Models, &Handedness, &mut SlotAlignment)>,
+    mut item_query: Query<(&ItemIdentifier, &Models, &Handedness)>,
 ) {
     for UntypedItemEquipEvent {
         parent_entity,
@@ -178,9 +180,7 @@ pub fn equip_items(
             continue;
         };
 
-        let Ok((item_id, models, handedness, mut slot_alignment)) =
-            item_query.get_mut(*item_entity)
-        else {
+        let Ok((item_id, models, handedness)) = item_query.get_mut(*item_entity) else {
             error!("Missing equipment-related components.");
             continue;
         };
@@ -195,8 +195,6 @@ pub fn equip_items(
                 },
             },
         };
-
-        *slot_alignment = slot;
 
         if let Some(&e_model) = models.targets.get(&Grip::Head) {
             commands.entity(e_model).set_parent(humanoid.head);
@@ -231,8 +229,14 @@ pub fn equip_items(
                 equipped.left = *item_entity;
                 equipped.right = *item_entity;
             }
-            SlotAlignment::None => unimplemented!(), // may use this for unequip?
         }
+
+        commands.entity(*item_entity).insert((
+            EquippedTo {
+                target: *parent_entity,
+            },
+            slot,
+        ));
 
         info!(
             "Equipped {:?} ({:?}) to {:?}.",

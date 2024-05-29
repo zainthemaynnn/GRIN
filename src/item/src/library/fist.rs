@@ -104,7 +104,7 @@ impl Plugin for FistPlugin {
                         Impact::from_burst_radius(2.0),
                         AudioBundle {
                             source: assets.hit_audio.clone(),
-                            ..Default::default()
+                            settings: PlaybackSettings::default().with_spatial(true),
                         },
                     )
                 })
@@ -169,7 +169,7 @@ pub fn punch(
         for grip in grips {
             commands.entity(models.targets[&grip]).insert(AudioBundle {
                 source: assets.swing_audio.clone(),
-                ..Default::default()
+                settings: PlaybackSettings::default().with_spatial(true),
             });
         }
 

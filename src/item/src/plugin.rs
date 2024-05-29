@@ -23,6 +23,10 @@ use crate::{
 pub enum ItemSet {
     Spawn,
     Equip,
+
+    Input,
+    Fire,
+    Effects,
 }
 
 pub struct MasterItemPlugin;

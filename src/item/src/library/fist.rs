@@ -59,13 +59,6 @@ impl FistAssets {
     }
 }
 
-#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-pub enum FistSystemSet {
-    Input,
-    Fire,
-    Effects,
-}
-
 impl Plugin for FistPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
@@ -74,19 +67,6 @@ impl Plugin for FistPlugin {
             ComboPlugin::<FistCombo>::default(),
         ))
         .add_collection_to_loading_state::<_, FistAssets>(AssetLoadState::Loading)
-        .configure_sets(
-            Update,
-            (
-                FistSystemSet::Input
-                    .run_if(in_state(AssetLoadState::Success))
-                    .before(firing::semi_fire::<Fist>),
-                FistSystemSet::Fire
-                    .run_if(in_state(AssetLoadState::Success))
-                    .after(firing::semi_fire::<Fist>),
-                FistSystemSet::Effects.run_if(in_state(AssetLoadState::Success)),
-            )
-                .chain(),
-        )
         .add_systems(
             PreUpdate,
             insert_on_lmb::<Fist, Active>.in_set(FistSystemSet::Input),

@@ -317,6 +317,12 @@ CustomDynamicAssetCollection({
      "sfx.stomp": File (
           path: "audio/stomp.ogg",
      ),
+     "sfx.punch.swing": File (
+          path: "audio/punch_swing.wav",
+     ),
+     "sfx.punch.hit": File (
+          path: "audio/punch_hit.wav",
+     ),
      "sfx.dialogue.eightball": File (
           path: "audio/eightball-blip.ogg",
      ),

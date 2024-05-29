@@ -16,14 +16,15 @@ use grin_damage::{
     impact::Impact,
 };
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
+use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
 
 use crate::{
-    equip::{Grip, Handedness, Models, SlotAlignment},
+    equip::{EquippedTo, Grip, Handedness, Models, SlotAlignment},
     mechanics::{
         animation::{AnimatorSystemParams, ReadOnlyAnimatorSystemParams},
         combo::{ComboPlugin, ComboStack},
-        firing::{self, Active, FireRate, FiringBehavior, FiringPlugin, FiringSet, ShotFired},
-        fx::on_hit_render_impact,
+        firing::{Active, FireRate, FiringBehavior, FiringPlugin, ShotFired},
+        fx::on_hit_spawn,
         util::insert_on_lmb,
     },
     models,
@@ -47,6 +48,10 @@ pub struct FistAssets {
     pub rpunch: Handle<AnimationClip>,
     #[asset(key = "anim.punch.spin")]
     pub spin_punch: Handle<AnimationClip>,
+    #[asset(key = "sfx.punch.swing")]
+    pub swing_audio: Handle<AudioSource>,
+    #[asset(key = "sfx.punch.hit")]
+    pub hit_audio: Handle<AudioSource>,
 }
 
 impl FistAssets {
@@ -69,7 +74,7 @@ impl Plugin for FistPlugin {
         .add_collection_to_loading_state::<_, FistAssets>(AssetLoadState::Loading)
         .add_systems(
             PreUpdate,
-            insert_on_lmb::<Fist, Active>.in_set(FistSystemSet::Input),
+            insert_on_lmb::<Fist, Active>.in_set(ItemSet::Input),
         )
         .add_systems(
             Update,
@@ -92,11 +97,19 @@ impl Plugin for FistPlugin {
                 })
                 .in_set(ItemSet::Spawn),
                 punch
-                    .after(FiringSet::Fire)
+                    .in_set(ItemSet::Fire)
                     .run_if(in_state(AssetLoadState::Success)),
-                (|| Impact::from_burst_radius(2.0))
-                    .pipe(on_hit_render_impact::<Fist>)
-                    .in_set(FistSystemSet::Effects),
+                on_hit_spawn(|assets: Res<FistAssets>| {
+                    (
+                        Impact::from_burst_radius(2.0),
+                        AudioBundle {
+                            source: assets.hit_audio.clone(),
+                            ..Default::default()
+                        },
+                    )
+                })
+                .in_set(ItemSet::Effects)
+                .run_if(in_state(AssetLoadState::Success)),
             ),
         );
     }
@@ -111,17 +124,23 @@ pub enum FistCombo {
 
 /// Primary attack.
 pub fn punch(
+    mut commands: Commands,
     assets: Res<FistAssets>,
     mut shot_events: EventReader<ShotFired<Fist>>,
     mut animator_params: AnimatorSystemParams,
     mut item_query: Query<(
         &mut ComboStack<FistCombo>,
         &mut DamageCollisionGroups,
+        &Models,
+        &EquippedTo,
         &SlotAlignment,
     )>,
+    humanoid_query: Query<&Humanoid>,
 ) {
     for ShotFired { entity: e_item, .. } in shot_events.read() {
-        let (mut combo, mut collision_groups, alignment) = item_query.get_mut(*e_item).unwrap();
+        let (mut combo, mut collision_groups, models, EquippedTo { target: e_user }, alignment) =
+            item_query.get_mut(*e_item).unwrap();
+        let dominant = humanoid_query.get(*e_user).unwrap().dominant_hand_type;
         let mut animator = animator_params.get_mut(*e_item).unwrap();
 
         let attack = match alignment {
@@ -134,10 +153,33 @@ pub fn punch(
             SlotAlignment::Right => FistCombo::RPunch,
         };
 
+        let grips = match attack {
+            FistCombo::LPunch => match dominant {
+                HumanoidDominantHand::Left => vec![Grip::Hand],
+                HumanoidDominantHand::Right => vec![Grip::Offhand],
+            },
+            FistCombo::RPunch => match dominant {
+                HumanoidDominantHand::Left => vec![Grip::Offhand],
+                HumanoidDominantHand::Right => vec![Grip::Hand],
+            },
+            FistCombo::SpinPunch => vec![Grip::Hand, Grip::Offhand],
+        };
+
+        // play sounds
+        for grip in grips {
+            commands.entity(models.targets[&grip]).insert(AudioBundle {
+                source: assets.swing_audio.clone(),
+                ..Default::default()
+            });
+        }
+
+        // play animation
         animator.play(assets.attack_anim(attack));
 
+        // increment combo
         combo.push(attack, Duration::from_millis(1500));
 
+        // enable collisions
         collision_groups.0 = CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE);
     }
 }

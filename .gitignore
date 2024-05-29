@@ -7,5 +7,4 @@
 trace-*.json
 *.txt
 *.dialogue.ron
-*.wav
 src/**/Cargo.lock

@@ -59,18 +59,14 @@ pub fn init_hitboxes(
                 Ok(hitbox_geo) => {
                     commands.entity(e_hitbox).insert((
                         Hitbox { target: e_master },
+                        // ME WHEN I REALIZE YOU CAN HAVE COLLIDERS WITHOUT RIGID BODIES 🤯
                         collider!(meshes, hitbox_geo),
-                        // I doubt the below properties need to be customized
-                        // TODO: I don't know if fixed works; tests required
-                        RigidBody::Fixed,
+                        Sensor,
                         ActiveEvents::COLLISION_EVENTS,
                         ActiveHooks::FILTER_CONTACT_PAIRS,
-                        ColliderMassProperties::default(),
                         CollisionGroups::from_group_default(Group::DEBRIS),
-                        GravityScale(1.0),
-                        Visibility::Hidden,
-                        NoOutline,
-                    ));
+                    ))
+                    .remove::<Handle<Mesh>>();
                 }
                 Err(..) => {
                     error!(error = ?HitboxGenerationError::NoMeshPrimitive { node_id });

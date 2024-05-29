@@ -20,6 +20,7 @@ A third person shooter.
 - `grin_util`: Math, algorithms, data structures, SFX, some other random things.
 
 ## Engine features I'm waiting on
+- Animation blending. Probably the number one required feature, but I think it's coming in the next release so W.
 - Entity-entity relations. I'm using this stuff all over the place. I assume it should help performance a lot.
 - Window icons. Doable already but only through `winit`. This is low priority enough that I can just wait for first-class.
 

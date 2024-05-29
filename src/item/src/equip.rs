@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{prelude::*, utils::EntityHashMap};
+use grin_damage::hitbox::GltfHitboxAutoGenTarget;
 use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
 use grin_util::event::UntypedEvent;
 
@@ -12,7 +13,7 @@ impl Plugin for EquipPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<UntypedItemEquipEvent>().add_systems(
             PostUpdate,
-            (convert_untyped_events, equip_items).in_set(ItemSet::Equip),
+            (convert_untyped_events, equip_items, insert_autogen_markers).in_set(ItemSet::Equip),
         );
     }
 }
@@ -108,13 +109,13 @@ pub enum Handedness {
     Double,
 }
 
-#[derive(Component, Clone, Debug, Default)]
+#[derive(Component, Debug, Default)]
 pub struct Models {
-    pub targets: HashMap<Grip, Entity>,
+    pub targets: EntityHashMap<Grip, Entity>,
 }
 
-impl From<HashMap<Grip, Entity>> for Models {
-    fn from(value: HashMap<Grip, Entity>) -> Self {
+impl From<EntityHashMap<Grip, Entity>> for Models {
+    fn from(value: EntityHashMap<Grip, Entity>) -> Self {
         Self { targets: value }
     }
 }
@@ -125,9 +126,9 @@ macro_rules! models {
     ( $commands:expr, $( ($key:expr, $handle:expr) ),* $(,)?) => {
         {
             use bevy::prelude::*;
-            use bevy::utils::HashMap;
+            use bevy::utils::EntityHashMap;
 
-            let mut map = HashMap::new();
+            let mut map = EntityHashMap::default();
             $(
                 map.insert($key, $commands.spawn(SceneBundle {
                     scene: $handle,
@@ -242,5 +243,28 @@ pub fn equip_items(
             "Equipped {:?} ({:?}) to {:?}.",
             parent_entity, item_id, item_entity,
         );
+    }
+}
+
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub enum GltfHitboxAutoGen {
+    #[default]
+    Enabled,
+    Disabled,
+}
+
+pub fn insert_autogen_markers(
+    mut commands: Commands,
+    autogen_query: Query<(Entity, &Models, &GltfHitboxAutoGen)>,
+) {
+    for (e_master, Models { targets }, autogen) in autogen_query.iter() {
+        if let GltfHitboxAutoGen::Enabled = autogen {
+            for &e_target in targets.values() {
+                commands
+                    .entity(e_target)
+                    .insert(GltfHitboxAutoGenTarget::Remote(e_master));
+            }
+        }
+        commands.entity(e_master).remove::<GltfHitboxAutoGen>();
     }
 }

@@ -11,7 +11,10 @@ use bevy::{prelude::*, utils::HashSet};
 use bevy_asset_loader::prelude::{AssetCollection, LoadingStateAppExt};
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_damage::{impact::Impact, ContactDamage};
+use grin_damage::{
+    hit::{ContactDamage, DamageCollisionGroups},
+    impact::Impact,
+};
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 
 use crate::{
@@ -21,7 +24,6 @@ use crate::{
         combo::{ComboPlugin, ComboStack},
         firing::{self, Active, FireRate, FiringBehavior, FiringPlugin, FiringSet, ShotFired},
         fx::on_hit_render_impact,
-        hitbox::DamageCollisionGroups,
         util::insert_on_lmb,
     },
     models,

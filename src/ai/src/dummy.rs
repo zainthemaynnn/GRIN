@@ -6,8 +6,9 @@ use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_character::PlayerCharacter;
 use grin_damage::{
+    health::Dead,
+    hit::{Damage, DamageVariant},
     projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
-    Damage, DamageVariant, Dead,
 };
 use grin_derive::Cooldown;
 use grin_map::NavMesh;

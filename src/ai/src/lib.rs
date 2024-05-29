@@ -7,11 +7,12 @@ pub mod screamer;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_landmass::{
-    Agent, AgentDesiredVelocity, AgentTarget, AgentVelocity, ArchipelagoRef, LandmassSystemSet, LandmassPlugin,
+    Agent, AgentDesiredVelocity, AgentTarget, AgentVelocity, ArchipelagoRef, LandmassPlugin,
+    LandmassSystemSet,
 };
 use bevy_mod_inverse_kinematics::InverseKinematicsPlugin;
 use bevy_rapier3d::prelude::*;
-use grin_damage::{DamageBuffer, Dead, Health, Resist};
+use grin_damage::health::{DamageBuffer, Dead, Health, Resist};
 use grin_map::MapLoadState;
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
 use grin_rig::humanoid::{Humanoid, HumanoidPartType};
@@ -59,7 +60,11 @@ impl Plugin for MasterAiPlugin {
                 .after(AiSet::RunTrees)
                 .run_if(in_state(MapLoadState::Success)),
         )
-        .add_plugins((MasterBehaviorPlugin, LandmassPlugin, InverseKinematicsPlugin))
+        .add_plugins((
+            MasterBehaviorPlugin,
+            LandmassPlugin,
+            InverseKinematicsPlugin,
+        ))
         .add_systems(Update, (update_biped_procedural_walk_cycle,));
     }
 }
@@ -143,7 +148,7 @@ pub struct EnemyMeta {
 }
 
 /// Some flavor text. I'm thinking one per playable character.
-/// 
+///
 /// Depends on how many jokes I can come up with. Might be hard...
 #[derive(Debug, Default)]
 pub struct Flavor {

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_damage::Dead;
+use grin_damage::health::Dead;
 use grin_physics::{collider, CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::SketchMaterial;
 use grin_time::{scaling::RawVelocity, CommandsExt};
@@ -637,7 +637,10 @@ pub fn morph_moving_humanoids(
         };
 
         let Ok(mut morph_weights) = morph_query.get_mut(humanoid.body) else {
-            error!("Missing morph targets on humanoid part: {:?}.", humanoid.body);
+            error!(
+                "Missing morph targets on humanoid part: {:?}.",
+                humanoid.body
+            );
             continue;
         };
 

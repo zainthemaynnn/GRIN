@@ -11,9 +11,12 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use grin_ai::AiPlugins;
 use grin_asset::{texture_array, AssetLoadState, DynamicAssetPlugin};
 use grin_character::{CharacterPlugins, CharacterSet};
-use grin_damage::DamagePlugin;
+use grin_damage::plugin::DamagePlugins;
 use grin_dialogue::{DialogueEvent, DialogueMap};
-use grin_item::{library::plugin::ItemLibrary, plugin::{ItemPlugins, ItemSet}};
+use grin_item::{
+    library::plugin::ItemLibrary,
+    plugin::{ItemPlugins, ItemSet},
+};
 use grin_map::{Map, MapLoadState, MapPlugin};
 use grin_physics::GrinPhysicsPlugin;
 use grin_render::RenderFXPlugins;
@@ -84,7 +87,7 @@ fn main() -> Result<(), io::Error> {
             ItemLibrary,
             CharacterPlugins,
             AiPlugins,
-            DamagePlugin,
+            DamagePlugins,
             //DialoguePlugin,
             MapPlugin {
                 navmesh_debugging: None,

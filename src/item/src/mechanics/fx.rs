@@ -2,7 +2,7 @@ use bevy::{pbr::CubemapVisibleEntities, prelude::*, render::primitives::CubemapF
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::plugin::RapierContext;
 use grin_asset::AssetLoadState;
-use grin_damage::{impact::Impact, DamageEvent};
+use grin_damage::{impact::Impact, hit::DamageEvent};
 use grin_render::sketched::SketchMaterial;
 
 use super::util::try_find_deepest_contact_point;

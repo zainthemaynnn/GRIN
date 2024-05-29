@@ -10,7 +10,7 @@ use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::{GlobalMeshOutline, SketchMaterial};
 use grin_util::{distr, vectors};
 
-use super::{ContactDamage, Damage};
+use crate::hit::{ContactDamage, Damage};
 
 pub struct ProjectilePlugin;
 

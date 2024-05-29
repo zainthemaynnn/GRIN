@@ -13,7 +13,7 @@ use grin_asset::AssetLoadState;
 use grin_character::PlayerCharacter;
 use grin_damage::{
     projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
-    Damage, DamageVariant,
+    hit::{Damage, DamageVariant},
 };
 use grin_derive::Cooldown;
 use grin_map::NavMesh;

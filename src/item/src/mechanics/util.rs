@@ -1,6 +1,6 @@
 use bevy::{ecs::query::QueryEntityError, prelude::*};
 use bevy_rapier3d::prelude::*;
-use grin_damage::DamageEvent;
+use grin_damage::hit::DamageEvent;
 use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera};
 
 use crate::equip::{Equipped, SlotAlignment};

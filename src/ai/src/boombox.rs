@@ -8,14 +8,13 @@ use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_character::PlayerCharacter;
 use grin_damage::{
+    health::Dead,
+    hit::{Damage, DamageVariant},
     projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
-    Damage, DamageVariant, Dead,
 };
 use grin_map::NavMesh;
 use grin_physics::ForceTimer;
-use grin_rig::humanoid::{
-    Humanoid, HumanoidBundle, HumanoidDominantHand, HUMANOID_RADIUS,
-};
+use grin_rig::humanoid::{Humanoid, HumanoidBundle, HumanoidDominantHand, HUMANOID_RADIUS};
 use grin_time::Rewind;
 use grin_util::{
     distr,

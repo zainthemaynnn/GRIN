@@ -6,13 +6,12 @@ use std::marker::PhantomData;
 use bevy::{app::PluginGroupBuilder, prelude::*, render::view::RenderLayers};
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_damage::{DamageBuffer, Health, HealthBundle};
-use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera, PlayerCameraPlugin};
-use grin_item::{
-    equip::Equipped,
-    mechanics::{hitbox::DamageCollisionGroups, util::InputHandler},
-    spawn::ItemSpawnEvent,
+use grin_damage::{
+    health::{DamageBuffer, Health, HealthBundle},
+    hit::DamageCollisionGroups,
 };
+use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera, PlayerCameraPlugin};
+use grin_item::{equip::Equipped, mechanics::util::InputHandler, spawn::ItemSpawnEvent};
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
 use grin_render::{
     gopro::{add_gopro, GoProSettings},

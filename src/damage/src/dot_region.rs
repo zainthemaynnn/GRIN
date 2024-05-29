@@ -5,7 +5,7 @@ use bevy_rapier3d::prelude::*;
 use grin_physics::PhysicsTime;
 use grin_render::blaze::Blaze;
 
-use crate::{ContactDamage, Damage};
+use crate::hit::{ContactDamage, Damage};
 
 #[derive(Component, Default)]
 pub struct DotRegion {

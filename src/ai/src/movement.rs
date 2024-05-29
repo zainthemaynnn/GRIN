@@ -1,7 +1,7 @@
 use bevy::{math::cubic_splines::CubicCurve, prelude::*};
 use bevy_landmass::{Agent, AgentDesiredVelocity, AgentTarget, AgentVelocity};
 use bevy_rapier3d::prelude::*;
-use grin_damage::Dead;
+use grin_damage::health::Dead;
 use grin_physics::PhysicsTime;
 use grin_time::{
     scaling::{RawVelocity, TimeScale},

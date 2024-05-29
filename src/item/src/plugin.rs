@@ -3,24 +3,21 @@ use std::marker::PhantomData;
 use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_enum_filter::prelude::AddEnumFilter;
 use grin_asset::AssetLoadState;
-use grin_damage::ContactDamage;
+use grin_damage::{
+    hit::{ContactDamage, DamageCollisionGroups},
+    hitbox::HitboxManager,
+};
 
 use crate::{
-    equip::{EquipPlugin, Handedness, ItemEquipEvent, Models},
+    equip::{EquipPlugin, GltfHitboxAutoGen, Handedness, ItemEquipEvent, Models},
     library::plugin::ItemIdentifier,
     mechanics::{
         combo::ComboStack,
         firing::{Accuracy, FireRate, FiringMode, ShotCooldown, Target},
         fx::ItemFxPlugin,
-        hitbox::{
-            DamageCollisionGroups, GltfHitboxAutoGen, GltfHitboxAutoGenConfig,
-            GltfHitboxGenerationPlugin, HitboxManager,
-        },
     },
     spawn::ItemSpawnEvent,
 };
-
-pub const GLTF_HITBOX_IDENTIFIER: &str = "__HB";
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum ItemSet {
@@ -72,16 +69,13 @@ impl PluginGroup for ItemPlugins {
             .add(MasterItemPlugin)
             .add(EquipPlugin)
             .add(ItemFxPlugin)
-            .add(GltfHitboxGenerationPlugin {
-                config: GltfHitboxAutoGenConfig(GLTF_HITBOX_IDENTIFIER.into()),
-            })
     }
 }
 
 #[derive(Component, Copy, Clone, Debug, Default)]
 pub struct Weapon;
 
-#[derive(Bundle, Clone)]
+#[derive(Bundle)]
 pub struct WeaponBundle<C: Send + Sync + 'static> {
     /// Generic weapon marker component.
     pub weapon: Weapon,

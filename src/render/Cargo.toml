@@ -9,7 +9,7 @@ edition = "2021"
 grin_physics = { path = "../physics" }
 grin_time = { path = "../time" }
 grin_util = { path = "../util" }
-bevy = { version = "0.12", features = ["dynamic_linking"] }
+bevy = { version = "0.12", features = ["dynamic_linking", "wav"] }
 bevy_asset_loader = { version = "0.18", features = ["3d", "progress_tracking"] }
 bevy_mod_outline = { git = "https://github.com/zainthemaynnn/bevy_mod_outline.git" }
 bevy_hanabi = "0.8"

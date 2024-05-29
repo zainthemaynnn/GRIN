@@ -20,7 +20,7 @@ grin_render = { path = "./src/render" }
 grin_rig = { path = "./src/rig" }
 grin_time = { path = "./src/time" }
 grin_util = { path = "./src/util" }
-bevy = { version = "0.12", features = ["dynamic_linking"] }
+bevy = { version = "0.12", features = ["dynamic_linking", "wav"] }
 bevy_mod_debugdump = "0.9"
 bevy-inspector-egui = "0.21"
 image = "0.24"

@@ -151,10 +151,10 @@ pub enum DamageContactError {
 }
 
 /// Helper function for finding a collision point.
-pub fn try_find_deepest_contact_point<T: Component>(
+pub fn try_find_deepest_contact_point(
     damage_event: &DamageEvent,
     rapier_context: &RapierContext,
-    item_query: &Query<&GlobalTransform, With<T>>,
+    item_query: &Query<&GlobalTransform>,
 ) -> Result<Vec3, DamageContactError> {
     let &DamageEvent::Contact {
         e_damage, e_hit, ..

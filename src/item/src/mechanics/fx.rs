@@ -1,8 +1,11 @@
-use bevy::{pbr::CubemapVisibleEntities, prelude::*, render::primitives::CubemapFrusta};
+use bevy::{
+    ecs::system::SystemParam, pbr::CubemapVisibleEntities, prelude::*,
+    render::primitives::CubemapFrusta,
+};
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::plugin::RapierContext;
 use grin_asset::AssetLoadState;
-use grin_damage::{impact::Impact, hit::DamageEvent};
+use grin_damage::hit::DamageEvent;
 use grin_render::sketched::SketchMaterial;
 
 use super::util::try_find_deepest_contact_point;
@@ -108,22 +111,44 @@ pub fn ignite_muzzle_flashes(
     }
 }
 
-pub fn on_hit_render_impact<T: Component>(
-    In(impact): In<Impact>,
-    mut commands: Commands,
-    rapier_context: Res<RapierContext>,
-    item_query: Query<&GlobalTransform, With<T>>,
-    mut damage_events: EventReader<DamageEvent>,
-) {
-    for damage_event in damage_events.read() {
-        let Ok(contact) =
-            try_find_deepest_contact_point(damage_event, &rapier_context, &item_query)
-        else {
-            return;
-        };
-        commands.spawn((
-            TransformBundle::from_transform(Transform::from_translation(contact)),
-            impact.clone(),
-        ));
+#[derive(SystemParam)]
+pub struct ImpactSystemParams<'w, 's> {
+    pub rapier_context: Res<'w, RapierContext>,
+    pub item_query: Query<'w, 's, &'static GlobalTransform>,
+}
+
+/// Wrapper for a system returning a `Bundle`, which is automatically inserted at the contact
+/// position on hit.
+pub fn on_hit_spawn<F, B, Marker>(
+    mut effect_fn: F,
+) -> impl FnMut(
+    In<F::In>,
+    EventReader<DamageEvent>,
+    ParamSet<(F::Param, ImpactSystemParams, Commands)>,
+) -> ()
+where
+    B: Bundle,
+    F: SystemParamFunction<Marker, In = (), Out = B>,
+{
+    move |In(effect_fn_in), mut damage_events, mut params| {
+        for damage_event in damage_events.read() {
+            let effect = effect_fn.run(effect_fn_in, params.p0());
+            let contact = {
+                let ImpactSystemParams {
+                    rapier_context,
+                    item_query,
+                } = params.p1();
+                match try_find_deepest_contact_point(damage_event, &rapier_context, &item_query) {
+                    Ok(contact) => contact,
+                    Err(..) => continue,
+                }
+            };
+
+            let mut commands = params.p2();
+            commands.spawn((
+                TransformBundle::from_transform(Transform::from_translation(contact)),
+                effect,
+            ));
+        }
     }
 }

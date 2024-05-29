@@ -1,58 +1,35 @@
-use bevy::{prelude::*, scene::InstanceId};
+// TODO: this should be reworked to use builtin collider shapes instead of mesh-produced ones
+// this should be done using GLTF custom attributes
+use bevy::{
+    prelude::*,
+    scene::InstanceId,
+    utils::{hashbrown::hash_map::OccupiedError, HashMap},
+};
 use bevy_rapier3d::prelude::*;
-use grin_damage::ContactDamage;
 use grin_physics::{collider, CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::NoOutline;
 use grin_util::query::{cloned_scene_initializer, gltf_prefix_search};
 
-use crate::equip::Models;
+use crate::{
+    health::{DamageBuffer, Health},
+    hit::{ContactDamage, DamageCollisionGroups},
+};
 
-/// Collision groups to use when dealing damage.
-#[derive(Component, Copy, Clone)]
-pub struct DamageCollisionGroups(pub CollisionGroups);
-
-impl Default for DamageCollisionGroups {
-    fn default() -> Self {
-        Self(CollisionGroups::from_group_default(
-            Group::PLAYER_PROJECTILE,
-        ))
-    }
+#[derive(Component)]
+pub struct Hitbox {
+    pub target: Entity,
 }
 
-impl From<&DamageCollisionGroups> for CollisionGroups {
-    fn from(value: &DamageCollisionGroups) -> Self {
-        value.0
-    }
-}
-
-#[derive(Component, Default)]
-pub struct Hitbox;
-
+#[derive(Debug)]
 pub enum HitboxGenerationError {
-    NoMeshPrimitive { node_id: String },
-    DupedNodeId { node_id: String },
-}
-
-impl std::fmt::Display for HitboxGenerationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            HitboxGenerationError::NoMeshPrimitive { node_id } => {
-                return f.write_fmt(format_args!(
-                    "Missing mesh primitive on hitbox node {}.",
-                    node_id
-                ));
-            }
-            HitboxGenerationError::DupedNodeId { node_id } => {
-                return f.write_fmt(format_args!("Duplicated hitbox node key: {}", node_id));
-            }
-        }
-    }
+    NoMeshPrimitive { node_id: Name },
+    DupedNodeId { node_id: Name },
 }
 
 /// Contains a list of hitbox colliders related to this object.
 #[derive(Component, Clone, Debug, Default)]
 pub struct HitboxManager {
-    pub colliders: Vec<Entity>, // TODO?: better way to make this work with ECS?
+    pub colliders: HashMap<Name, Entity>,
 }
 
 /// Constructs GLTF hitboxes and populates `HitboxManager`.
@@ -65,18 +42,23 @@ pub fn init_hitboxes(
     name_query: Query<&Name>,
     mesh_query: Query<&Handle<Mesh>>,
 ) {
-    for (_, scene_instance, GltfHitboxAutoGenTarget { master: e_master }) in loaded_items {
-        let mut colliders = Vec::new();
+    for (e_item, scene_instance, autogen) in loaded_items {
+        let e_master = match autogen {
+            GltfHitboxAutoGenTarget::Here => e_item,
+            GltfHitboxAutoGenTarget::Remote(target) => target,
+        };
+
+        let mut colliders = HashMap::new();
         let hitboxes = gltf_prefix_search(&prefix.0, &scene_instance, &scene_manager, &name_query);
 
         for e_hitbox in hitboxes {
             // `unwrap` is safe because it was verified in `gltf_prefix_search`
-            let node_id = name_query.get(e_hitbox).unwrap().to_string();
+            let node_id = name_query.get(e_hitbox).unwrap().to_owned();
 
             match mesh_query.get(e_hitbox) {
                 Ok(hitbox_geo) => {
                     commands.entity(e_hitbox).insert((
-                        Hitbox::default(),
+                        Hitbox { target: e_master },
                         collider!(meshes, hitbox_geo),
                         // I doubt the below properties need to be customized
                         // TODO: I don't know if fixed works; tests required
@@ -91,12 +73,19 @@ pub fn init_hitboxes(
                     ));
                 }
                 Err(..) => {
-                    error!("{}", HitboxGenerationError::NoMeshPrimitive { node_id });
+                    error!(error = ?HitboxGenerationError::NoMeshPrimitive { node_id });
                     continue;
                 }
             }
 
-            colliders.push(e_hitbox);
+            if let Err(OccupiedError { entry, .. }) = colliders.try_insert(node_id, e_hitbox) {
+                error!(
+                    error = ?HitboxGenerationError::DupedNodeId {
+                        node_id: entry.key().clone()
+                    }
+                );
+                continue;
+            }
         }
 
         commands
@@ -111,7 +100,7 @@ pub fn sync_hitbox_collision_groups(
     mut collision_groups_query: Query<&mut CollisionGroups>,
 ) {
     for (collision_groups, hitboxes) in hitbox_query.iter() {
-        for &e_hitbox in &hitboxes.colliders {
+        for &e_hitbox in hitboxes.colliders.values() {
             match collision_groups_query.get_mut(e_hitbox) {
                 Ok(mut collision_groups_ref) => {
                     *collision_groups_ref = collision_groups.0;
@@ -135,7 +124,7 @@ pub fn sync_hitbox_activation(
     hitbox_query: Query<(&ContactDamage, &HitboxManager), Added<ContactDamage>>,
 ) {
     for (contact_damage, hitboxes) in hitbox_query.iter() {
-        for &e_hitbox in &hitboxes.colliders {
+        for &e_hitbox in hitboxes.colliders.values() {
             commands.entity(e_hitbox).insert(*contact_damage);
         }
     }
@@ -152,39 +141,27 @@ pub fn sync_hitbox_deactivation(
             continue;
         };
 
-        for &e_hitbox in &hitboxes.colliders {
+        for &e_hitbox in hitboxes.colliders.values() {
             commands.entity(e_hitbox).remove::<ContactDamage>();
         }
     }
 }
 
-/// Enables GLTF hitbox auto-generation for the associated entity.
-#[derive(Component, Clone, Debug, Default)]
-pub enum GltfHitboxAutoGen {
-    #[default]
-    Enabled,
-    Disabled,
+pub fn convert_to_hurtboxes(
+    mut commands: Commands,
+    hurtbox_query: Query<&HitboxManager, Or<(Added<HitboxManager>, Added<Health>)>>,
+) {
+    for hitboxes in hurtbox_query.iter() {
+        for &e_hitbox in hitboxes.colliders.values() {
+            commands.entity(e_hitbox).insert(DamageBuffer::default());
+        }
+    }
 }
 
 #[derive(Component, Clone, Copy, Debug)]
-pub struct GltfHitboxAutoGenTarget {
-    pub master: Entity,
-}
-
-pub fn insert_autogen_markers(
-    mut commands: Commands,
-    autogen_query: Query<(Entity, &Models, &GltfHitboxAutoGen)>,
-) {
-    for (e_master, Models { targets }, autogen) in autogen_query.iter() {
-        if let GltfHitboxAutoGen::Enabled = autogen {
-            for &e_target in targets.values() {
-                commands
-                    .entity(e_target)
-                    .insert(GltfHitboxAutoGenTarget { master: e_master });
-            }
-        }
-        commands.entity(e_master).remove::<GltfHitboxAutoGen>();
-    }
+pub enum GltfHitboxAutoGenTarget {
+    Here,
+    Remote(Entity),
 }
 
 /// It's sometimes impractical or inefficient to use the item's actual mesh for collisions.
@@ -212,7 +189,7 @@ impl Plugin for GltfHitboxGenerationPlugin {
                     sync_hitbox_collision_groups,
                     sync_hitbox_activation,
                     sync_hitbox_deactivation,
-                    insert_autogen_markers,
+                    convert_to_hurtboxes,
                 ),
             );
     }

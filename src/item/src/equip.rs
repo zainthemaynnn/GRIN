@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy::{prelude::*, utils::EntityHashMap};
+use bevy::{prelude::*, utils::HashMap};
 use grin_damage::hitbox::GltfHitboxAutoGenTarget;
 use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
 use grin_util::event::UntypedEvent;
@@ -109,13 +109,13 @@ pub enum Handedness {
     Double,
 }
 
-#[derive(Component, Debug, Default)]
+#[derive(Component, Clone, Debug, Default)]
 pub struct Models {
-    pub targets: EntityHashMap<Grip, Entity>,
+    pub targets: HashMap<Grip, Entity>,
 }
 
-impl From<EntityHashMap<Grip, Entity>> for Models {
-    fn from(value: EntityHashMap<Grip, Entity>) -> Self {
+impl From<HashMap<Grip, Entity>> for Models {
+    fn from(value: HashMap<Grip, Entity>) -> Self {
         Self { targets: value }
     }
 }
@@ -126,9 +126,9 @@ macro_rules! models {
     ( $commands:expr, $( ($key:expr, $handle:expr) ),* $(,)?) => {
         {
             use bevy::prelude::*;
-            use bevy::utils::EntityHashMap;
+            use bevy::utils::HashMap;
 
-            let mut map = EntityHashMap::default();
+            let mut map = HashMap::default();
             $(
                 map.insert($key, $commands.spawn(SceneBundle {
                     scene: $handle,

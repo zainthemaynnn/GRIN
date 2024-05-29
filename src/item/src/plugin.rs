@@ -79,7 +79,7 @@ impl PluginGroup for ItemPlugins {
 #[derive(Component, Copy, Clone, Debug, Default)]
 pub struct Weapon;
 
-#[derive(Bundle)]
+#[derive(Bundle, Clone)]
 pub struct WeaponBundle<C: Send + Sync + 'static> {
     /// Generic weapon marker component.
     pub weapon: Weapon,

@@ -2,7 +2,10 @@ use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_damage::health::Dead;
+use grin_damage::{
+    health::Dead,
+    hitbox::{GltfHitboxAutoGenTarget, HitboxManager},
+};
 use grin_physics::{collider, CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::SketchMaterial;
 use grin_time::{scaling::RawVelocity, CommandsExt};
@@ -196,6 +199,8 @@ pub struct HumanoidBundle {
     pub build: HumanoidBuild,
     pub dominant_hand: HumanoidDominantHand,
     pub spatial: SpatialBundle,
+    pub hitbox_manager: HitboxManager,
+    pub hitbox_gen: GltfHitboxAutoGenTarget,
 }
 
 #[derive(Component)]
@@ -510,7 +515,7 @@ pub fn process_skeletons(
             let Ok(name) = name_query.get(e_node) else {
                 continue;
             };
-            trace!("{:?}", name);
+            trace!(humanoid_node=?name);
             let Some(part_type) = HumanoidPartType::from_node_id(name.as_str()) else {
                 continue;
             };
@@ -518,11 +523,7 @@ pub fn process_skeletons(
             match part_type {
                 HumanoidPartType::Head => {
                     builder.head = Some(e_node);
-                    commands.entity(e_node).insert((
-                        Head,
-                        Collider::ball(0.5),
-                        Velocity::default(),
-                    ));
+                    commands.entity(e_node).insert((Head, Velocity::default()));
 
                     let e_mesh = children_query.get(e_node).unwrap()[0];
                     commands.entity(e_mesh).insert((
@@ -535,9 +536,7 @@ pub fn process_skeletons(
                 }
                 HumanoidPartType::Body => {
                     builder.body = Some(e_node);
-                    commands
-                        .entity(e_node)
-                        .insert((Body, Collider::capsule_y(0.375, 0.5)));
+                    commands.entity(e_node).insert(Body);
 
                     let e_mesh = children_query.get(e_node).unwrap()[0];
                     commands.entity(e_mesh).insert((
@@ -545,7 +544,7 @@ pub fn process_skeletons(
                         match race {
                             HumanoidRace::Round => match build {
                                 HumanoidBuild::Male => assets.mbody.clone(),
-                                HumanoidBuild::Female => assets.mbody.clone(),
+                                HumanoidBuild::Female => assets.fbody.clone(),
                             },
                             HumanoidRace::Square => todo!(),
                         },
@@ -561,7 +560,7 @@ pub fn process_skeletons(
                 // https://discord.com/channels/691052431525675048/691052431974465548/1102366192129282139
                 HumanoidPartType::LeftHand => {
                     builder.lhand = Some(e_node);
-                    commands.entity(e_node).insert((Hand, Collider::ball(0.15)));
+                    commands.entity(e_node).insert(Hand);
 
                     let e_mesh = children_query.get(e_node).unwrap()[0];
                     commands
@@ -570,7 +569,7 @@ pub fn process_skeletons(
                 }
                 HumanoidPartType::RightHand => {
                     builder.rhand = Some(e_node);
-                    commands.entity(e_node).insert((Hand, Collider::ball(0.15)));
+                    commands.entity(e_node).insert(Hand);
 
                     let e_mesh = children_query.get(e_node).unwrap()[0];
                     commands

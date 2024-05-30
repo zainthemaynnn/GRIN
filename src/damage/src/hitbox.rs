@@ -195,6 +195,7 @@ pub fn convert_to_hurtboxes(
 
 #[derive(Component, Clone, Copy, Debug)]
 pub enum GltfHitboxAutoGenTarget {
+    #[default]
     Here,
     Remote(Entity),
 }

@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 use crate::{
     health::{DamageBuffer, Health},
-    hit::{ContactDamage, DamageCollisionGroups},
+    hit::{ContactDamage, DamageCollisionGroups, MacroCollisionFilter},
 };
 
 #[derive(Component)]
@@ -107,6 +107,8 @@ pub fn init_hitboxes(
                 ActiveEvents::COLLISION_EVENTS,
                 ActiveHooks::FILTER_CONTACT_PAIRS,
                 ColliderDisabled,
+                CollisionGroups::default(),
+                MacroCollisionFilter::default(),
             ));
 
             if let Err(OccupiedError { entry, .. }) = colliders.try_insert(node_id, e_hitbox) {
@@ -193,7 +195,7 @@ pub fn convert_to_hurtboxes(
     }
 }
 
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, Debug, Default)]
 pub enum GltfHitboxAutoGenTarget {
     #[default]
     Here,

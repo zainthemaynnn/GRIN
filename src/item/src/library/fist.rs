@@ -11,11 +11,7 @@ use bevy::{prelude::*, utils::HashSet};
 use bevy_asset_loader::prelude::{AssetCollection, LoadingStateAppExt};
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_damage::{
-    hit::{ContactDamage, DamageCollisionGroups},
-    impact::Impact,
-};
-use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
+use grin_damage::{hit::ContactDamage, hitbox::HitboxManager, impact::Impact};
 use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
 
 use crate::{
@@ -130,7 +126,7 @@ pub fn punch(
     mut animator_params: AnimatorSystemParams,
     mut item_query: Query<(
         &mut ComboStack<FistCombo>,
-        &mut DamageCollisionGroups,
+        &HitboxManager,
         &Models,
         &EquippedTo,
         &SlotAlignment,
@@ -138,16 +134,27 @@ pub fn punch(
     humanoid_query: Query<&Humanoid>,
 ) {
     for ShotFired { entity: e_item, .. } in shot_events.read() {
-        let (mut combo, mut collision_groups, models, EquippedTo { target: e_user }, alignment) =
+        let (mut combo, hitboxes, models, EquippedTo { target: e_user }, alignment) =
             item_query.get_mut(*e_item).unwrap();
         let dominant = humanoid_query.get(*e_user).unwrap().dominant_hand_type;
         let mut animator = animator_params.get_mut(*e_item).unwrap();
 
+        // TODO: this is too convoluted. the animations should be able to be
+        // flipped, so I can use `DomPunch` and `OffPunch` instead of `L` and `R`.
         let attack = match alignment {
             SlotAlignment::Double => match combo.sequence.last() {
-                None | Some(FistCombo::SpinPunch) => FistCombo::LPunch,
-                Some(FistCombo::LPunch) => FistCombo::RPunch,
-                Some(FistCombo::RPunch) => FistCombo::SpinPunch,
+                None | Some(FistCombo::SpinPunch) => match dominant {
+                    HumanoidDominantHand::Left => FistCombo::LPunch,
+                    HumanoidDominantHand::Right => FistCombo::RPunch,
+                },
+                Some(FistCombo::LPunch) => match dominant {
+                    HumanoidDominantHand::Left => FistCombo::RPunch,
+                    HumanoidDominantHand::Right => FistCombo::SpinPunch,
+                },
+                Some(FistCombo::RPunch) => match dominant {
+                    HumanoidDominantHand::Left => FistCombo::SpinPunch,
+                    HumanoidDominantHand::Right => FistCombo::LPunch,
+                },
             },
             SlotAlignment::Left => FistCombo::LPunch,
             SlotAlignment::Right => FistCombo::RPunch,
@@ -165,6 +172,14 @@ pub fn punch(
             FistCombo::SpinPunch => vec![Grip::Hand, Grip::Offhand],
         };
 
+        let colliders = match attack {
+            FistCombo::LPunch => vec!["LFist"],
+            FistCombo::RPunch => vec!["RFist"],
+            FistCombo::SpinPunch => vec!["LFist", "RFist"],
+        }
+        .into_iter()
+        .map(|s| hitboxes.colliders[&Name::new(s)]);
+
         // play sounds
         for grip in grips {
             commands.entity(models.targets[&grip]).insert(AudioBundle {
@@ -180,18 +195,23 @@ pub fn punch(
         combo.push(attack, Duration::from_millis(1500));
 
         // enable collisions
-        collision_groups.0 = CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE);
+        for e_collider in colliders {
+            commands.entity(e_collider).remove::<ColliderDisabled>();
+        }
     }
 }
 
 pub fn deactivate_colliders(
-    mut item_query: Query<(Entity, &mut DamageCollisionGroups), With<Fist>>,
+    mut commands: Commands,
+    item_query: Query<(Entity, &HitboxManager), With<Fist>>,
     animator_params: ReadOnlyAnimatorSystemParams,
 ) {
-    for (e_item, mut collision_groups) in item_query.iter_mut() {
+    for (e_item, hitboxes) in item_query.iter() {
         let animator = animator_params.get(e_item).unwrap();
         if animator.is_finished() {
-            collision_groups.0 = CollisionGroups::default();
+            for &e_hitbox in hitboxes.colliders.values() {
+                commands.entity(e_hitbox).insert(ColliderDisabled);
+            }
         }
     }
 }

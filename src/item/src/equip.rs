@@ -1,7 +1,9 @@
 use std::marker::PhantomData;
 
 use bevy::{prelude::*, utils::HashMap};
-use grin_damage::hitbox::GltfHitboxAutoGenTarget;
+use bevy_rapier3d::geometry::{CollisionGroups, Group};
+use grin_damage::{hit::DamageCollisionGroups, hitbox::GltfHitboxAutoGenTarget};
+use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
 use grin_util::event::UntypedEvent;
 
@@ -168,7 +170,7 @@ pub fn equip_items(
     mut commands: Commands,
     mut events: EventReader<UntypedItemEquipEvent>,
     mut humanoid_query: Query<(&Humanoid, &mut Equipped)>,
-    mut item_query: Query<(&ItemIdentifier, &Models, &Handedness)>,
+    item_query: Query<(&ItemIdentifier, &Models, &Handedness)>,
 ) {
     for UntypedItemEquipEvent {
         parent_entity,
@@ -181,7 +183,7 @@ pub fn equip_items(
             continue;
         };
 
-        let Ok((item_id, models, handedness)) = item_query.get_mut(*item_entity) else {
+        let Ok((item_id, models, handedness)) = item_query.get(*item_entity) else {
             error!("Missing equipment-related components.");
             continue;
         };
@@ -237,6 +239,9 @@ pub fn equip_items(
                 target: *parent_entity,
             },
             slot,
+            DamageCollisionGroups(CollisionGroups::from_group_default(
+                Group::PLAYER_PROJECTILE,
+            )),
         ));
 
         info!(

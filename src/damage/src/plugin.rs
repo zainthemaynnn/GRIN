@@ -1,11 +1,8 @@
 use bevy::{app::PluginGroupBuilder, prelude::*};
 
 use crate::{
-    health::HealthPlugin,
-    hit::ContactDamagePlugin,
-    hitbox::{GltfHitboxAutoGenConfig, GltfHitboxGenerationPlugin},
-    impact::ImpactPlugin,
-    projectiles::ProjectilePlugin,
+    health::HealthPlugin, hit::ContactDamagePlugin, hitbox::GltfHitboxGenerationPlugin,
+    impact::ImpactPlugin, projectiles::ProjectilePlugin,
 };
 
 /// Health and damage calculations.
@@ -18,9 +15,7 @@ impl PluginGroup for DamagePlugins {
             .add(ContactDamagePlugin)
             .add(HealthPlugin)
             .add(ImpactPlugin)
-            .add(GltfHitboxGenerationPlugin {
-                config: GltfHitboxAutoGenConfig(String::from("__HB")),
-            })
+            .add(GltfHitboxGenerationPlugin)
     }
 }
 

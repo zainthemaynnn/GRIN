@@ -1,14 +1,12 @@
-// TODO: this should be reworked to use builtin collider shapes instead of mesh-produced ones
-// this should be done using GLTF custom attributes
 use bevy::{
+    gltf::GltfExtras,
     prelude::*,
     scene::InstanceId,
     utils::{hashbrown::hash_map::OccupiedError, HashMap},
 };
 use bevy_rapier3d::prelude::*;
-use grin_physics::{collider, CollisionGroupExt, CollisionGroupsExt};
-use grin_render::sketched::NoOutline;
-use grin_util::query::{cloned_scene_initializer, gltf_prefix_search};
+use grin_util::query::cloned_scene_initializer;
+use serde::Deserialize;
 
 use crate::{
     health::{DamageBuffer, Health},
@@ -22,8 +20,7 @@ pub struct Hitbox {
 
 #[derive(Debug)]
 pub enum HitboxGenerationError {
-    NoMeshPrimitive { node_id: Name },
-    DupedNodeId { node_id: Name },
+    DupedNodeId { node_id: String },
 }
 
 /// Contains a list of hitbox colliders related to this object.
@@ -32,61 +29,103 @@ pub struct HitboxManager {
     pub colliders: HashMap<Name, Entity>,
 }
 
+#[derive(Deserialize)]
+#[serde(tag = "Collider", rename_all_fields = "snake_case")]
+pub enum ColliderAttributes {
+    /// Uses `Collider::ball`.
+    Ball { radius: f32 },
+    /// Uses `Collider::capsule_y`.
+    CapsuleY { half_height: f32, radius: f32 },
+}
+
+impl From<ColliderAttributes> for Collider {
+    fn from(value: ColliderAttributes) -> Self {
+        match value {
+            ColliderAttributes::Ball { radius } => Collider::ball(radius),
+            ColliderAttributes::CapsuleY {
+                half_height,
+                radius,
+            } => Collider::capsule_y(half_height, radius),
+        }
+    }
+}
+
 /// Constructs GLTF hitboxes and populates `HitboxManager`.
 pub fn init_hitboxes(
     In(loaded_items): In<Vec<(Entity, InstanceId, GltfHitboxAutoGenTarget)>>,
     mut commands: Commands,
-    meshes: Res<Assets<Mesh>>,
     scene_manager: Res<SceneSpawner>,
-    prefix: Res<GltfHitboxAutoGenConfig>,
     name_query: Query<&Name>,
-    mesh_query: Query<&Handle<Mesh>>,
+    extras_query: Query<&GltfExtras>,
 ) {
-    for (e_item, scene_instance, autogen) in loaded_items {
+    for (e_scene, scene_instance, autogen) in loaded_items {
         let e_master = match autogen {
-            GltfHitboxAutoGenTarget::Here => e_item,
+            GltfHitboxAutoGenTarget::Here => e_scene,
             GltfHitboxAutoGenTarget::Remote(target) => target,
         };
 
         let mut colliders = HashMap::new();
-        let hitboxes = gltf_prefix_search(&prefix.0, &scene_instance, &scene_manager, &name_query);
 
-        for e_hitbox in hitboxes {
-            // `unwrap` is safe because it was verified in `gltf_prefix_search`
+        if let Ok(name) = name_query.get(e_scene) {
+            debug!(owner=true, node=?name);
+        }
+
+        for e in scene_manager.iter_instance_entities(scene_instance) {
+            if let Ok(name) = name_query.get(e) {
+                debug!(node=?name, has_extras=extras_query.get(e).is_ok());
+            }
+        }
+
+        for (e_hitbox, extras) in scene_manager
+            .iter_instance_entities(scene_instance)
+            .filter_map(|e_node| extras_query.get(e_node).ok().map(|extras| (e_node, extras)))
+        {
             let node_id = name_query.get(e_hitbox).unwrap().to_owned();
-
-            match mesh_query.get(e_hitbox) {
-                Ok(hitbox_geo) => {
-                    commands.entity(e_hitbox).insert((
-                        Hitbox { target: e_master },
-                        // ME WHEN I REALIZE YOU CAN HAVE COLLIDERS WITHOUT RIGID BODIES 🤯
-                        collider!(meshes, hitbox_geo),
-                        Sensor,
-                        ActiveEvents::COLLISION_EVENTS,
-                        ActiveHooks::FILTER_CONTACT_PAIRS,
-                        CollisionGroups::from_group_default(Group::DEBRIS),
-                    ))
-                    .remove::<Handle<Mesh>>();
-                }
-                Err(..) => {
-                    error!(error = ?HitboxGenerationError::NoMeshPrimitive { node_id });
+            // yeah, I'm deserializing. what you gonna do about it?
+            // TODO?: for real though, I can probably change the asset loader to deserialize this
+            // into the asset itself only once, instead of on every load.
+            // not a big priority though; I'll see if this is actually a problem first.
+            let generated_collider = match serde_json::from_str::<ColliderAttributes>(&extras.value)
+            {
+                Ok(collider_attrs) => Collider::from(collider_attrs),
+                Err(e) => {
+                    error!(
+                        msg="Failed to generate collider params from extras.",
+                        error=?e,
+                        node=node_id.to_string(),
+                        json=extras.value,
+                    );
                     continue;
                 }
-            }
+            };
+
+            commands.entity(e_hitbox).insert((
+                Hitbox { target: e_master },
+                // ME WHEN I REALIZE YOU CAN HAVE COLLIDERS WITHOUT RIGID BODIES 🤯
+                generated_collider,
+                Sensor,
+                ActiveEvents::COLLISION_EVENTS,
+                ActiveHooks::FILTER_CONTACT_PAIRS,
+                ColliderDisabled,
+            ));
 
             if let Err(OccupiedError { entry, .. }) = colliders.try_insert(node_id, e_hitbox) {
                 error!(
                     error = ?HitboxGenerationError::DupedNodeId {
-                        node_id: entry.key().clone()
+                        node_id: entry.key().to_string(),
                     }
                 );
                 continue;
             }
         }
 
-        commands
-            .entity(e_master)
-            .insert(HitboxManager { colliders });
+        let hitbox_manager = HitboxManager { colliders };
+        debug!(
+            msg="Generated hitbox manager.",
+            scene=?scene_instance,
+            item=?hitbox_manager,
+        );
+        commands.entity(e_master).insert(hitbox_manager);
     }
 }
 
@@ -165,28 +204,22 @@ pub enum GltfHitboxAutoGenTarget {
 /// This plugin allows you to export simplified hitbox meshes to GLTF by adding an
 /// associated prefix (`config.0`) to the name of the node. Generated colliders are added
 /// to a `HitboxManager`, and created on scene load.
-pub struct GltfHitboxGenerationPlugin {
-    pub config: GltfHitboxAutoGenConfig,
-}
-
-#[derive(Resource, Clone)]
-pub struct GltfHitboxAutoGenConfig(pub String);
+pub struct GltfHitboxGenerationPlugin;
 
 impl Plugin for GltfHitboxGenerationPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(self.config.clone())
-            .add_systems(
-                PreUpdate,
-                cloned_scene_initializer::<GltfHitboxAutoGenTarget>.pipe(init_hitboxes),
-            )
-            .add_systems(
-                PostUpdate,
-                (
-                    sync_hitbox_collision_groups,
-                    sync_hitbox_activation,
-                    sync_hitbox_deactivation,
-                    convert_to_hurtboxes,
-                ),
-            );
+        app.add_systems(
+            PreUpdate,
+            cloned_scene_initializer::<GltfHitboxAutoGenTarget>.pipe(init_hitboxes),
+        )
+        .add_systems(
+            PostUpdate,
+            (
+                sync_hitbox_collision_groups,
+                sync_hitbox_activation,
+                sync_hitbox_deactivation,
+                convert_to_hurtboxes,
+            ),
+        );
     }
 }

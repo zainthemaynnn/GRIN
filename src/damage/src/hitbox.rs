@@ -66,16 +66,6 @@ pub fn init_hitboxes(
 
         let mut colliders = HashMap::new();
 
-        if let Ok(name) = name_query.get(e_scene) {
-            debug!(owner=true, node=?name);
-        }
-
-        for e in scene_manager.iter_instance_entities(scene_instance) {
-            if let Ok(name) = name_query.get(e) {
-                debug!(node=?name, has_extras=extras_query.get(e).is_ok());
-            }
-        }
-
         for (e_hitbox, extras) in scene_manager
             .iter_instance_entities(scene_instance)
             .filter_map(|e_node| extras_query.get(e_node).ok().map(|extras| (e_node, extras)))

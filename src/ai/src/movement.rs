@@ -128,9 +128,6 @@ pub fn propagate_attack_target_to_agent_target<T: Component, A: Component>(
         }
 
         raw_velocity.0.angvel = Vec3::Y * AGENT_ANGULAR_VELOCITY_P * angle_diff;
-        dbg!("next");
-        dbg!(raw_velocity.0.angvel);
-        dbg!(velocity.angvel);
 
         brain.write_verdict(Verdict::Success);
     }

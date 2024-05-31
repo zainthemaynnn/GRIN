@@ -78,7 +78,7 @@ fn main() -> Result<(), io::Error> {
             WorldInspectorPlugin::new(),
             TweenEventPlugin,
             GrinPhysicsPlugin {
-                debug_enabled: false,
+                debug_enabled: true,
                 ..Default::default()
             },
             RenderFXPlugins,
@@ -105,8 +105,8 @@ fn main() -> Result<(), io::Error> {
         )
         .add_systems(
             OnEnter(MapLoadState::Success),
-            (grin_ai::boombox::BoomBox::spawn_with(
-                grin_ai::boombox::BoomBoxSpawnEvent {
+            (grin_ai::dummy::Dummy::spawn_with(
+                grin_ai::dummy::DummySpawnEvent {
                     transform: Transform::from_xyz(10.0, 1E-2, 0.0),
                 },
             ),),

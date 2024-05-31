@@ -79,10 +79,15 @@ CustomDynamicAssetCollection({
           source: "humanoid.glb",
           item: "2002.raver",
      ),
-     "scene.fist": GltfSubAsset (
+     "scene.fist.onhand": GltfSubAsset (
           ty: Scene,
           source: "fist.glb",
-          item: "fist",
+          item: "onhand",
+     ),
+     "scene.fist.offhand": GltfSubAsset (
+          ty: Scene,
+          source: "fist.glb",
+          item: "offhand",
      ),
 
      "anim.idle": GltfSubAsset (

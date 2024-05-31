@@ -57,6 +57,7 @@ pub fn init_hitboxes(
     scene_manager: Res<SceneSpawner>,
     name_query: Query<&Name>,
     extras_query: Query<&GltfExtras>,
+    mut hitboxes_query: Query<&mut HitboxManager>,
 ) {
     for (e_scene, scene_instance, autogen) in loaded_items {
         let e_master = match autogen {
@@ -64,7 +65,13 @@ pub fn init_hitboxes(
             GltfHitboxAutoGenTarget::Remote(target) => target,
         };
 
-        let mut colliders = HashMap::new();
+        let Ok(mut hitbox_manager) = hitboxes_query.get_mut(e_master) else {
+            error!(
+                error="Missing `HitboxManager` during collider autogen.",
+                entity=?e_master,
+            );
+            continue;
+        };
 
         for (e_hitbox, extras) in scene_manager
             .iter_instance_entities(scene_instance)
@@ -101,7 +108,9 @@ pub fn init_hitboxes(
                 MacroCollisionFilter::default(),
             ));
 
-            if let Err(OccupiedError { entry, .. }) = colliders.try_insert(node_id, e_hitbox) {
+            if let Err(OccupiedError { entry, .. }) =
+                hitbox_manager.colliders.try_insert(node_id, e_hitbox)
+            {
                 error!(
                     error = ?HitboxGenerationError::DupedNodeId {
                         node_id: entry.key().to_string(),
@@ -111,13 +120,12 @@ pub fn init_hitboxes(
             }
         }
 
-        let hitbox_manager = HitboxManager { colliders };
         debug!(
             msg="Generated hitbox manager.",
-            scene=?scene_instance,
-            item=?hitbox_manager,
+            source=?scene_instance,
+            entity=?e_master,
+            item=?*hitbox_manager,
         );
-        commands.entity(e_master).insert(hitbox_manager);
     }
 }
 

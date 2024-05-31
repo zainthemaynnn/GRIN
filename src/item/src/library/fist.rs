@@ -36,8 +36,10 @@ pub struct FistPlugin;
 #[derive(Resource, AssetCollection)]
 pub struct FistAssets {
     // there's nothing visual here; just hitboxes
-    #[asset(key = "scene.fist")]
-    pub fist: Handle<Scene>,
+    #[asset(key = "scene.fist.onhand")]
+    pub onhand: Handle<Scene>,
+    #[asset(key = "scene.fist.offhand")]
+    pub offhand: Handle<Scene>,
     #[asset(key = "anim.punch.left")]
     pub lpunch: Handle<AnimationClip>,
     #[asset(key = "anim.punch.right")]
@@ -51,10 +53,20 @@ pub struct FistAssets {
 }
 
 impl FistAssets {
-    pub fn attack_anim(&self, attack: FistCombo) -> Handle<AnimationClip> {
+    pub fn attack_anim(
+        &self,
+        attack: FistCombo,
+        dominant: HumanoidDominantHand,
+    ) -> Handle<AnimationClip> {
         match attack {
-            FistCombo::LPunch => self.lpunch.clone(),
-            FistCombo::RPunch => self.rpunch.clone(),
+            FistCombo::OnPunch => match dominant {
+                HumanoidDominantHand::Left => self.lpunch.clone(),
+                HumanoidDominantHand::Right => self.rpunch.clone(),
+            },
+            FistCombo::OffPunch => match dominant {
+                HumanoidDominantHand::Left => self.rpunch.clone(),
+                HumanoidDominantHand::Right => self.lpunch.clone(),
+            },
             FistCombo::SpinPunch => self.spin_punch.clone(),
         }
     }
@@ -80,8 +92,8 @@ impl Plugin for FistPlugin {
                         identifier: ItemIdentifier::Fist,
                         models: models![
                             commands,
-                            (Grip::Hand, assets.fist.clone()),
-                            (Grip::Offhand, assets.fist.clone()),
+                            (Grip::Hand, assets.onhand.clone()),
+                            (Grip::Offhand, assets.offhand.clone()),
                         ],
                         handedness: Handedness::Double,
                         // TODO: I think contact damage needs to be reworked
@@ -113,8 +125,8 @@ impl Plugin for FistPlugin {
 
 #[derive(Clone, Copy, Debug)]
 pub enum FistCombo {
-    LPunch,
-    RPunch,
+    OnPunch,
+    OffPunch,
     SpinPunch,
 }
 
@@ -143,39 +155,30 @@ pub fn punch(
         // flipped, so I can use `DomPunch` and `OffPunch` instead of `L` and `R`.
         let attack = match alignment {
             SlotAlignment::Double => match combo.sequence.last() {
-                None | Some(FistCombo::SpinPunch) => match dominant {
-                    HumanoidDominantHand::Left => FistCombo::LPunch,
-                    HumanoidDominantHand::Right => FistCombo::RPunch,
-                },
-                Some(FistCombo::LPunch) => match dominant {
-                    HumanoidDominantHand::Left => FistCombo::RPunch,
-                    HumanoidDominantHand::Right => FistCombo::SpinPunch,
-                },
-                Some(FistCombo::RPunch) => match dominant {
-                    HumanoidDominantHand::Left => FistCombo::SpinPunch,
-                    HumanoidDominantHand::Right => FistCombo::LPunch,
-                },
+                None | Some(FistCombo::SpinPunch) => FistCombo::OnPunch,
+                Some(FistCombo::OnPunch) => FistCombo::OffPunch,
+                Some(FistCombo::OffPunch) => FistCombo::SpinPunch,
             },
-            SlotAlignment::Left => FistCombo::LPunch,
-            SlotAlignment::Right => FistCombo::RPunch,
+            SlotAlignment::Left => match dominant {
+                HumanoidDominantHand::Left => FistCombo::OnPunch,
+                HumanoidDominantHand::Right => FistCombo::OffPunch,
+            },
+            SlotAlignment::Right => match dominant {
+                HumanoidDominantHand::Left => FistCombo::OffPunch,
+                HumanoidDominantHand::Right => FistCombo::OnPunch,
+            },
         };
 
         let grips = match attack {
-            FistCombo::LPunch => match dominant {
-                HumanoidDominantHand::Left => vec![Grip::Hand],
-                HumanoidDominantHand::Right => vec![Grip::Offhand],
-            },
-            FistCombo::RPunch => match dominant {
-                HumanoidDominantHand::Left => vec![Grip::Offhand],
-                HumanoidDominantHand::Right => vec![Grip::Hand],
-            },
+            FistCombo::OnPunch => vec![Grip::Hand],
+            FistCombo::OffPunch => vec![Grip::Offhand],
             FistCombo::SpinPunch => vec![Grip::Hand, Grip::Offhand],
         };
 
         let colliders = match attack {
-            FistCombo::LPunch => vec!["LFist"],
-            FistCombo::RPunch => vec!["RFist"],
-            FistCombo::SpinPunch => vec!["LFist", "RFist"],
+            FistCombo::OnPunch => vec!["OnHand"],
+            FistCombo::OffPunch => vec!["OffHand"],
+            FistCombo::SpinPunch => vec!["OnHand", "OffHand"],
         }
         .into_iter()
         .map(|s| hitboxes.colliders[&Name::new(s)]);
@@ -189,7 +192,7 @@ pub fn punch(
         }
 
         // play animation
-        animator.play(assets.attack_anim(attack));
+        animator.play(assets.attack_anim(attack, dominant));
 
         // increment combo
         combo.push(attack, Duration::from_millis(1500));

@@ -4,7 +4,7 @@ use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::{
     health::Dead,
-    hitbox::{GltfHitboxAutoGenTarget, HitboxManager},
+    hitbox::{GltfHitboxAutoGenTarget, GltfHitboxAutoGenTemplate, HitboxManager},
 };
 use grin_physics::{collider, CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::SketchMaterial;
@@ -189,7 +189,7 @@ impl From<Handle<SketchMaterial>> for HumanoidClothing {
     }
 }
 
-#[derive(Bundle, Default)]
+#[derive(Bundle)]
 pub struct HumanoidBundle {
     pub rig: Handle<Scene>,
     pub skeleton: Skeleton,
@@ -201,6 +201,25 @@ pub struct HumanoidBundle {
     pub spatial: SpatialBundle,
     pub hitbox_manager: HitboxManager,
     pub hitbox_gen: GltfHitboxAutoGenTarget,
+    pub hitbox_template: GltfHitboxAutoGenTemplate,
+}
+
+impl Default for HumanoidBundle {
+    fn default() -> Self {
+        Self {
+            rig: Handle::default(),
+            skeleton: Skeleton,
+            face: HumanoidFace::default(),
+            clothing: HumanoidClothing::default(),
+            race: HumanoidRace::default(),
+            build: HumanoidBuild::default(),
+            dominant_hand: HumanoidDominantHand::default(),
+            spatial: SpatialBundle::default(),
+            hitbox_manager: HitboxManager::default(),
+            hitbox_gen: GltfHitboxAutoGenTarget::default(),
+            hitbox_template: GltfHitboxAutoGenTemplate::Hurtbox,
+        }
+    }
 }
 
 #[derive(Component)]

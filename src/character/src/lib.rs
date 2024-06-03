@@ -6,8 +6,7 @@ use std::marker::PhantomData;
 use bevy::{app::PluginGroupBuilder, prelude::*, render::view::RenderLayers};
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_damage::{
-    health::{DamageBuffer, Health, HealthBundle},
+use grin_damage::health::{Health, HealthBundle};
 use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera, PlayerCameraPlugin};
 use grin_item::{equip::Equipped, mechanics::util::InputHandler, spawn::ItemSpawnEvent};
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
@@ -15,9 +14,7 @@ use grin_render::{
     gopro::{add_gopro, GoProSettings},
     RenderLayer,
 };
-use grin_rig::humanoid::{
-    Dash, Humanoid, HumanoidPartType, HumanoidRace, HUMANOID_HEIGHT, HUMANOID_RADIUS,
-};
+use grin_rig::humanoid::{Dash, Humanoid, HumanoidRace, HUMANOID_HEIGHT, HUMANOID_RADIUS};
 use grin_util::{event::Spawnable, vectors::Vec3Ext};
 
 use kit::{grin::GrinPlugin, smirk::SmirkPlugin};
@@ -51,7 +48,7 @@ impl Plugin for MasterCharacterPlugin {
                     ),
                 ),
             )
-            .add_systems(Update, init_character_model.in_set(CharacterSet::Init))
+            .add_systems(PostUpdate, init_character_model.in_set(CharacterSet::Init))
             .add_systems(
                 Update,
                 apply_deferred
@@ -210,19 +207,6 @@ pub fn init_character_model(
     commands
         .entity(humanoid.head)
         .insert(SpatialListener::new(1.0));
-
-    for e_part in humanoid.parts(HumanoidPartType::HITBOX) {
-        commands.entity(e_part).insert((
-            DamageBuffer::default(),
-            CollisionGroups::from_group_default(Group::PLAYER),
-        ));
-    }
-
-    for e_part in humanoid.parts(HumanoidPartType::HANDS) {
-        commands
-            .entity(e_part)
-            .insert(CollisionGroups::from_group_default(Group::NONE));
-    }
 
     for e_child in children_query.iter_descendants(e_humanoid) {
         if mesh_query.get(e_child).is_ok() {

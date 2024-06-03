@@ -32,3 +32,9 @@ pub enum DamageSet {
     /// Things die in this stage.
     Kill,
 }
+
+#[derive(SystemSet, Debug, Hash, Eq, PartialEq, Copy, Clone)]
+pub enum HitboxSet {
+    Generate,
+    Sync,
+}

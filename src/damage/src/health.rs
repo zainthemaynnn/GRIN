@@ -64,13 +64,19 @@ pub fn apply_resist(mut query: Query<(&mut DamageBuffer, &Resist)>) {
 }
 
 /// Recursively empties `DamageBuffer`s for entities without a `Health` component
-/// and appends them to the `DamageBuffer` of the first ancestor with a `Health` component.
+/// and appends them to the `DamageBuffer` of the `HitboxManager` `Health`.
 pub fn propagate_damage_buffers(
     mut health_query: Query<&mut DamageBuffer, With<Health>>,
-    mut hitbox_query: Query<(&Hitbox, &mut DamageBuffer), Without<Health>>,
+    mut hitbox_query: Query<(&Hitbox, &mut DamageBuffer), (Without<Health>, Changed<DamageBuffer>)>,
 ) {
     for (Hitbox { target: e_health }, mut src_buf) in hitbox_query.iter_mut() {
-        let mut dst_buf = health_query.get_mut(*e_health).unwrap();
+        let Ok(mut dst_buf) = health_query.get_mut(*e_health) else {
+            error!(
+                error="Cannot propagate damage buffer to entity without `Health`.",
+                entity=?e_health,
+            );
+            continue;
+        };
         dst_buf.0.append(&mut src_buf.0);
     }
 }

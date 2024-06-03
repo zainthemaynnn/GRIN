@@ -6,8 +6,9 @@ use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::{
     hit::ContactDamage,
-    hitbox::HitboxManager,
+    hitbox::{GltfHitboxAutoGenTemplate, HitboxManager},
 };
+use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 
 use crate::{
     equip::{EquipPlugin, GltfHitboxAutoGen, Handedness, ItemEquipEvent, Models},
@@ -96,6 +97,8 @@ pub struct WeaponBundle<C: Send + Sync + 'static> {
     pub handedness: Handedness,
     /// Hitbox auto-generation setting (default: `Enabled`).
     pub hitbox_gen: GltfHitboxAutoGen,
+    /// Hitbox auto-generation template.
+    pub hitbox_template: GltfHitboxAutoGenTemplate,
     /// Weapon combo sequence.
     pub combo_stack: ComboStack<C>,
     /// Associated models.
@@ -116,7 +119,6 @@ pub struct WeaponBundle<C: Send + Sync + 'static> {
 impl<C: Send + Sync + 'static> Default for WeaponBundle<C> {
     fn default() -> Self {
         Self {
-            combo_stack: ComboStack::<C>::default(), // WHY
             weapon: Weapon::default(),
             identifier: ItemIdentifier::default(),
             target: Target::default(),
@@ -124,6 +126,8 @@ impl<C: Send + Sync + 'static> Default for WeaponBundle<C> {
             collision_groups: CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE),
             handedness: Handedness::default(),
             hitbox_gen: GltfHitboxAutoGen::default(),
+            hitbox_template: GltfHitboxAutoGenTemplate::Hitbox,
+            combo_stack: ComboStack::<C>::default(),
             models: Models::default(),
             hitboxes: HitboxManager::default(),
             contact_damage: ContactDamage::default(),

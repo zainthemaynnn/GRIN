@@ -9,8 +9,9 @@ use grin_util::query::cloned_scene_initializer;
 use serde::Deserialize;
 
 use crate::{
-    health::{DamageBuffer, Health},
+    health::DamageBuffer,
     hit::{ContactDamage, MacroCollisionFilter},
+    plugin::HitboxSet,
 };
 
 #[derive(Component)]
@@ -57,7 +58,7 @@ pub fn init_hitboxes(
     scene_manager: Res<SceneSpawner>,
     name_query: Query<&Name>,
     extras_query: Query<&GltfExtras>,
-    mut hitboxes_query: Query<&mut HitboxManager>,
+    mut hitboxes_query: Query<(&mut HitboxManager, Option<&GltfHitboxAutoGenTemplate>)>,
 ) {
     for (e_scene, scene_instance, autogen) in loaded_items {
         let e_master = match autogen {
@@ -65,7 +66,7 @@ pub fn init_hitboxes(
             GltfHitboxAutoGenTarget::Remote(target) => target,
         };
 
-        let Ok(mut hitbox_manager) = hitboxes_query.get_mut(e_master) else {
+        let Ok((mut hitbox_manager, template)) = hitboxes_query.get_mut(e_master) else {
             error!(
                 error="Missing `HitboxManager` during collider autogen.",
                 entity=?e_master,
@@ -96,17 +97,36 @@ pub fn init_hitboxes(
                 }
             };
 
-            commands.entity(e_hitbox).insert((
-                Hitbox { target: e_master },
-                // ME WHEN I REALIZE YOU CAN HAVE COLLIDERS WITHOUT RIGID BODIES 🤯
-                generated_collider,
-                Sensor,
-                ActiveEvents::COLLISION_EVENTS,
-                ActiveHooks::FILTER_CONTACT_PAIRS,
-                ColliderDisabled,
-                CollisionGroups::default(),
-                MacroCollisionFilter::default(),
-            ));
+            let mut e = commands.entity(e_hitbox);
+
+            e.insert((Hitbox { target: e_master }, generated_collider));
+
+            if let Some(&template) = template {
+                match template {
+                    GltfHitboxAutoGenTemplate::Hitbox => {
+                        e.insert((
+                            RigidBody::KinematicPositionBased,
+                            ContactDamage::FollowThrough,
+                            ColliderDisabled,
+                            MacroCollisionFilter::default(),
+                            CollisionGroups::default(),
+                            ActiveEvents::COLLISION_EVENTS,
+                            ActiveHooks::FILTER_CONTACT_PAIRS,
+                            ActiveCollisionTypes::default()
+                                | ActiveCollisionTypes::KINEMATIC_KINEMATIC,
+                        ));
+                    }
+                    GltfHitboxAutoGenTemplate::Hurtbox => {
+                        e.insert((
+                            RigidBody::KinematicPositionBased,
+                            DamageBuffer::default(),
+                            CollisionGroups::default(),
+                            ActiveEvents::COLLISION_EVENTS,
+                            ActiveHooks::FILTER_CONTACT_PAIRS,
+                        ));
+                    }
+                }
+            }
 
             if let Err(OccupiedError { entry, .. }) =
                 hitbox_manager.colliders.try_insert(node_id, e_hitbox)
@@ -124,6 +144,7 @@ pub fn init_hitboxes(
             msg="Generated hitbox manager.",
             source=?scene_instance,
             entity=?e_master,
+            template=?template,
             item=?*hitbox_manager,
         );
     }
@@ -132,16 +153,24 @@ pub fn init_hitboxes(
 /// Propagates `HitboxManager` `CollisionGroups` to child hitboxes.
 pub fn sync_hitbox_collision_groups(
     hitbox_query: Query<(Entity, &CollisionGroups, &HitboxManager), Changed<CollisionGroups>>,
-    mut collision_groups_query: Query<&mut CollisionGroups>,
+    mut collision_groups_query: Query<&mut CollisionGroups, Without<HitboxManager>>,
 ) {
-    for (collision_groups, hitboxes) in hitbox_query.iter() {
+    for (e_hitboxes, collision_groups, hitboxes) in hitbox_query.iter() {
+        trace!(
+            msg="Syncing hitbox collision groups.",
+            entity=?e_hitboxes,
+            collision_groups=?collision_groups,
+        );
         for &e_hitbox in hitboxes.colliders.values() {
             match collision_groups_query.get_mut(e_hitbox) {
                 Ok(mut collision_groups_ref) => {
                     *collision_groups_ref = *collision_groups;
                 }
                 Err(..) => {
-                    warn!("Missing `CollisionGroups` for `Hitbox`.");
+                    warn!(
+                        msg="Missing `CollisionGroups` for `Hitbox`.",
+                        entity=?e_hitbox,
+                    );
                 }
             }
         }
@@ -182,17 +211,34 @@ pub fn sync_hitbox_deactivation(
     }
 }
 
-pub fn convert_to_hurtboxes(
+// TODO: deactivating for now, due to the addition of AutoGenTemplate.
+// admittedly, the current solution is pretty spaghetti, but not used in many places.
+// I'm not sure if I like the idea of a template very much. I may switch back
+// to using this with certain modifications in the future, if it becomes an issue
+// (i.e. I design an enemy that has some weird interaction with hitboxes).
+/*pub fn convert_to_hurtboxes(
     mut commands: Commands,
-    hurtbox_query: Query<&HitboxManager, Or<(Added<HitboxManager>, Added<Health>)>>,
+    hurtbox_query: Query<(Entity, &HitboxManager), Added<Health>>,
 ) {
-    for hitboxes in hurtbox_query.iter() {
+    for (e_hitboxes, hitboxes) in hurtbox_query.iter() {
+        debug!(
+            msg="Adding damage buffers.",
+            entity=?e_hitboxes,
+        );
         for &e_hitbox in hitboxes.colliders.values() {
             commands.entity(e_hitbox).insert(DamageBuffer::default());
         }
     }
+}*/
+
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub enum GltfHitboxAutoGenTemplate {
+    #[default]
+    Hitbox,
+    Hurtbox,
 }
 
+/// Note: Generated hitboxes use `RigidBody::KinematicPositionBased`.
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub enum GltfHitboxAutoGenTarget {
     #[default]
@@ -209,18 +255,20 @@ pub struct GltfHitboxGenerationPlugin;
 
 impl Plugin for GltfHitboxGenerationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            PreUpdate,
-            cloned_scene_initializer::<GltfHitboxAutoGenTarget>.pipe(init_hitboxes),
-        )
-        .add_systems(
-            PostUpdate,
-            (
-                sync_hitbox_collision_groups,
-                sync_hitbox_activation,
-                sync_hitbox_deactivation,
-                convert_to_hurtboxes,
-            ),
-        );
+        app.configure_sets(PreUpdate, (HitboxSet::Generate, HitboxSet::Sync).chain())
+            .add_systems(
+                PreUpdate,
+                (
+                    cloned_scene_initializer::<GltfHitboxAutoGenTarget>
+                        .pipe(init_hitboxes)
+                        .in_set(HitboxSet::Generate),
+                    (
+                        sync_hitbox_collision_groups,
+                        sync_hitbox_activation,
+                        sync_hitbox_deactivation,
+                    )
+                        .in_set(HitboxSet::Sync),
+                ),
+            );
     }
 }

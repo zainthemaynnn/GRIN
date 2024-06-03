@@ -8,7 +8,7 @@ pub mod sketched;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_hanabi::HanabiPlugin;
-use bevy_mod_outline::{OutlineBundle, OutlineVolume};
+use bevy_mod_outline::{OutlineBundle, OutlineMode, OutlineVolume};
 use bevy_tweening::TweeningPlugin;
 
 use self::{
@@ -41,6 +41,7 @@ impl PluginGroup for RenderFXPlugins {
                             width: 6.0,
                             visible: true,
                         },
+                        mode: OutlineMode::RealVertex,
                         ..Default::default()
                     },
                     mini: OutlineBundle {
@@ -49,6 +50,7 @@ impl PluginGroup for RenderFXPlugins {
                             width: 4.0,
                             visible: true,
                         },
+                        mode: OutlineMode::RealVertex,
                         ..Default::default()
                     },
                 },

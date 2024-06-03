@@ -2,11 +2,8 @@
 //! (i.e. animated outlines/textures).
 
 use bevy::{
-    pbr::{
-        ExtendedMaterial, MaterialExtension,
-    },
+    pbr::{ExtendedMaterial, MaterialExtension},
     prelude::*,
-    reflect::{TypePath},
     render::render_resource::{AsBindGroup, ShaderRef},
     scene::SceneInstance,
     utils::HashMap,
@@ -36,7 +33,6 @@ impl Plugin for SketchEffectPlugin {
             (
                 autofill_sketch_effect.run_if(move || autofill_enabled == true),
                 purge_sketch_effects,
-                
             ),
         )
         .add_systems(
@@ -185,7 +181,6 @@ pub fn autofill_sketch_effect(
             Without<NoOutline>,
         ),
     >,
-    //no_outline_depth_query: Query<Entity, (With<OutlineVolume>, Without<SetOutlineDepth>)>,
     no_animation_query: Query<
         Entity,
         (
@@ -200,9 +195,6 @@ pub fn autofill_sketch_effect(
             .get_or_spawn(entity)
             .insert(outline.standard.clone());
     }
-    /*for entity in no_outline_depth_query.iter() {
-        commands.get_or_spawn(entity).insert(SetOutlineDepth::Real);
-    }*/
     for entity in no_animation_query.iter() {
         commands
             .get_or_spawn(entity)

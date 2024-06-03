@@ -14,11 +14,7 @@ use grin_derive::Cooldown;
 use grin_map::NavMesh;
 use grin_rig::humanoid::{Humanoid, HumanoidBundle, HUMANOID_RADIUS};
 use grin_time::Rewind;
-use grin_util::{
-    distr,
-    event::Spawnable,
-    vectors::{self, Vec3Ext},
-};
+use grin_util::{event::Spawnable, vectors::Vec3Ext};
 
 use super::{
     bt::{
@@ -147,35 +143,21 @@ pub fn fire<T: Component, A: Component>(
         );
         let bullet_transform = Transform::from_translation(origin.translation())
             .looking_at(target.translation().with_y(origin.translation().y), Vec3::Y);
-
-        commands.spawn_batch(
-            vectors::centered_arc(
-                bullet_transform.forward(),
-                Vec3::Y,
-                4,
-                30.0_f32.to_radians(),
-                &distr::linear,
-            )
-            .map(move |dir| {
-                let bullet_transform =
-                    bullet_transform.looking_to(dir, dir.any_orthogonal_vector());
-                (
-                    BulletProjectile,
-                    ProjectileBundle {
-                        color: ProjectileColor::Red,
-                        damage: Damage {
-                            ty: DamageVariant::Ballistic,
-                            value: 5.0,
-                            source: Some(e_agent),
-                        },
-                        transform: bullet_transform.with_scale(Vec3::splat(0.5)),
-                        velocity: Velocity::linear(bullet_transform.forward() * 10.0),
-                        ccd: Ccd::enabled(),
-                        ..ProjectileBundle::enemy_default()
-                    },
-                )
-            }),
-        );
+        commands.spawn((
+            BulletProjectile,
+            ProjectileBundle {
+                color: ProjectileColor::Red,
+                damage: Damage {
+                    ty: DamageVariant::Ballistic,
+                    value: 5.0,
+                    source: Some(e_agent),
+                },
+                transform: bullet_transform.with_scale(Vec3::splat(0.5)),
+                velocity: Velocity::linear(bullet_transform.forward() * 10.0),
+                ccd: Ccd::enabled(),
+                ..ProjectileBundle::enemy_default()
+            },
+        ));
 
         brain.write_verdict(Verdict::Success);
     }

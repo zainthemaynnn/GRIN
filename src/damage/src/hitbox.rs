@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 use crate::{
     health::{DamageBuffer, Health},
-    hit::{ContactDamage, DamageCollisionGroups, MacroCollisionFilter},
+    hit::{ContactDamage, MacroCollisionFilter},
 };
 
 #[derive(Component)]
@@ -131,14 +131,14 @@ pub fn init_hitboxes(
 
 /// Propagates `HitboxManager` `CollisionGroups` to child hitboxes.
 pub fn sync_hitbox_collision_groups(
-    hitbox_query: Query<(&DamageCollisionGroups, &HitboxManager), Changed<DamageCollisionGroups>>,
+    hitbox_query: Query<(Entity, &CollisionGroups, &HitboxManager), Changed<CollisionGroups>>,
     mut collision_groups_query: Query<&mut CollisionGroups>,
 ) {
     for (collision_groups, hitboxes) in hitbox_query.iter() {
         for &e_hitbox in hitboxes.colliders.values() {
             match collision_groups_query.get_mut(e_hitbox) {
                 Ok(mut collision_groups_ref) => {
-                    *collision_groups_ref = collision_groups.0;
+                    *collision_groups_ref = *collision_groups;
                 }
                 Err(..) => {
                     warn!("Missing `CollisionGroups` for `Hitbox`.");

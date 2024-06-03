@@ -33,16 +33,6 @@ pub struct Damage {
     pub source: Option<Entity>,
 }
 
-/// Collision groups to use when dealing damage.
-#[derive(Component, Copy, Clone, Default)]
-pub struct DamageCollisionGroups(pub CollisionGroups);
-
-impl From<&DamageCollisionGroups> for CollisionGroups {
-    fn from(value: &DamageCollisionGroups) -> Self {
-        value.0
-    }
-}
-
 /// Sends `DamageEvent::Contact` on collision. If this component has an adjacent `Damage`
 /// component, it will be applied automatically.
 #[derive(Component, Default, Copy, Clone, Debug)]

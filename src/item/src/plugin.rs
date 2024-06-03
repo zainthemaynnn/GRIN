@@ -2,9 +2,10 @@ use std::marker::PhantomData;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_enum_filter::prelude::AddEnumFilter;
+use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::{
-    hit::{ContactDamage, DamageCollisionGroups},
+    hit::ContactDamage,
     hitbox::HitboxManager,
 };
 
@@ -90,7 +91,7 @@ pub struct WeaponBundle<C: Send + Sync + 'static> {
     /// Weapon accuracy.
     pub accuracy: Accuracy,
     /// Weapon damage collision detection.
-    pub damage_collision_groups: DamageCollisionGroups,
+    pub collision_groups: CollisionGroups,
     /// Weapon handedness.
     pub handedness: Handedness,
     /// Hitbox auto-generation setting (default: `Enabled`).
@@ -120,7 +121,7 @@ impl<C: Send + Sync + 'static> Default for WeaponBundle<C> {
             identifier: ItemIdentifier::default(),
             target: Target::default(),
             accuracy: Accuracy::default(),
-            damage_collision_groups: DamageCollisionGroups::default(),
+            collision_groups: CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE),
             handedness: Handedness::default(),
             hitbox_gen: GltfHitboxAutoGen::default(),
             models: Models::default(),

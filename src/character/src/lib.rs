@@ -8,8 +8,6 @@ use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::{
     health::{DamageBuffer, Health, HealthBundle},
-    hit::DamageCollisionGroups,
-};
 use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera, PlayerCameraPlugin};
 use grin_item::{equip::Equipped, mechanics::util::InputHandler, spawn::ItemSpawnEvent};
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
@@ -128,9 +126,7 @@ pub fn enable_input_for_player_items(
         for e_item in [equipped.left, equipped.right] {
             commands.entity(e_item).insert((
                 InputHandler,
-                DamageCollisionGroups(CollisionGroups::from_group_default(
-                    Group::PLAYER_PROJECTILE,
-                )),
+                CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE),
             ));
         }
     }
@@ -186,6 +182,7 @@ pub fn init_character_model(
         Equipped { left, right },
         RigidBody::KinematicPositionBased,
         Velocity::default(),
+        CollisionGroups::from_group_default(Group::PLAYER),
         KinematicCharacterController {
             custom_shape: Some((
                 match race {

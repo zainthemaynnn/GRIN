@@ -156,7 +156,7 @@ impl<A: Action + EnumFilter> Plugin for EnumBehaviorPlugin<A> {
 }
 
 /// Contains a behavior tree corresponding to action `A`. This AI model can be shared
-/// between any NPC's with a `BrainMarker<A>`, as long as the generic matches.
+/// between any NPC's with an adjacent component `A`, as long as the generic matches.
 #[derive(Resource)]
 pub struct AiModel<A: Action> {
     pub bt: BehaviorTree<A>,

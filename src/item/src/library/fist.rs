@@ -11,7 +11,11 @@ use bevy::{prelude::*, utils::HashSet};
 use bevy_asset_loader::prelude::{AssetCollection, LoadingStateAppExt};
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_damage::{hit::ContactDamage, hitbox::HitboxManager, impact::Impact};
+use grin_damage::{
+    hit::{Damage, DamageVariant, MacroCollisionFilter},
+    hitbox::HitboxManager,
+    impact::Impact,
+};
 use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
 
 use crate::{
@@ -96,9 +100,6 @@ impl Plugin for FistPlugin {
                             (Grip::Offhand, assets.offhand.clone()),
                         ],
                         handedness: Handedness::Double,
-                        // TODO: I think contact damage needs to be reworked
-                        // also, `Debounce` isn't even implemented yet
-                        contact_damage: ContactDamage::Debounce(Duration::from_millis(200)),
                         fire_rate: FireRate(Duration::from_millis(800)),
                         ..Default::default()
                     }
@@ -106,6 +107,9 @@ impl Plugin for FistPlugin {
                 .in_set(ItemSet::Spawn),
                 punch
                     .in_set(ItemSet::Fire)
+                    .run_if(in_state(AssetLoadState::Success)),
+                deactivate_colliders
+                    .after(ItemSet::Fire)
                     .run_if(in_state(AssetLoadState::Success)),
                 on_hit_spawn(|assets: Res<FistAssets>| {
                     (
@@ -199,7 +203,15 @@ pub fn punch(
 
         // enable collisions
         for e_collider in colliders {
-            commands.entity(e_collider).remove::<ColliderDisabled>();
+            trace!("attack.start");
+            commands
+                .entity(e_collider)
+                .insert(Damage {
+                    ty: DamageVariant::Ballistic,
+                    value: 0.001,
+                    source: Some(*e_item),
+                })
+                .remove::<ColliderDisabled>();
         }
     }
 }
@@ -207,13 +219,21 @@ pub fn punch(
 pub fn deactivate_colliders(
     mut commands: Commands,
     item_query: Query<(Entity, &HitboxManager), With<Fist>>,
+    deactivated_query: Query<&ColliderDisabled>,
+    mut filter_query: Query<&mut MacroCollisionFilter>,
     animator_params: ReadOnlyAnimatorSystemParams,
 ) {
     for (e_item, hitboxes) in item_query.iter() {
         let animator = animator_params.get(e_item).unwrap();
         if animator.is_finished() {
-            for &e_hitbox in hitboxes.colliders.values() {
+            for &e_hitbox in hitboxes
+                .colliders
+                .values()
+                .filter(|&&e| !deactivated_query.contains(e))
+            {
+                trace!("attack.end");
                 commands.entity(e_hitbox).insert(ColliderDisabled);
+                filter_query.get_mut(e_hitbox).unwrap().clear();
             }
         }
     }

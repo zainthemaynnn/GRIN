@@ -200,8 +200,8 @@ pub fn sync_hitbox_deactivation(
     hitbox_query: Query<&HitboxManager>,
     mut removed: RemovedComponents<ContactDamage>,
 ) {
-    for e_hitboxman in removed.read() {
-        let Ok(hitboxes) = hitbox_query.get(e_hitboxman) else {
+    for e_hitboxes in removed.read() {
+        let Ok(hitboxes) = hitbox_query.get(e_hitboxes) else {
             continue;
         };
 
@@ -209,16 +209,6 @@ pub fn sync_hitbox_deactivation(
             commands.entity(e_hitbox).remove::<ContactDamage>();
         }
     }
-}
-
-/// TODO: I don't know why the colliders veer off in a random direction under animations.
-/// my guess is it has something to do with system ordering between bevy animation stuff
-/// and rapier collider stuff. this is possible to fix through app configuration. however,
-/// I'm too lazy to resolve this right now and I think I'll do this 30-second fix instead.
-pub fn rezero_hitbox_positions(mut hitbox_query: Query<&mut Transform, With<Hitbox>>) {
-    hitbox_query.iter_mut().for_each(|mut t| {
-        *t = Transform::IDENTITY;
-    });
 }
 
 // TODO?: deactivating for now, due to the addition of AutoGenTemplate.
@@ -266,7 +256,6 @@ pub struct GltfHitboxGenerationPlugin;
 impl Plugin for GltfHitboxGenerationPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(PreUpdate, (HitboxSet::Generate, HitboxSet::Sync).chain())
-            .add_systems(First, rezero_hitbox_positions)
             .add_systems(
                 PreUpdate,
                 (

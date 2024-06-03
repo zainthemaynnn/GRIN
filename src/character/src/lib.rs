@@ -292,7 +292,9 @@ pub fn input_walk(
                     transform.look_at(target, Vec3::Y);
                 }
             }
-            CameraAlignment::Shooter => transform.rotation = Quat::from_rotation_y(look_info.yaw),
+            CameraAlignment::Shooter { .. } => {
+                transform.rotation = Quat::from_rotation_y(look_info.yaw)
+            }
         }
     }
 }

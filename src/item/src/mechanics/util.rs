@@ -31,7 +31,7 @@ pub fn set_local_mouse_target<T: Component>(
             CameraAlignment::FortyFive => look_info
                 .vertical_target_point(g_transform.translation(), g_transform.up())
                 .unwrap_or_default(),
-            CameraAlignment::Shooter => look_info.target_point(),
+            CameraAlignment::Shooter { .. } => look_info.target_point(),
         };
         *target = Target::from_pair(g_transform.translation(), target_pos);
     }

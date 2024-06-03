@@ -15,7 +15,7 @@ pub fn get_local_mouse_target(
         CameraAlignment::FortyFive => look_info
             .vertical_target_point(g_plr_transform.translation(), g_plr_transform.up())
             .unwrap_or_default(),
-        CameraAlignment::Shooter => look_info.target_point(),
+        CameraAlignment::Shooter { .. } => look_info.target_point(),
     };
     Ok(Target::from_pair(g_plr_transform.translation(), target_pos))
 }

@@ -1,6 +1,8 @@
 use std::{marker::PhantomData, ops::Range};
 
-use bevy::{ecs::event::ManualEventReader, input::mouse::MouseMotion, prelude::*};
+use bevy::{
+    ecs::event::ManualEventReader, input::mouse::MouseMotion, prelude::*, window::CursorGrabMode,
+};
 use bevy_rapier3d::{
     na::clamp,
     prelude::{CollisionGroups, Group, QueryFilter, RapierContext},
@@ -42,7 +44,10 @@ pub enum CameraAlignment {
     /// Angled downwards.
     #[default]
     FortyFive,
-    Shooter,
+    Shooter {
+        offset: Vec3,
+        angle_scale: f32,
+    },
 }
 
 #[derive(Resource, Default)]
@@ -149,7 +154,10 @@ pub fn spawn_camera<T: Component>(mut commands: Commands, query: Query<Entity, A
     commands.spawn((
         PlayerCamera {
             target: e_plr,
-            alignment: CameraAlignment::FortyFive,
+            alignment: CameraAlignment::Shooter {
+                offset: Vec3::new(0.0, 4.0, 0.0),
+                angle_scale: 12.0,
+            },
         },
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 32.0, 0.0).looking_to(Vec3::NEG_Z, Vec3::Y),
@@ -162,26 +170,40 @@ pub fn cam_update(
     mut query: Query<(&mut Transform, &PlayerCamera)>,
     transform_query: Query<&GlobalTransform, Without<PlayerCamera>>,
     look_info: Res<LookInfo>,
+    mut window_query: Query<&mut Window>,
 ) {
-    if let Ok((mut transform, PlayerCamera { target, alignment })) = query.get_single_mut() {
-        let g_target_transform = transform_query.get(*target).unwrap();
-        match alignment {
-            CameraAlignment::FortyFive => {
-                let target = g_target_transform.translation();
-                let offset = Vec3::new(0.0, 24.0, 24.0);
-                let origin = target + offset;
-                let look = (-offset).normalize();
-                *transform =
-                    Transform::from_translation(origin).looking_to(look, look.cross(Vec3::NEG_X));
-            }
-            CameraAlignment::Shooter => {
-                transform.rotation =
-                    Quat::from_euler(EulerRot::YXZ, look_info.yaw, look_info.pitch, 0.0);
-                transform.translation = g_target_transform.transform_point(
-                    Vec3::new(0.0, 3.0, 0.0)
-                        + Vec3::new(0.0, -look_info.pitch.sin(), look_info.pitch.cos()) * 12.0,
-                );
-            }
+    let Ok((mut transform, PlayerCamera { target, alignment })) = query.get_single_mut() else {
+        return;
+    };
+
+    let g_target_transform = transform_query.get(*target).unwrap();
+
+    match alignment {
+        CameraAlignment::FortyFive => {
+            let target = g_target_transform.translation();
+            let offset = Vec3::new(0.0, 24.0, 24.0);
+            let origin = target + offset;
+            let look = (-offset).normalize();
+            *transform =
+                Transform::from_translation(origin).looking_to(look, look.cross(Vec3::NEG_X));
+        }
+        CameraAlignment::Shooter {
+            offset,
+            angle_scale,
+        } => {
+            let Ok(mut window) = window_query.get_single_mut() else {
+                return;
+            };
+
+            transform.rotation =
+                Quat::from_euler(EulerRot::YXZ, look_info.yaw, look_info.pitch, 0.0);
+            transform.translation = g_target_transform.transform_point(
+                *offset
+                    + Vec3::new(0.0, -look_info.pitch.sin(), look_info.pitch.cos()) * *angle_scale,
+            );
+            let pos = Vec2::new(window.width() / 2.0, window.height() / 2.0);
+            window.set_cursor_position(Some(pos));
+            window.cursor.grab_mode = CursorGrabMode::Locked;
         }
     }
 }

@@ -22,7 +22,7 @@ use grin_physics::GrinPhysicsPlugin;
 use grin_render::RenderFXPlugins;
 use grin_rig::humanoid::HumanoidPlugin;
 use grin_time::{scaling::TimeScalePlugin, RewindComponentPlugin, RewindPlugin};
-use grin_util::event::{DefaultSpawnable, Spawnable, TweenEventPlugin};
+use grin_util::{event::{DefaultSpawnable, Spawnable, TweenEventPlugin}, spatial::SpatialPlugin};
 
 fn main() -> Result<(), io::Error> {
     let mut app = App::new();
@@ -97,6 +97,7 @@ fn main() -> Result<(), io::Error> {
             TimeScalePlugin,
             RewindPlugin::default(),
             RewindComponentPlugin::<Transform>::default(),
+            SpatialPlugin,
         ))
         .add_systems(OnEnter(AssetLoadState::Success), load_scene)
         .add_systems(

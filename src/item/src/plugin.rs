@@ -105,7 +105,7 @@ pub struct WeaponBundle<C: Send + Sync + 'static> {
     pub models: Models,
     /// Associated hitboxes.
     pub hitboxes: HitboxManager,
-    /// Contact damage (default: `Disabled`).
+    /// Contact damage (default: `FollowThrough`).
     pub contact_damage: ContactDamage,
     /// Weapon fire rate.
     pub fire_rate: FireRate,

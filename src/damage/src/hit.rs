@@ -37,9 +37,12 @@ pub struct Damage {
 /// component, it will be applied automatically.
 #[derive(Component, Default, Copy, Clone, Debug)]
 pub enum ContactDamage {
-    /// Disabled.
+    /// The component remains on hit.
+    ///
+    /// This variant is not recommend unless you are using a custom system to prevent
+    /// the attack from hitting across multiple frames, for example, with `MacroCollisionFilter`.
     #[default]
-    None,
+    FollowThrough,
     /// This entity is despawned after contact damage event is fired.
     Despawn,
     /// This component is removed after contact damage event is fired.
@@ -110,7 +113,11 @@ pub fn send_contact_damage_events(
         let CollisionEvent::Started(entity_0, entity_1, ..) = collision_event else {
             continue;
         };
-        trace!("Collision for {:?} on {:?}.", entity_0, entity_1);
+        trace!(
+            msg="Collision received.",
+            e0=?entity_0,
+            e1=?entity_1,
+        );
 
         let Some((e_damage, e_hit)) = distinguish_by_query(&damage_query, *entity_0, *entity_1)
         else {
@@ -121,19 +128,25 @@ pub fn send_contact_damage_events(
 
         if let Some(mut collision_filter) = collision_filter {
             let Hitbox { target } = hitbox_query.get(e_hit).unwrap();
-            match collision_filter.kind {
-                MacroCollisionFilterKind::Whitelist => {
-                    if collision_filter.cache.insert(*target) {
-                        continue;
-                    }
-                }
-                MacroCollisionFilterKind::Blacklist => {
-                    if !collision_filter.cache.insert(*target) {
-                        continue;
-                    }
-                }
+            if match collision_filter.kind {
+                MacroCollisionFilterKind::Whitelist => collision_filter.cache.insert(*target),
+                MacroCollisionFilterKind::Blacklist => !collision_filter.cache.insert(*target),
+            } {
+                trace!(
+                    msg="Hit rejected by MacroCollisionFilter.",
+                    dealer=?e_damage,
+                    receiver=?e_hit,
+                    filter=?collision_filter.kind,
+                );
+                continue;
             }
         }
+
+        debug!(
+            msg="Sending contact damage event.",
+            dealer=?e_damage,
+            receiver=?e_hit,
+        );
 
         damage_events.send(DamageEvent::Contact {
             kind: *damage_kind,
@@ -181,11 +194,26 @@ pub fn push_contact_damage(
             ContactDamage::Debounce(_debounce) => {
                 todo!();
             }
-            ContactDamage::None => continue,
+            ContactDamage::FollowThrough => (),
         };
 
-        if let Ok(damage) = try_push_damage(*e_damage, *e_hit, &damage_query, &mut hit_query) {
-            debug!("Contact damage for {:?} on {:?}.", *damage, *e_hit);
+        match try_push_damage(*e_damage, *e_hit, &damage_query, &mut hit_query) {
+            Ok(damage) => {
+                info!(
+                    msg="Pushed contact damage.",
+                    dealer=?*e_damage,
+                    receiver=?*e_hit,
+                    dmg=?damage,
+                );
+            }
+            Err(e) => {
+                error!(
+                    msg="Contact damage error.",
+                    dealer=?*e_damage,
+                    receiver=?*e_hit,
+                    err=?e,
+                );
+            }
         }
     }
 }

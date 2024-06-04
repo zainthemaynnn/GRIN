@@ -3,7 +3,7 @@
 use std::{f32::consts::TAU, marker::PhantomData};
 
 use super::sketched::{NoOutline, SketchMaterial};
-use bevy::prelude::{shape::Quad, *};
+use bevy::prelude::*;
 use bevy_tweening::{component_animator_system, Lens};
 
 pub struct DuoQuadPlugin;
@@ -94,7 +94,7 @@ pub fn render_duoquads(
     {
         let axis = *target - *origin;
         let mdpt = origin.lerp(*target, 0.5);
-        let h_mesh = meshes.add(Mesh::from(Quad::new(Vec2::new(axis.length(), *radius))));
+        let h_mesh = meshes.add(Mesh::from(Rectangle::new(axis.length(), *radius * 2.0)));
         let mut it = children.iter().filter(|e| quad_query.get(**e).is_ok());
 
         let perp = axis.normalize().any_orthonormal_pair();
@@ -216,8 +216,9 @@ pub fn render_endpoint<T: DuoQuadEndpoint>(
         for (duoquad, transform, children) in duoquad_query.iter() {
             for child in children.iter() {
                 if let Ok(endpoint) = endpoint_query.get(*child) {
-                    let mesh_handle =
-                        meshes.add(Mesh::from(Quad::new(Vec2::splat(endpoint.radius() * 2.0))));
+                    let mesh_handle = meshes.add(Mesh::from(Rectangle::from_size(Vec2::splat(
+                        endpoint.radius() * 2.0,
+                    ))));
                     commands.entity(*child).insert((
                         mesh_handle,
                         // convert to local reference frame

@@ -226,7 +226,11 @@ pub fn behavior_update<A: Action>(
     for (e_agent, mut brain, mut action) in agent_query.iter_mut() {
         if brain.visiting_node == 0 {
             // there's no action so the tree needs to be restarted. call `run_root`.
-            let BehaviorOutput::Task { node, action: new_action } = ai.bt.run_root() else {
+            let BehaviorOutput::Task {
+                node,
+                action: new_action,
+            } = ai.bt.run_root()
+            else {
                 error!("Behavior tree finished without task.");
                 continue;
             };

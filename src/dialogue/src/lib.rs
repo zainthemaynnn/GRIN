@@ -35,9 +35,10 @@ impl Plugin for DialoguePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DefaultTextStyle>()
             .init_resource::<StopChars>()
-            .add_state::<DialogueAssetLoadState>()
-            .add_collection_to_loading_state::<_, asset_gen::DialogueAssets>(
-                AssetLoadState::Loading,
+            .init_state::<DialogueAssetLoadState>()
+            .configure_loading_state(
+                LoadingStateConfig::new(AssetLoadState::Loading)
+                    .load_collection::<asset_gen::DialogueAssets>(),
             )
             .add_plugins(RonAssetPlugin::<asset_gen::DialogueMap>::new(&[
                 "dialogue.ron",
@@ -439,7 +440,7 @@ pub struct SelectedDialogueOptionEvent {
 
 pub fn select_dialogue_options(
     mut commands: Commands,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     dialogue_map: Res<DialogueMap>,
     dialogue_assets: Res<Assets<Dialogue>>,
     mut options_query: Query<(Entity, &mut DialogueOptions), With<DialogueSelector>>,
@@ -526,7 +527,7 @@ pub fn highlight_selected_dialogue(
 // yucky. this is a yucky system.
 pub fn continue_dialogue(
     mut commands: Commands,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     dialogue_map: Res<DialogueMap>,
     text_query: Query<(Entity, &DialogueNext), With<DialogueText>>,
     selector_query: Query<Entity, With<DialogueSelector>>,
@@ -536,7 +537,7 @@ pub fn continue_dialogue(
     mut events: EventWriter<DialogueEvent>,
     mut opt_events: EventWriter<SelectedDialogueOptionEvent>,
 ) {
-    if input.just_released(KeyCode::Return) {
+    if input.just_released(KeyCode::Enter) {
         let (e_text, next) = text_query.single();
         let e_select = selector_query.single();
         let e_portrait = portrait_query.single();
@@ -564,7 +565,9 @@ pub fn continue_dialogue(
                         deselected: None,
                     });
                 }
-                DialogueNext::Finish => events.send(DialogueEvent::Finish),
+                DialogueNext::Finish => {
+                    events.send(DialogueEvent::Finish);
+                }
             }
         }
     }

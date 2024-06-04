@@ -21,18 +21,17 @@ use bevy::{
             SetItemPipeline, TrackedRenderPass,
         },
         render_resource::{
-            BindGroup, BindGroupEntry, BindGroupLayout,
-            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
-            BufferBindingType, ColorTargetState, ColorWrites, CompareFunction, DepthBiasState,
-            DepthStencilState, FragmentState, MultisampleState, PipelineCache, PrimitiveState,
-            RenderPipelineDescriptor, ShaderDefVal, ShaderSize, ShaderStages, ShaderType,
-            SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-            TextureFormat, VertexState,
+            BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry, BindingType,
+            BlendState, BufferBindingType, ColorTargetState, ColorWrites, CompareFunction,
+            DepthBiasState, DepthStencilState, FragmentState, MultisampleState, PipelineCache,
+            PrimitiveState, RenderPipelineDescriptor, ShaderDefVal, ShaderSize, ShaderStages,
+            ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+            SpecializedMeshPipelines, TextureFormat, VertexState,
         },
         renderer::RenderDevice,
         texture::BevyDefault,
         view::ExtractedView,
-        Extract, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSet,
     },
 };
 
@@ -47,7 +46,7 @@ impl Plugin for BWStaticPlugin {
             .add_render_command::<Opaque3d, DrawBWStatic>()
             .add_systems(ExtractSchedule, extract_bw_static_uniforms)
             .add_systems(
-                Update,
+                Render,
                 (queue_bind_group, queue_phase_item).in_set(RenderSet::Queue),
             );
     }
@@ -90,9 +89,9 @@ impl FromWorld for BWStaticPipeline {
             .resource::<AssetServer>()
             .load("shaders/static.wgsl");
 
-        let effect_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("bw_static_bind_group_layout"),
-            entries: &[BindGroupLayoutEntry {
+        let effect_layout = render_device.create_bind_group_layout(
+            Some("bw_static_bind_group_layout"),
+            &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
@@ -102,7 +101,7 @@ impl FromWorld for BWStaticPipeline {
                 },
                 count: None,
             }],
-        });
+        );
 
         Self {
             mesh_pipeline,
@@ -222,18 +221,22 @@ struct SetBWStaticUniformBindGroup<const I: usize>;
 impl<const I: usize> RenderCommand<Opaque3d> for SetBWStaticUniformBindGroup<I> {
     type Param = SRes<BWStaticBindGroup>;
 
-    type ViewWorldQuery = ();
+    type ViewQuery = ();
 
-    type ItemWorldQuery = Read<DynamicUniformIndex<BWStaticUniform>>;
+    type ItemQuery = Read<DynamicUniformIndex<BWStaticUniform>>;
 
     fn render<'w>(
         _item: &Opaque3d,
-        _view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        entity: ROQueryItem<'w, Self::ItemWorldQuery>,
+        _view: ROQueryItem<'w, Self::ViewQuery>,
+        entity: Option<ROQueryItem<'w, Self::ItemQuery>>,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        pass.set_bind_group(I, &param.into_inner().bind_group, &[entity.index()]);
+        let Some(binding) = entity else {
+            return RenderCommandResult::Failure;
+        };
+
+        pass.set_bind_group(I, &param.into_inner().bind_group, &[binding.index()]);
         RenderCommandResult::Success
     }
 }
@@ -263,9 +266,9 @@ fn queue_phase_item(
                     pipeline,
                     entity,
                     draw_function,
-                    distance: 10000.0, // TODO: fix this LOL
-                    batch_range: 0..0, // TODO: I don't know what this does. figure it out.
+                    batch_range: 0..0,
                     dynamic_offset: None,
+                    asset_id: mesh_handle.into(),
                 });
             }
         }

@@ -1,6 +1,6 @@
 [package]
 name = "grin_damage"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,10 +10,10 @@ grin_asset = { path = "../asset" }
 grin_physics = { path = "../physics" }
 grin_render = { path = "../render" }
 grin_util = { path = "../util" }
-bevy = { version = "0.12", features = ["dynamic_linking", "wav"] }
-bevy_asset_loader = { version = "0.18", features = ["3d", "progress_tracking"] }
-bevy_rapier3d = "0.23"
-bevy_tweening = "0.9"
+bevy = { version = "0.13", features = ["dynamic_linking", "wav"] }
+bevy_asset_loader = { version = "0.20", features = ["3d", "progress_tracking"] }
+bevy_rapier3d = "0.26"
+bevy_tweening = "0.10"
 rand = "0.8"
 rand_distr = "0.4.3"
 serde = { version = "1.0", features = ["derive"] }

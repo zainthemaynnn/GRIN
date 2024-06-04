@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use bevy::{ecs::query::QueryEntityError, prelude::*, utils::EntityHashSet};
+use bevy::{
+    ecs::{entity::EntityHashSet, query::QueryEntityError},
+    prelude::*,
+};
 use bevy_rapier3d::prelude::*;
 use grin_util::query::distinguish_by_query;
 
@@ -94,7 +97,7 @@ pub enum MacroCollisionFilterKind {
 #[derive(Component, Debug, Default)]
 pub struct MacroCollisionFilter {
     pub kind: MacroCollisionFilterKind,
-    pub cache: EntityHashSet<Entity>,
+    pub cache: EntityHashSet,
 }
 
 impl MacroCollisionFilter {
@@ -152,7 +155,7 @@ pub fn send_contact_damage_events(
             kind: *damage_kind,
             e_damage,
             e_hit,
-        })
+        });
     }
 }
 

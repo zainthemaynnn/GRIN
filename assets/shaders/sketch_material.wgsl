@@ -19,16 +19,16 @@
 }
 #endif
 
-@group(1) @binding(100)
+@group(2) @binding(100)
 var<uniform> sketch_enabled: u32;
 
-@group(1) @binding(101)
+@group(2) @binding(101)
 var<uniform> sketch_layer: u32;
 
-@group(1) @binding(102)
+@group(2) @binding(102)
 var sketch_texture_array: texture_2d_array<f32>;
 
-@group(1) @binding(103)
+@group(2) @binding(103)
 var sketch_texture_array_sampler: sampler;
 
 @fragment

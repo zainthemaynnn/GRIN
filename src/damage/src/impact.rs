@@ -8,7 +8,7 @@ use bevy_tweening::{
     Animator, EaseFunction, Tracks, Tween,
 };
 use grin_asset::AssetLoadState;
-use grin_render::sketched::{OutlineScaleMode, SketchMaterial};
+use grin_render::sketched::{NoOutline, SketchMaterial};
 use grin_util::event::TweenCompletedEvent;
 use rand::prelude::*;
 use rand_distr::UnitSphere;
@@ -17,11 +17,13 @@ pub struct ImpactPlugin;
 
 impl Plugin for ImpactPlugin {
     fn build(&self, app: &mut App) {
-        app.add_collection_to_loading_state::<_, ImpactAssets>(AssetLoadState::Loading)
-            .add_systems(
-                Update,
-                init_impact.run_if(in_state(AssetLoadState::Success)),
-            );
+        app.configure_loading_state(
+            LoadingStateConfig::new(AssetLoadState::Loading).load_collection::<ImpactAssets>(),
+        )
+        .add_systems(
+            Update,
+            init_impact.run_if(in_state(AssetLoadState::Success)),
+        );
     }
 }
 
@@ -106,7 +108,7 @@ pub fn init_impact(
                 },
                 Velocity::linear(dir),
                 Animator::new(tracks),
-                OutlineScaleMode::Scale(16.0),
+                NoOutline,
             )
         }));
 

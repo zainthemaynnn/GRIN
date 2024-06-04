@@ -8,7 +8,7 @@
 use std::time::Duration;
 
 use bevy::{prelude::*, utils::HashSet};
-use bevy_asset_loader::prelude::{AssetCollection, LoadingStateAppExt};
+use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::{
@@ -83,7 +83,9 @@ impl Plugin for FistPlugin {
             FiringPlugin::<Fist>::from(HashSet::from([FiringBehavior::SemiAutomatic])),
             ComboPlugin::<FistCombo>::default(),
         ))
-        .add_collection_to_loading_state::<_, FistAssets>(AssetLoadState::Loading)
+        .configure_loading_state(
+            LoadingStateConfig::new(AssetLoadState::Loading).load_collection::<FistAssets>(),
+        )
         .add_systems(
             PreUpdate,
             insert_on_lmb::<Fist, Active>.in_set(ItemSet::Input),

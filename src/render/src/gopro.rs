@@ -1,6 +1,5 @@
 use bevy::{
     asset::LoadState,
-    core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
     render::{
         camera::RenderTarget,
@@ -73,10 +72,6 @@ pub fn create_gopro(
                 // it looks like this will just silently fail if the asset is dropped.
                 // which is what I want.
                 target: RenderTarget::Image(target),
-                ..Default::default()
-            },
-            camera_3d: Camera3d {
-                clear_color: ClearColorConfig::Custom(Color::NONE),
                 ..Default::default()
             },
             ..Default::default()

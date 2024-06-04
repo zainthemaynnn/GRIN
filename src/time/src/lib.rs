@@ -169,7 +169,7 @@ pub trait CommandsExt {
     fn time_despawn(&mut self);
 }
 
-impl<'w, 's, 'a> CommandsExt for EntityCommands<'w, 's, 'a> {
+impl<'w, 's, 'a> CommandsExt for EntityCommands<'a> {
     /// Sets the `TimeParent` for this entity.
     fn set_time_parent(&mut self, parent: Entity) {
         self.add(SetTimeParent { parent });

@@ -1,7 +1,7 @@
 use bevy::{ecs::query::QueryEntityError, prelude::*};
 use bevy_rapier3d::prelude::*;
 use grin_damage::hit::DamageEvent;
-use grin_input::camera::{CameraAlignment, LookInfo, PlayerCamera};
+use grin_input::camera::{LookInfo, PlayerCamera};
 
 use crate::equip::{Equipped, SlotAlignment};
 
@@ -27,13 +27,11 @@ pub fn set_local_mouse_target<T: Component>(
     };
 
     for (mut target, g_transform) in item_query.iter_mut() {
-        let target_pos = match camera.alignment {
-            CameraAlignment::FortyFive => look_info
-                .vertical_target_point(g_transform.translation(), g_transform.up())
-                .unwrap_or_default(),
-            CameraAlignment::Shooter { .. } => look_info.target_point(),
-        };
-        *target = Target::from_pair(g_transform.translation(), target_pos);
+        *target = Target::from_camera(
+            &g_transform.compute_transform(),
+            camera.alignment,
+            &look_info,
+        );
     }
 }
 
@@ -48,7 +46,7 @@ pub struct InputHandler;
 pub fn insert_on_mouse_button<C: Component + Default>(
     commands: &mut Commands,
     entities: impl Iterator<Item = Entity>,
-    mouse_buttons: &Input<MouseButton>,
+    mouse_buttons: &ButtonInput<MouseButton>,
     mouse_button: MouseButton,
 ) {
     if mouse_buttons.pressed(mouse_button) {
@@ -68,7 +66,7 @@ pub fn insert_on_mouse_button<C: Component + Default>(
 pub fn insert_on_lmb<T: Component, C: Component + Default>(
     mut commands: Commands,
     query: Query<Entity, (With<T>, With<InputHandler>)>,
-    mouse_buttons: Res<Input<MouseButton>>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
 ) {
     insert_on_mouse_button::<C>(
         &mut commands,
@@ -84,7 +82,7 @@ pub fn insert_on_lmb<T: Component, C: Component + Default>(
 pub fn insert_on_rmb<T: Component, C: Component + Default>(
     mut commands: Commands,
     query: Query<Entity, (With<T>, With<InputHandler>)>,
-    mouse_buttons: Res<Input<MouseButton>>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
 ) {
     insert_on_mouse_button::<C>(
         &mut commands,
@@ -103,7 +101,7 @@ pub fn insert_on_rmb<T: Component, C: Component + Default>(
 pub fn insert_on_hmb<T: Component, C: Component + Default>(
     mut commands: Commands,
     query: Query<(Entity, &SlotAlignment), (With<T>, With<InputHandler>)>,
-    mouse_buttons: Res<Input<MouseButton>>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
 ) {
     insert_on_mouse_button::<C>(
         &mut commands,

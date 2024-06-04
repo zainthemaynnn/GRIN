@@ -21,7 +21,7 @@ pub struct DynamicAssetPlugin;
 
 impl Plugin for DynamicAssetPlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<AssetLoadState>()
+        app.init_state::<AssetLoadState>()
             .init_resource::<FallbackImage>()
             .init_resource::<GltfPreload>()
             .add_plugins((
@@ -31,14 +31,9 @@ impl Plugin for DynamicAssetPlugin {
             .add_loading_state(
                 LoadingState::new(AssetLoadState::Loading)
                     .continue_to_state(AssetLoadState::Success)
-                    .on_failure_continue_to_state(AssetLoadState::Failure),
-            )
-            .register_dynamic_asset_collection::<_, CustomDynamicAssetCollection>(
-                AssetLoadState::Loading,
-            )
-            .add_dynamic_collection_to_loading_state::<_, CustomDynamicAssetCollection>(
-                AssetLoadState::Loading,
-                "test.assets.ron",
+                    .on_failure_continue_to_state(AssetLoadState::Failure)
+                    .register_dynamic_asset_collection::<CustomDynamicAssetCollection>()
+                    .with_dynamic_assets_file::<CustomDynamicAssetCollection>("test.assets.ron"),
             )
             .add_systems(OnEnter(AssetLoadState::PreLoading), begin_gltf_preload)
             .add_systems(
@@ -292,7 +287,7 @@ impl DynamicAsset for CustomDynamicAsset {
                 let mut meshes = world_cell.resource_mut::<Assets<Mesh>>();
                 Ok(DynamicAssetType::Single(
                     meshes
-                        .add(Mesh::from(shape::UVSphere {
+                        .add(Mesh::from(Sphere {
                             radius: *radius,
                             ..Default::default()
                         }))
@@ -355,12 +350,14 @@ impl DynamicAsset for CustomDynamicAsset {
                     materials
                         .add(SketchMaterial {
                             base: StandardMaterial {
-                                base_color: base_color.map_or(mat_default.base_color, Color::from),
+                                base_color: base_color
+                                    .map_or(mat_default.base_color, Color::rgba_from_array),
                                 base_color_texture: None,
                                 perceptual_roughness: perceptual_roughness
                                     .unwrap_or(mat_default.perceptual_roughness),
                                 reflectance: reflectance.unwrap_or(mat_default.reflectance),
-                                emissive: emissive.map_or(mat_default.emissive, Color::from),
+                                emissive: emissive
+                                    .map_or(mat_default.emissive, Color::rgba_from_array),
                                 double_sided: double_sided.unwrap_or(mat_default.double_sided),
                                 cull_mode: cull_mode
                                     .map_or(mat_default.cull_mode, Option::<Face>::from),

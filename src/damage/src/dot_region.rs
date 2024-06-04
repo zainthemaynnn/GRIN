@@ -35,9 +35,7 @@ impl From<&DotRegion> for Blaze {
     }
 }
 
-pub fn sync_blaze_to_dot(
-    mut dot_query: Query<(&mut Blaze, &DotRegion), Changed<DotRegion>>,
-) {
+pub fn sync_blaze_to_dot(mut dot_query: Query<(&mut Blaze, &DotRegion), Changed<DotRegion>>) {
     for (mut blaze, dot) in dot_query.iter_mut() {
         blaze.radius = dot.radius;
     }
@@ -66,7 +64,9 @@ impl Default for DotRegionBundle {
         Self {
             // radius gets auto-synced in `tick_dot`
             collider: Collider::cylinder(Self::DEFAULT_DOT_HALF_HEIGHT, 1.0),
-            contact_damage: ContactDamage::Debounce(Duration::from_millis(Self::DEFAULT_DOT_DEBOUNCE_MILLIS)),
+            contact_damage: ContactDamage::Debounce(Duration::from_millis(
+                Self::DEFAULT_DOT_DEBOUNCE_MILLIS,
+            )),
             dot_region: DotRegion::default(),
             damage: Damage::default(),
             collision_groups: CollisionGroups::default(),

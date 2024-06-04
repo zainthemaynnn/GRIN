@@ -37,7 +37,7 @@ impl Plugin for GrinPhysicsPlugin {
                     time_scale: 1.0,
                     substeps: 1,
                 },
-                ..Default::default()
+                ..RapierConfiguration::new(1.0)
             })
             .add_systems(
                 Update,

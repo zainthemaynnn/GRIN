@@ -22,7 +22,10 @@ use grin_physics::GrinPhysicsPlugin;
 use grin_render::RenderFXPlugins;
 use grin_rig::humanoid::HumanoidPlugin;
 use grin_time::{scaling::TimeScalePlugin, RewindComponentPlugin, RewindPlugin};
-use grin_util::{event::{DefaultSpawnable, Spawnable, TweenEventPlugin}, spatial::SpatialPlugin};
+use grin_util::{
+    event::{DefaultSpawnable, Spawnable, TweenEventPlugin},
+    spatial::SpatialPlugin,
+};
 
 fn main() -> Result<(), io::Error> {
     let mut app = App::new();
@@ -50,7 +53,7 @@ fn main() -> Result<(), io::Error> {
     }
 
     let default_plugins = DefaultPlugins.set(AudioPlugin {
-        spatial_scale: SpatialScale::new(16.0),
+        default_spatial_scale: SpatialScale::new(16.0),
         ..Default::default()
     });
 
@@ -60,6 +63,7 @@ fn main() -> Result<(), io::Error> {
         filter:
             "info,wgpu_core=warn,wgpu_hal=warn,naga=warn,grin=debug,grin_ai=warn,bevy_gltf=error"
                 .into(),
+        ..Default::default()
     });
 
     #[cfg(not(debug_assertions))]

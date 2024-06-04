@@ -1,7 +1,7 @@
-
+use std::sync::Arc;
 
 use bevy::{prelude::*, render::mesh::VertexAttributeValues};
-use bevy_landmass::Archipelago;
+use bevy_landmass::{prelude::*, ValidationError};
 use bevy_mod_outline::OutlineMode;
 use geo::{
     BooleanOps, Contains, ConvexHull, Coord, Line, LineString, LinesIter, MultiPolygon, OpType,
@@ -27,7 +27,7 @@ pub struct MapPlugin {
 
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<MapLoadState>().add_systems(
+        app.init_state::<MapLoadState>().add_systems(
             Update,
             (
                 check_map_existence.run_if(in_state(MapLoadState::NotLoaded)),
@@ -68,8 +68,7 @@ pub enum NavMeshGenerationError {
     NoPositionAttribute,
     BadPositionAttributeFormat(VertexAttributeValues),
     BadVertex(spade::InsertionError),
-    // landmass validation error should be pub? I'll complain later.
-    Validation,
+    Validation(ValidationError),
 }
 
 pub fn check_map_existence(
@@ -86,6 +85,7 @@ pub fn check_map_existence(
 pub fn setup_map_navigation(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
+    mut navmeshes: ResMut<Assets<NavMesh>>,
     map_query: Query<Entity, (With<Map>, With<Children>)>,
     mesh_query: Query<(&GlobalTransform, &Handle<Mesh>, &Name)>,
     children_query: Query<&Children>,
@@ -227,27 +227,32 @@ pub fn setup_map_navigation(
         .collect_vec();
     let n_culled_polys = polygons.len();
 
-    let navmesh_geometry = landmass::NavigationMesh {
+    let navmesh_geometry = NavigationMesh {
         mesh_bounds: None,
         vertices,
         polygons,
     };
 
-    // TODO: unfortunately the nav mesh data is not pub.
-    // is there a good way to not copy this when debug is off?
     commands.insert_resource(NavMeshGeometry(navmesh_geometry.clone()));
 
-    let navmesh = navmesh_geometry
-        .validate()
-        .map_err(|_| NavMeshGenerationError::Validation)?;
+    let e_archipelago = commands.spawn(Archipelago::new()).id();
 
-    let archipelago = commands
-        .spawn(Archipelago::new(
-            landmass::Archipelago::create_from_navigation_mesh(navmesh),
-        ))
-        .id();
+    let navmesh = Arc::new(
+        navmesh_geometry
+            .validate()
+            .map_err(|e| NavMeshGenerationError::Validation(e))?,
+    );
+    let h_navmesh = navmeshes.add(NavMesh(navmesh));
 
-    commands.insert_resource(NavMesh { archipelago });
+    commands.entity(e_map).insert(IslandBundle {
+        island: Island,
+        archipelago_ref: ArchipelagoRef(e_archipelago),
+        nav_mesh: h_navmesh,
+    });
+
+    commands.insert_resource(MapData {
+        archipelago: e_archipelago,
+    });
 
     Ok(NavMeshStatistics {
         simple_boundaries: n_boundaries,
@@ -262,6 +267,11 @@ pub fn setup_map_navigation(
     })
 }
 
+#[derive(Resource)]
+pub struct MapData {
+    pub archipelago: Entity,
+}
+
 pub fn finish_navmesh_generation(
     In(result): In<Result<NavMeshStatistics, NavMeshGenerationError>>,
     mut map_state: ResMut<NextState<MapLoadState>>,
@@ -269,22 +279,23 @@ pub fn finish_navmesh_generation(
     match result {
         Ok(stats) => {
             map_state.set(MapLoadState::Success);
-            info!("Navmesh generation success: {:#?}", stats);
+            info!(
+                msg="Navmesh generation success.",
+                stats=?stats,
+            );
         }
         Err(e) => {
             map_state.set(MapLoadState::Fail);
-            error!("Navmesh generation fail: {:?}", e);
+            error!(
+                msg="Navmesh generation fail.",
+                error=?e,
+            );
         }
     }
 }
 
 #[derive(Resource)]
-pub struct NavMesh {
-    pub archipelago: Entity,
-}
-
-#[derive(Resource)]
-pub struct NavMeshGeometry(pub landmass::NavigationMesh);
+pub struct NavMeshGeometry(pub NavigationMesh);
 
 fn draw_navmesh_system_with_color(color: Color) -> impl Fn(Gizmos, Res<NavMeshGeometry>) {
     move |mut gizmos: Gizmos, navmesh: Res<NavMeshGeometry>| {

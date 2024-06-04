@@ -1,6 +1,6 @@
 [package]
 name = "grin_item"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,10 +15,10 @@ grin_render = { path = "../render" }
 grin_rig = { path = "../rig" }
 grin_time = { path = "../time" }
 grin_util = { path = "../util" }
-bevy = { version = "0.12", features = ["dynamic_linking", "wav"] }
-bevy_asset_loader = { version = "0.18", features = ["3d", "progress_tracking"] }
-bevy_enum_filter = { git = "https://github.com/zainthemaynnn/bevy_enum_filter.git" }
-bevy_rapier3d = "0.23"
+bevy = { version = "0.13", features = ["dynamic_linking", "wav"] }
+bevy_asset_loader = { version = "0.20", features = ["3d", "progress_tracking"] }
+bevy_enum_filter = { git = "https://github.com/sardap/bevy_enum_filter.git" }
+bevy_rapier3d = "0.26"
 rand = "0.8"
 
 # Enable high optimizations for dependencies (incl. Bevy), but not for our code:

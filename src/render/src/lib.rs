@@ -56,7 +56,7 @@ impl PluginGroup for RenderFXPlugins {
                 },
                 autofill_sketch_effect: true,
             })
-            .add(BWStaticPlugin)
+            //.add(BWStaticPlugin)
             .add(GoProPlugin)
             .add(DuoQuadPlugin)
             .add(BeamPlugin)

@@ -287,8 +287,7 @@ pub struct SketchUiImage {
 pub struct SketchMaterialInfo {
     /// Sketch enabled?
     //
-    // TODO: this should really be a flag. unfortunately that is easier said than done,
-    // and is not included in bevy... yet?
+    // TODO: this should really be a flag.
     #[uniform(100)]
     pub enabled: u32,
     /// The layer of `base_color_texture` to use.

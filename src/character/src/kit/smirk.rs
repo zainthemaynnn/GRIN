@@ -12,7 +12,9 @@ pub struct SmirkPlugin;
 impl Plugin for SmirkPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SmirkSpawnEvent>()
-            .add_collection_to_loading_state::<_, SmirkAssets>(AssetLoadState::Loading)
+            .configure_loading_state(
+                LoadingStateConfig::new(AssetLoadState::Loading).load_collection::<SmirkAssets>(),
+            )
             .add_plugins(GenericHumanoidCharacterPlugin::<Smirk>::default())
             .add_systems(
                 OnEnter(AssetLoadState::Success),

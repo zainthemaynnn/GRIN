@@ -1,5 +1,4 @@
 pub mod kit;
-pub mod util;
 
 use std::marker::PhantomData;
 
@@ -32,7 +31,7 @@ pub enum CharacterSet {
 
 impl Plugin for MasterCharacterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<AvatarLoadState>()
+        app.init_state::<AvatarLoadState>()
             .add_plugins(PlayerCameraPlugin::<PlayerCharacter>::default())
             .configure_sets(
                 Update,
@@ -252,7 +251,7 @@ pub fn insert_status_viewport(
 }
 
 pub fn input_walk(
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     camera_query: Query<(&GlobalTransform, &PlayerCamera), Without<PlayerCharacter>>,
     mut character: Query<
         (&mut KinematicCharacterController, &mut Transform),
@@ -265,16 +264,16 @@ pub fn input_walk(
         let (cam_transform, camera) = camera_query.single();
 
         let mut movement = Vec3::ZERO;
-        if input.pressed(KeyCode::W) {
+        if input.pressed(KeyCode::KeyW) {
             movement += cam_transform.forward().xz_flat();
         }
-        if input.pressed(KeyCode::A) {
+        if input.pressed(KeyCode::KeyA) {
             movement += cam_transform.left().xz_flat();
         }
-        if input.pressed(KeyCode::S) {
+        if input.pressed(KeyCode::KeyS) {
             movement += cam_transform.back().xz_flat();
         }
-        if input.pressed(KeyCode::D) {
+        if input.pressed(KeyCode::KeyD) {
             movement += cam_transform.right().xz_flat();
         }
 
@@ -302,7 +301,7 @@ pub fn input_walk(
 pub fn input_dash(
     mut commands: Commands,
     character: Query<(Entity, &Velocity), With<PlayerCharacter>>,
-    input: Res<Input<KeyCode>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut cooldown: Local<f32>,
     time: Res<Time>,
 ) {

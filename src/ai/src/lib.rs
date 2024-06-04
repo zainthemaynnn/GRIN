@@ -1,9 +1,9 @@
 pub mod boombox;
 pub mod bt;
 pub mod dummy;
-//pub mod metalhead;
 pub mod movement;
 pub mod screamer;
+pub mod spawn;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_landmass::{

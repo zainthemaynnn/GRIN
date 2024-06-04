@@ -1,5 +1,8 @@
 use bevy::prelude::*;
-use bevy_rapier3d::{prelude::{PhysicsSet, Velocity}, dynamics::RigidBody};
+use bevy_rapier3d::{
+    dynamics::RigidBody,
+    prelude::{PhysicsSet, Velocity},
+};
 use grin_util::numbers::{MulStack, MulStackError};
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -124,9 +127,9 @@ pub fn auto_insert_timescales(
 // NOTE: I forget why I restricted this to `RigidBody::Dynamic`. removing it for now.
 pub fn auto_insert_raw_velocities(
     mut commands: Commands,
-    velocity_query: Query<(Entity, &Velocity/*, &RigidBody*/), Without<RawVelocity>>,
+    velocity_query: Query<(Entity, &Velocity /*, &RigidBody*/), Without<RawVelocity>>,
 ) {
-    for (e_velocity, velocity/*, body*/) in velocity_query.iter() {
+    for (e_velocity, velocity /*, body*/) in velocity_query.iter() {
         /*let RigidBody::Dynamic = body else {
             continue;
         };*/
@@ -138,7 +141,9 @@ pub fn auto_insert_raw_velocities(
 }
 
 /// Adjusts velocity speeds with `TimeScale`. Calculates `RawVelocity`.
-pub fn scale_velocities(mut velocity_query: Query<(&mut Velocity, &mut RawVelocity, &TimeScale, &RigidBody)>) {
+pub fn scale_velocities(
+    mut velocity_query: Query<(&mut Velocity, &mut RawVelocity, &TimeScale, &RigidBody)>,
+) {
     for (mut v_scaled, mut v_raw, time_scale, rigid_body) in velocity_query.iter_mut() {
         let applied = time_scale.memoed;
         let scale = f32::from(time_scale);
@@ -169,7 +174,9 @@ pub fn scale_audio(audio_query: Query<(&AudioSink, &TimeScale), Changed<TimeScal
 }
 
 /// Adjusts animation speed with `TimeScale`.
-pub fn scale_animations(mut animator_query: Query<(&mut AnimationPlayer, &TimeScale), Changed<TimeScale>>) {
+pub fn scale_animations(
+    mut animator_query: Query<(&mut AnimationPlayer, &TimeScale), Changed<TimeScale>>,
+) {
     for (mut animator, time_scale) in animator_query.iter_mut() {
         animator.set_speed(time_scale.into());
     }

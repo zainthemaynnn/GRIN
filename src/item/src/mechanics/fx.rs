@@ -15,8 +15,11 @@ pub struct ItemFxPlugin;
 impl Plugin for ItemFxPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<MuzzleFlashEvent>()
-            .add_collection_to_loading_state::<_, Sfx>(AssetLoadState::Loading)
-            .add_collection_to_loading_state::<_, ProjectileAssets>(AssetLoadState::Loading)
+            .configure_loading_state(
+                LoadingStateConfig::new(AssetLoadState::Loading)
+                    .load_collection::<Sfx>()
+                    .load_collection::<ProjectileAssets>(),
+            )
             .add_systems(Update, (fade_muzzle_flashes, ignite_muzzle_flashes).chain());
     }
 }

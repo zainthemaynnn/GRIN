@@ -11,7 +11,7 @@ use grin_damage::{
     projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
 };
 use grin_derive::Cooldown;
-use grin_map::NavMesh;
+use grin_map::MapData;
 use grin_rig::humanoid::{Humanoid, HumanoidBundle, HUMANOID_RADIUS};
 use grin_time::Rewind;
 use grin_util::{event::Spawnable, vectors::Vec3Ext};
@@ -36,7 +36,9 @@ pub struct DummyPlugin;
 impl Plugin for DummyPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<DummySpawnEvent>()
-            .add_collection_to_loading_state::<_, DummyAssets>(AssetLoadState::Loading)
+            .configure_loading_state(
+                LoadingStateConfig::new(AssetLoadState::Loading).load_collection::<DummyAssets>(),
+            )
             .add_plugins(EnumBehaviorPlugin::<DummyAi>::default())
             .insert_resource(AiModel {
                 bt: bt! {
@@ -104,7 +106,7 @@ pub enum DummyAi {
 pub fn spawn(
     mut commands: Commands,
     assets: Res<DummyAssets>,
-    nav_mesh: Res<NavMesh>,
+    map_data: Res<MapData>,
     mut events: EventReader<DummySpawnEvent>,
 ) {
     for DummySpawnEvent { transform } in events.read() {
@@ -121,7 +123,7 @@ pub fn spawn(
                     radius: HUMANOID_RADIUS,
                     max_velocity: 2.0,
                 },
-                ..EnemyAgentBundle::from_archipelago(nav_mesh.archipelago)
+                ..EnemyAgentBundle::from_archipelago(map_data.archipelago)
             },
             grin_character::kit::grin::FreezeTargettable,
         ));

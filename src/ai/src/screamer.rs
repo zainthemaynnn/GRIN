@@ -12,15 +12,14 @@ use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_character::PlayerCharacter;
 use grin_damage::{
-    projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
     hit::{Damage, DamageVariant},
+    projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
 };
 use grin_derive::Cooldown;
-use grin_map::NavMesh;
+use grin_map::MapData;
 use grin_util::{event::Spawnable, query::gltf_path_search, vectors::Vec3Ext};
 use itertools::Itertools;
 
-use crate::bt;
 use super::{
     blocking_cooldown,
     bt::{
@@ -33,6 +32,7 @@ use super::{
     },
     protective_cooldown, set_closest_attack_target, AiSet, EnemyAgentBundle,
 };
+use crate::bt;
 
 #[derive(Component, Cooldown)]
 #[cooldown(duration = 2.0)]
@@ -51,7 +51,9 @@ pub struct ScreamerPlugin;
 impl Plugin for ScreamerPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<ScreamerSpawnEvent>()
-            .add_collection_to_loading_state::<_, ScreamerAssets>(AssetLoadState::Loading)
+            .configure_loading_state(
+            LoadingStateConfig::new(AssetLoadState::Loading).load_collection::<ScreamerAssets>(),
+        )
             .add_plugins(EnumBehaviorPlugin::<ScreamerAi>::default())
             .insert_resource(AiModel {
                 bt: bt! {
@@ -169,7 +171,7 @@ pub fn spawn(
 pub fn load(
     mut commands: Commands,
     assets: Res<ScreamerAssets>,
-    nav_mesh: Res<NavMesh>,
+    map_data: Res<MapData>,
     screamer_query: Query<(Entity, &GlobalTransform), (Added<Children>, With<Screamer>)>,
     mut animator_query: Query<&mut AnimationPlayer>,
     children_query: Query<&Children>,
@@ -280,7 +282,7 @@ pub fn load(
                     radius: 1.5,
                     max_velocity: 16.0,
                 },
-                ..EnemyAgentBundle::from_archipelago(nav_mesh.archipelago)
+                ..EnemyAgentBundle::from_archipelago(map_data.archipelago)
             },
             ScreamerParts {
                 armature: e_armature,

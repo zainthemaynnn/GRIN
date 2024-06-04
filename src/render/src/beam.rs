@@ -97,9 +97,9 @@ pub fn render_beams(
             scale: Vec3::ONE,
         };
 
-        let h_mesh = meshes.add(Mesh::from(shape::Capsule {
+        let h_mesh = meshes.add(Mesh::from(Capsule3d {
             radius: *initial_radius,
-            depth: axis.length(),
+            half_length: axis.length() / 2.0,
             ..Default::default()
         }));
         commands.entity(e_beam).insert(h_mesh);

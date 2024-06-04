@@ -16,15 +16,17 @@ pub struct ProjectilePlugin;
 
 impl Plugin for ProjectilePlugin {
     fn build(&self, app: &mut App) {
-        app.add_collection_to_loading_state::<_, ProjectileAssets>(AssetLoadState::Loading)
-            .add_systems(
-                Update,
-                (
-                    spawn_bullet_projectiles.run_if(in_state(AssetLoadState::Success)),
-                    curve_trajectories,
-                    target_trajectories,
-                ),
-            );
+        app.configure_loading_state(
+            LoadingStateConfig::new(AssetLoadState::Loading).load_collection::<ProjectileAssets>(),
+        )
+        .add_systems(
+            Update,
+            (
+                spawn_bullet_projectiles.run_if(in_state(AssetLoadState::Success)),
+                curve_trajectories,
+                target_trajectories,
+            ),
+        );
     }
 }
 
@@ -199,7 +201,7 @@ pub fn spawn_bullet_projectiles(
 ) {
     for (e_projectile, color) in query.iter() {
         commands.get_or_spawn(e_projectile).insert((
-            meshes.add(Mesh::from(shape::UVSphere {
+            meshes.add(Mesh::from(Sphere {
                 radius: 0.5,
                 ..Default::default()
             })),

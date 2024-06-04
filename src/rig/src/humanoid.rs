@@ -18,24 +18,26 @@ pub struct HumanoidPlugin;
 
 impl Plugin for HumanoidPlugin {
     fn build(&self, app: &mut App) {
-        app.add_collection_to_loading_state::<_, HumanoidAssets>(AssetLoadState::Loading)
-            .add_systems(Update, dash.before(PhysicsSet::StepSimulation))
-            .add_systems(
-                Update,
-                (
-                    shatter_on_death.run_if(in_state(AssetLoadState::Success)),
-                    // since scenes render in preupdate this'll actually have to wait a frame
-                    // so ordering doesn't really matter
-                    init_shattered_fragments.run_if(in_state(AssetLoadState::Success)),
-                ),
-            )
-            .add_systems(
-                Update,
-                (
-                    process_skeletons.run_if(in_state(AssetLoadState::Success)),
-                    morph_moving_humanoids,
-                ),
-            );
+        app.configure_loading_state(
+            LoadingStateConfig::new(AssetLoadState::Loading).load_collection::<HumanoidAssets>(),
+        )
+        .add_systems(Update, dash.before(PhysicsSet::StepSimulation))
+        .add_systems(
+            Update,
+            (
+                shatter_on_death.run_if(in_state(AssetLoadState::Success)),
+                // since scenes render in preupdate this'll actually have to wait a frame
+                // so ordering doesn't really matter
+                init_shattered_fragments.run_if(in_state(AssetLoadState::Success)),
+            ),
+        )
+        .add_systems(
+            Update,
+            (
+                process_skeletons.run_if(in_state(AssetLoadState::Success)),
+                morph_moving_humanoids,
+            ),
+        );
     }
 }
 

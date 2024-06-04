@@ -1,9 +1,7 @@
 use std::marker::PhantomData;
 
 use bevy::{prelude::*, utils::HashMap};
-use bevy_rapier3d::geometry::{CollisionGroups, Group};
 use grin_damage::hitbox::GltfHitboxAutoGenTarget;
-use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
 use grin_util::event::UntypedEvent;
 

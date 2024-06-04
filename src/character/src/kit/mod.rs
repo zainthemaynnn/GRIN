@@ -1,2 +1,2 @@
-pub mod smirk;
 pub mod grin;
+pub mod smirk;

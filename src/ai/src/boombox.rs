@@ -12,7 +12,7 @@ use grin_damage::{
     hit::{Damage, DamageVariant},
     projectiles::{BulletProjectile, ProjectileBundle, ProjectileColor},
 };
-use grin_map::NavMesh;
+use grin_map::MapData;
 use grin_physics::ForceTimer;
 use grin_rig::humanoid::{Humanoid, HumanoidBundle, HumanoidDominantHand, HUMANOID_RADIUS};
 use grin_time::Rewind;
@@ -36,7 +36,9 @@ pub struct BoomBoxPlugin;
 impl Plugin for BoomBoxPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<BoomBoxSpawnEvent>()
-            .add_collection_to_loading_state::<_, BoomBoxAssets>(AssetLoadState::Loading)
+            .configure_loading_state(
+                LoadingStateConfig::new(AssetLoadState::Loading).load_collection::<BoomBoxAssets>(),
+            )
             .add_systems(Update, spawn.in_set(AiSet::Spawn))
             .add_systems(
                 PreUpdate,
@@ -80,7 +82,7 @@ impl Spawnable for BoomBox {
 
 pub fn spawn(
     mut commands: Commands,
-    nav_mesh: Res<NavMesh>,
+    map_data: Res<MapData>,
     mut events: EventReader<BoomBoxSpawnEvent>,
     assets: Res<BoomBoxAssets>,
 ) {
@@ -98,7 +100,7 @@ pub fn spawn(
                     radius: HUMANOID_RADIUS,
                     max_velocity: 2.0,
                 },
-                ..EnemyAgentBundle::from_archipelago(nav_mesh.archipelago)
+                ..EnemyAgentBundle::from_archipelago(map_data.archipelago)
             },
         ));
     }

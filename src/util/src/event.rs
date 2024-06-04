@@ -39,7 +39,9 @@ pub trait Spawnable {
 pub trait DefaultSpawnable<E: Event + Clone + Default>: Spawnable<Event = E> {
     fn spawn_default() -> BoxedSystem {
         Box::new(IntoSystem::into_system(
-            move |mut events: EventWriter<Self::Event>| events.send_default(),
+            move |mut events: EventWriter<Self::Event>| {
+                events.send_default();
+            },
         ))
     }
 }

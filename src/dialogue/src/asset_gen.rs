@@ -1,10 +1,6 @@
 use bevy::{
-    asset::LoadState,
-    ecs::query::QuerySingleError,
-    prelude::*,
-    reflect::TypePath,
-    render::view::RenderLayers,
-    utils::HashMap,
+    asset::LoadState, ecs::query::QuerySingleError, prelude::*, reflect::TypePath,
+    render::view::RenderLayers, utils::HashMap,
 };
 use bevy_asset_loader::prelude::*;
 use bevy_enum_filter::prelude::*;
@@ -134,7 +130,7 @@ pub fn add_dialogue_assets(
             Some(LoadState::Failed) => {
                 next_state.set(DialogueAssetLoadState::Failure);
                 return;
-            },
+            }
             _ => return,
         }
     }

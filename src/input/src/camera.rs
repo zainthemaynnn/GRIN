@@ -3,10 +3,7 @@ use std::{marker::PhantomData, ops::Range};
 use bevy::{
     ecs::event::ManualEventReader, input::mouse::MouseMotion, prelude::*, window::CursorGrabMode,
 };
-use bevy_rapier3d::{
-    na::clamp,
-    prelude::{CollisionGroups, Group, QueryFilter, RapierContext},
-};
+use bevy_rapier3d::{na::clamp, prelude::*};
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 
 pub struct PlayerCameraPlugin<T: Component> {
@@ -39,7 +36,7 @@ pub struct PlayerCamera {
     pub alignment: CameraAlignment,
 }
 
-#[derive(Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub enum CameraAlignment {
     /// Angled downwards.
     #[default]
@@ -55,20 +52,46 @@ pub struct LookInfo {
     pub reader_motion: ManualEventReader<MouseMotion>,
     pub pitch: f32,
     pub yaw: f32,
-    pub viewport_ray: Ray,
-    pub mouse_ray: Ray,
+    pub viewport_ray: Option<Ray3d>,
+    pub mouse_ray: Option<Ray3d>,
     pub target_distance: f32,
 }
 
 impl LookInfo {
-    pub fn target_point(&self) -> Vec3 {
-        self.viewport_ray.get_point(self.target_distance)
+    pub fn target_point(&self) -> Option<Vec3> {
+        self.viewport_ray
+            .map(|ray| ray.get_point(self.target_distance))
     }
 
-    pub fn vertical_target_point(&self, plane_origin: Vec3, plane_normal: Vec3) -> Option<Vec3> {
+    pub fn vertical_target_point(
+        &self,
+        plane_origin: Vec3,
+        plane_normal: Direction3d,
+    ) -> Option<Vec3> {
         self.mouse_ray
-            .intersect_plane(plane_origin, plane_normal)
-            .map(|t| self.mouse_ray.get_point(t))
+            .map(|ray| {
+                ray.intersect_plane(
+                    plane_origin,
+                    Plane3d {
+                        normal: plane_normal,
+                    },
+                )
+                .map(|t| ray.get_point(t))
+            })
+            .flatten()
+    }
+
+    pub fn aligned_target_point(
+        &self,
+        alignment: CameraAlignment,
+        transform: &Transform,
+    ) -> Option<Vec3> {
+        match alignment {
+            CameraAlignment::FortyFive => {
+                self.vertical_target_point(transform.translation, transform.up())
+            }
+            CameraAlignment::Shooter { .. } => self.target_point(),
+        }
     }
 }
 
@@ -122,27 +145,25 @@ pub fn handle_mouse(
     }
     let (camera, camera_transform) = camera_query.single();
     if let Some(size) = camera.logical_viewport_size() {
-        look_info.viewport_ray = camera
-            .viewport_to_world(camera_transform, size / 2.0)
-            .unwrap_or_default();
+        look_info.viewport_ray = camera.viewport_to_world(camera_transform, size / 2.0);
 
         if let Some(cursor_pos) = window.cursor_position() {
-            look_info.mouse_ray = camera
-                .viewport_to_world(camera_transform, cursor_pos)
-                .unwrap_or_default();
+            look_info.mouse_ray = camera.viewport_to_world(camera_transform, cursor_pos);
         }
 
-        look_info.target_distance = rapier_context
-            .cast_ray(
-                look_info.viewport_ray.origin,
-                look_info.viewport_ray.direction,
-                mouse_opts.target_distance_cap,
-                false,
-                QueryFilter::new().groups(CollisionGroups::from_group_default(
-                    Group::PLAYER_PROJECTILE,
-                )),
-            )
-            .map_or(mouse_opts.target_distance_cap, |hit| hit.1);
+        if let Some(viewport_ray) = look_info.viewport_ray {
+            look_info.target_distance = rapier_context
+                .cast_ray(
+                    viewport_ray.origin,
+                    *viewport_ray.direction,
+                    mouse_opts.target_distance_cap,
+                    false,
+                    QueryFilter::new().groups(CollisionGroups::from_group_default(
+                        Group::PLAYER_PROJECTILE,
+                    )),
+                )
+                .map_or(mouse_opts.target_distance_cap, |hit| hit.1);
+        }
     }
 }
 
@@ -219,7 +240,7 @@ pub fn add_debug_mouse_marker(
     commands.spawn((
         DebugMouseMarker,
         MaterialMeshBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
+            mesh: meshes.add(Mesh::from(Sphere {
                 radius: 0.25,
                 ..Default::default()
             })),
@@ -230,11 +251,13 @@ pub fn add_debug_mouse_marker(
 }
 
 pub fn update_debug_mouse_marker(
-    mut marker_query: Query<&mut Transform, With<DebugMouseMarker>>,
     look_info: Res<LookInfo>,
+    mut marker_query: Query<&mut Transform, With<DebugMouseMarker>>,
 ) {
-    let mut transform = marker_query.single_mut();
-    *transform = Transform::from_translation(look_info.target_point());
+    if let Some(pos) = look_info.target_point() {
+        let mut transform = marker_query.single_mut();
+        *transform = Transform::from_translation(pos);
+    }
 }
 
 pub struct DebugMouseTargetPlugin;

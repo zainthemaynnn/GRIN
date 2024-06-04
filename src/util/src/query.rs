@@ -1,5 +1,5 @@
 use bevy::{
-    ecs::query::{ReadOnlyWorldQuery, WorldQuery},
+    ecs::query::{QueryData, QueryFilter},
     prelude::*,
     scene::{InstanceId, SceneInstance},
 };
@@ -8,7 +8,7 @@ use itertools::Itertools;
 /// Matches two entities against a query. The entity that matches occurs first in the tuple.
 ///
 /// If neither match, returns a `QueryEntityError`.
-pub fn distinguish_by_query<Q: WorldQuery, F: ReadOnlyWorldQuery>(
+pub fn distinguish_by_query<Q: QueryData, F: QueryFilter>(
     query: &Query<Q, F>,
     entity_0: Entity,
     entity_1: Entity,
@@ -68,56 +68,6 @@ pub fn gltf_prefix_search(
             Err(..) => false,
         })
         .collect_vec();
-}
-
-pub struct PotentialAncestorIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery>
-where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
-{
-    parent_query: &'w Query<'w, 's, Q, ()>,
-    filter_query: &'w Query<'w, 's, (), F>,
-    next: Option<Entity>,
-}
-
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> PotentialAncestorIter<'w, 's, Q, F>
-where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
-{
-    pub fn new(
-        parent_query: &'w Query<'w, 's, Q, ()>,
-        filter_query: &'w Query<'w, 's, (), F>,
-        entity: Entity,
-    ) -> Self {
-        PotentialAncestorIter {
-            parent_query,
-            filter_query,
-            next: Some(entity),
-        }
-    }
-}
-
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for PotentialAncestorIter<'w, 's, Q, F>
-where
-    Q::ReadOnly: WorldQuery<Item<'w> = &'w Parent>,
-{
-    type Item = Entity;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            self.next = self.parent_query.get(self.next?).ok().map(|p| p.get());
-            match self.next {
-                Some(e_next) => {
-                    self.next = Some(e_next);
-                    if self.filter_query.get(e_next).is_ok() {
-                        return self.next;
-                    }
-                }
-                None => {
-                    return None;
-                }
-            }
-        }
-    }
 }
 
 /// Designates the marker component `T` as an initializer for `SceneInstance` entities.

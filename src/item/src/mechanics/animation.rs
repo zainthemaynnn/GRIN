@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_asset_loader::{asset_collection::AssetCollection, loading_state::LoadingStateAppExt};
+use bevy_asset_loader::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
 
@@ -13,7 +13,9 @@ pub struct ItemAnimationPlugin;
 
 impl Plugin for ItemAnimationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_collection_to_loading_state::<_, AimAssets>(AssetLoadState::Loading);
+        app.configure_loading_state(
+            LoadingStateConfig::new(AssetLoadState::Loading).load_collection::<AimAssets>(),
+        );
     }
 }
 

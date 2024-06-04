@@ -2,6 +2,7 @@ use std::{marker::PhantomData, time::Duration};
 
 use bevy::{prelude::*, utils::HashSet};
 use bevy_enum_filter::{Enum, EnumFilter};
+use grin_input::camera::{CameraAlignment, LookInfo};
 use grin_physics::PhysicsTime;
 use grin_time::scaling::TimeScale;
 
@@ -29,6 +30,17 @@ impl Target {
             transform: Transform::from_translation(target),
             distance: target.distance(origin),
         }
+    }
+
+    pub fn from_camera(
+        transform: &Transform,
+        alignment: CameraAlignment,
+        look_info: &LookInfo,
+    ) -> Self {
+        let target_pos = look_info
+            .aligned_target_point(alignment, transform)
+            .unwrap();
+        Target::from_pair(transform.translation, target_pos)
     }
 }
 
@@ -249,12 +261,12 @@ pub fn auto_fire<T: Component>(
 }
 
 pub fn send_muzzle_flash<T: Component>(
-    mut shot_fired: EventReader<ShotFired<T>>,
+    mut shots_fired: EventReader<ShotFired<T>>,
     mut muzzle_flash_events: EventWriter<MuzzleFlashEvent>,
 ) {
-    shot_fired
-        .read()
-        .for_each(|ShotFired { entity, .. }| muzzle_flash_events.send(MuzzleFlashEvent(*entity)));
+    for ShotFired { entity, .. } in shots_fired.read() {
+        muzzle_flash_events.send(MuzzleFlashEvent(*entity));
+    }
 }
 
 pub fn play_sfx_discrete<T: Component>(

@@ -20,20 +20,20 @@ pub trait KeyCodeExt: Sized {
 }
 
 impl KeyCodeExt for KeyCode {
-    const ANY_UP: [Self; 2] = [Self::W, Self::Up];
-    const ANY_LEFT: [Self; 2] = [Self::A, Self::Left];
-    const ANY_DOWN: [Self; 2] = [Self::S, Self::Down];
-    const ANY_RIGHT: [Self; 2] = [Self::D, Self::Right];
-    const ANY_ZERO: [Self; 2] = [Self::Key0, Self::Numpad0];
-    const ANY_ONE: [Self; 2] = [Self::Key1, Self::Numpad1];
-    const ANY_TWO: [Self; 2] = [Self::Key2, Self::Numpad2];
-    const ANY_THREE: [Self; 2] = [Self::Key3, Self::Numpad3];
-    const ANY_FOUR: [Self; 2] = [Self::Key4, Self::Numpad4];
-    const ANY_FIVE: [Self; 2] = [Self::Key5, Self::Numpad5];
-    const ANY_SIX: [Self; 2] = [Self::Key6, Self::Numpad6];
-    const ANY_SEVEN: [Self; 2] = [Self::Key7, Self::Numpad7];
-    const ANY_EIGHT: [Self; 2] = [Self::Key8, Self::Numpad8];
-    const ANY_NINE: [Self; 2] = [Self::Key9, Self::Numpad9];
+    const ANY_UP: [Self; 2] = [Self::KeyW, Self::ArrowUp];
+    const ANY_LEFT: [Self; 2] = [Self::KeyA, Self::ArrowLeft];
+    const ANY_DOWN: [Self; 2] = [Self::KeyS, Self::ArrowDown];
+    const ANY_RIGHT: [Self; 2] = [Self::KeyD, Self::ArrowRight];
+    const ANY_ZERO: [Self; 2] = [Self::Digit0, Self::Numpad0];
+    const ANY_ONE: [Self; 2] = [Self::Digit1, Self::Numpad1];
+    const ANY_TWO: [Self; 2] = [Self::Digit2, Self::Numpad2];
+    const ANY_THREE: [Self; 2] = [Self::Digit3, Self::Numpad3];
+    const ANY_FOUR: [Self; 2] = [Self::Digit4, Self::Numpad4];
+    const ANY_FIVE: [Self; 2] = [Self::Digit5, Self::Numpad5];
+    const ANY_SIX: [Self; 2] = [Self::Digit6, Self::Numpad6];
+    const ANY_SEVEN: [Self; 2] = [Self::Digit7, Self::Numpad7];
+    const ANY_EIGHT: [Self; 2] = [Self::Digit8, Self::Numpad8];
+    const ANY_NINE: [Self; 2] = [Self::Digit9, Self::Numpad9];
 
     fn any_numbered(num: usize) -> Vec<Self> {
         match num {
@@ -60,7 +60,7 @@ pub trait InputExt {
     fn just_pressed_number(&self) -> Option<usize>;
 }
 
-impl InputExt for Input<KeyCode> {
+impl InputExt for ButtonInput<KeyCode> {
     /// Return a pressed number, if any. Prioritizes decreasingly from 0-9.
     fn pressed_number(&self) -> Option<usize> {
         for n in 0..=9 {

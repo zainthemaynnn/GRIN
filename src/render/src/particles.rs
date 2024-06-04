@@ -27,14 +27,6 @@ impl Modifier for SetVelocityModifier {
         ModifierContext::Init
     }
 
-    fn as_init(&self) -> Option<&dyn InitModifier> {
-        Some(self)
-    }
-
-    fn as_init_mut(&mut self) -> Option<&mut dyn InitModifier> {
-        Some(self)
-    }
-
     fn attributes(&self) -> &[Attribute] {
         &[Attribute::VELOCITY]
     }
@@ -42,17 +34,16 @@ impl Modifier for SetVelocityModifier {
     fn boxed_clone(&self) -> BoxedModifier {
         Box::new(self.clone())
     }
-}
 
-#[typetag::serde]
-impl InitModifier for SetVelocityModifier {
-    fn apply_init(&self, module: &mut Module, context: &mut InitContext) -> Result<(), ExprError> {
+    fn apply(&self, module: &mut Module, context: &mut ShaderWriter) -> Result<(), ExprError> {
         let func_id = calc_func_id(self);
         let func_name = format!("set_velocity_{0:016X}", func_id);
         let direction = context.eval(module, self.direction)?;
         let speed = context.eval(module, self.speed)?;
 
-        context.init_extra += &format!(
+        context.main_code += &format!("{}(transform, &particle);\n", func_name);
+
+        context.extra_code += &format!(
             r##"fn {0}(transform: mat4x4<f32>, particle: ptr<function, Particle>) {{
     let velocity_vec4 = transform * vec4<f32>({1}, 0.0);
     (*particle).{2} = velocity_vec4.xyz * {3};
@@ -63,8 +54,6 @@ impl InitModifier for SetVelocityModifier {
             Attribute::VELOCITY.name(),
             speed,
         );
-
-        context.init_code += &format!("{}(transform, &particle);\n", func_name);
 
         Ok(())
     }

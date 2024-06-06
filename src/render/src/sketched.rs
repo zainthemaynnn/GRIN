@@ -33,6 +33,7 @@ impl Plugin for SketchEffectPlugin {
             (
                 autofill_sketch_effect.run_if(move || autofill_enabled == true),
                 purge_sketch_effects,
+                jank_i_hope_nobody_reads_this_std_material_purge,
             ),
         )
         .add_systems(
@@ -47,6 +48,22 @@ impl Plugin for SketchEffectPlugin {
                 customize_scene_materials,
             ),
         );
+    }
+}
+
+// for some reason a few standard-materials are "slipping through the cracks," and I'm too lazy to fix
+pub fn jank_i_hope_nobody_reads_this_std_material_purge(
+    mut commands: Commands,
+    material_query: Query<Entity, (With<Handle<SketchMaterial>>, With<Handle<StandardMaterial>>)>,
+) {
+    for e_material in material_query.iter() {
+        trace!(
+            msg=":thinking emoji:",
+            e_material=?e_material,
+        );
+        commands
+            .entity(e_material)
+            .remove::<Handle<StandardMaterial>>();
     }
 }
 

@@ -2,6 +2,7 @@ pub mod beam;
 pub mod blaze;
 pub mod bwstatic;
 pub mod duoquad;
+pub mod fill;
 pub mod gopro;
 pub mod particles;
 pub mod sketched;
@@ -10,6 +11,7 @@ use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_hanabi::HanabiPlugin;
 use bevy_mod_outline::{OutlineBundle, OutlineMode, OutlineVolume};
 use bevy_tweening::TweeningPlugin;
+use fill::FillPlugin;
 
 use self::{
     beam::BeamPlugin,
@@ -57,6 +59,7 @@ impl PluginGroup for RenderFXPlugins {
                 autofill_sketch_effect: true,
             })
             //.add(BWStaticPlugin)
+            .add(FillPlugin)
             .add(GoProPlugin)
             .add(DuoQuadPlugin)
             .add(BeamPlugin)

@@ -367,7 +367,8 @@ impl DynamicAsset for CustomDynamicAsset {
                                 ..Default::default()
                             },
                             extension: SketchMaterialInfo {
-                                enabled: true as u32,
+                                sketch_enabled: true,
+                                fill_enabled: true,
                                 layer: 0,
                                 base_color_texture: Some(base_color_texture),
                             },

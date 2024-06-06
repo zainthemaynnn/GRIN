@@ -2,9 +2,15 @@
 //! (i.e. animated outlines/textures).
 
 use bevy::{
-    pbr::{ExtendedMaterial, MaterialExtension},
+    pbr::{ExtendedMaterial, MaterialExtension, MaterialExtensionKey, MaterialExtensionPipeline},
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::{
+        mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
+        render_resource::{
+            AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
+            VertexFormat,
+        },
+    },
     scene::SceneInstance,
     utils::HashMap,
 };
@@ -228,7 +234,7 @@ pub fn purge_sketch_effects(
     }
 }
 
-/// Maps material names to sketch-materials. Then, when importing from GLTF, a corresponding
+/// Maps standard-materials to sketch-materials. Then, when importing from GLTF, a corresponding
 /// sketch-material can be swapped in (since GLTF doesn't support my custom texture).
 ///
 /// Note: This gets populated in an external crate, `grin_asset`.
@@ -263,10 +269,12 @@ pub fn customize_scene_materials(
                     // there's no stored animated texture, so this is probably just a regular
                     // texture. still, it should be converted into a sketch material with the
                     // feature disabled.
-                    let h_sketched = sketch_materials.add(SketchMaterial {
-                        base: pbr_materials.remove(h_std).unwrap(),
-                        extension: SketchMaterialInfo::default(),
-                    });
+                    let base = pbr_materials.remove(h_std).unwrap();
+                    let extension = SketchMaterialInfo {
+                        sketch_enabled: false,
+                        ..Default::default()
+                    };
+                    let h_sketched = sketch_materials.add(SketchMaterial { base, extension });
                     std_to_sketch_materials
                         .0
                         .insert(h_std.id(), h_sketched.clone())
@@ -300,19 +308,30 @@ pub struct SketchUiImage {
 
 // I am eternally, entirely grateful for whoever introduced StandardMaterial extensions
 // in bevy 0.12. well done, my friend.
-#[derive(Asset, AsBindGroup, TypePath, Debug, Clone, Default)]
+#[derive(Asset, AsBindGroup, TypePath, Debug, Clone)]
+#[bind_group_data(SketchMaterialKey)]
 pub struct SketchMaterialInfo {
-    /// Sketch enabled?
-    //
-    // TODO: this should really be a flag.
-    #[uniform(100)]
-    pub enabled: u32,
+    /// Sketch effect enabled?
+    pub sketch_enabled: bool,
+    /// Fill effect supported?
+    pub fill_enabled: bool,
     /// The layer of `base_color_texture` to use.
     #[uniform(101)]
     pub layer: u32,
     #[texture(102, dimension = "2d_array")]
     #[sampler(103)]
     pub base_color_texture: Option<Handle<Image>>,
+}
+
+impl Default for SketchMaterialInfo {
+    fn default() -> Self {
+        Self {
+            sketch_enabled: true,
+            fill_enabled: true,
+            layer: 0,
+            base_color_texture: None,
+        }
+    }
 }
 
 impl SketchMaterialInfo {
@@ -327,8 +346,78 @@ impl SketchMaterialInfo {
     }
 }
 
+#[derive(Copy, Clone, Hash, Eq, PartialEq)]
+pub struct SketchMaterialKey {
+    pub sketch_enabled: bool,
+    pub fill_enabled: bool,
+}
+
+impl From<&SketchMaterialInfo> for SketchMaterialKey {
+    fn from(value: &SketchMaterialInfo) -> Self {
+        Self {
+            sketch_enabled: value.sketch_enabled,
+            fill_enabled: value.fill_enabled,
+        }
+    }
+}
+
+// this vertex attribute is duplicated across the entire mesh.
+//
+// according to my research, changing the uniform for every draw call is slow,
+// and obviously stops batching, so I think I'll avoid using a uniform for this case.
+//
+// I cannot use an instance_index buffer (like bevy's mesh buffer) because the same
+// instances are not guaranteed to have the same y-cutoff.
+//
+// also, the meshes in grin are low-poly and this attribute is only an f32.
+//
+// SO, IN SUMMARY, as counterintuitive as it is, I don't think it's a serious problem.
+// also read: https://stackoverflow.com/a/30339855
+pub const ATTRIBUTE_Y_CUTOFF: MeshVertexAttribute =
+    MeshVertexAttribute::new("y_cutoff", 988540917, VertexFormat::Float32);
+
 impl MaterialExtension for SketchMaterialInfo {
+    fn vertex_shader() -> ShaderRef {
+        "shaders/vertex.wgsl".into()
+    }
+
     fn fragment_shader() -> ShaderRef {
         "shaders/sketch_material.wgsl".into()
+    }
+
+    fn deferred_fragment_shader() -> ShaderRef {
+        "shaders/sketch_material.wgsl".into()
+    }
+
+    fn specialize(
+        _pipeline: &MaterialExtensionPipeline,
+        descriptor: &mut RenderPipelineDescriptor,
+        layout: &MeshVertexBufferLayout,
+        key: MaterialExtensionKey<Self>,
+    ) -> Result<(), SpecializedMeshPipelineError> {
+        if let Some(ref mut fragment) = &mut descriptor.fragment {
+            if key.bind_group_data.sketch_enabled {
+                fragment.shader_defs.push("SKETCHED".into());
+            }
+
+            // TODO: this needs a per-mesh flag, see issue #7.
+            if key.bind_group_data.fill_enabled {
+                let attrs = layout.get_layout(&[ATTRIBUTE_Y_CUTOFF.at_shader_location(9)])?;
+                // uh... is this allowed?
+                descriptor.vertex.buffers[0]
+                    .attributes
+                    .push(attrs.attributes[0]);
+                descriptor.vertex.shader_defs.push("FILL".into());
+                fragment.shader_defs.push("FILL".into());
+            }
+        }
+
+        debug!(
+            msg="New `SketchMaterial` pipeline.",
+            vs_defs=?descriptor.vertex.shader_defs,
+            fs_defs=?descriptor.fragment.as_ref().map(|f| &f.shader_defs),
+        );
+
+        Ok(())
     }
 }

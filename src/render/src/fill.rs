@@ -1,24 +1,25 @@
 use std::ops::Range;
 
-use bevy::{
-    pbr::MeshUniform, prelude::*, render::mesh::VertexAttributeValues, scene::SceneInstance,
-};
-use grin_time::scaling::TimeScale;
+use bevy::{prelude::*, render::mesh::VertexAttributeValues, scene::SceneInstance};
+use bevy_tweening::{component_animator_system, Lens};
 use grin_util::spatial::{ComputeSceneAabb, SceneAabb};
 
-use crate::{sketched::ATTRIBUTE_Y_CUTOFF, EffectCompleted, EffectFlags};
+use crate::{sketched::ATTRIBUTE_Y_CUTOFF, EffectFlags, TweenAppExt, TweenCompletedEvent};
 
 pub struct FillPlugin;
 
 impl Plugin for FillPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(First, fill_y_cutoff_buffers).add_systems(
-            PostUpdate,
-            (
-                (update_fill_parameters, set_fill_cutoffs).chain(),
-                complete_fills,
-            ),
-        );
+        app.add_tween_completion_event::<FillCompletedEvent>()
+            .add_systems(First, fill_y_cutoff_buffers)
+            .add_systems(Update, precalculate_aabbs)
+            .add_systems(
+                PostUpdate,
+                (
+                    (component_animator_system::<FillEffect>, set_fill_cutoffs).chain(),
+                    complete_fills,
+                ),
+            );
     }
 }
 
@@ -32,17 +33,23 @@ pub struct FillEffect {
     /// Rate of change for `t` per second.
     pub rate: f32,
     /// How the maximum height will be evaluated.
-    pub bounds: FillEffectBounds,
+    pub bounds: HeightBounds,
 }
 
-impl FillEffect {
-    pub fn complete(&self) -> bool {
-        self.t == 1.0
+#[derive(Component, Default)]
+pub struct FillParamLens {
+    pub start: f32,
+    pub end: f32,
+}
+
+impl Lens<FillEffect> for FillParamLens {
+    fn lerp(&mut self, target: &mut FillEffect, ratio: f32) {
+        target.t = self.start.lerp(self.end, ratio);
     }
 }
 
 #[derive(Clone, Debug, Default)]
-pub enum FillEffectBounds {
+pub enum HeightBounds {
     Value(Range<f32>),
     #[default]
     UseAabb,
@@ -53,17 +60,8 @@ impl Default for FillEffect {
         Self {
             t: 0.0,
             rate: 1.0,
-            bounds: FillEffectBounds::default(),
+            bounds: HeightBounds::default(),
         }
-    }
-}
-
-pub fn update_fill_parameters(
-    time: Res<Time>,
-    mut effect_query: Query<(&mut FillEffect, &TimeScale)>,
-) {
-    for (mut effect, time_scale) in effect_query.iter_mut() {
-        effect.t = (effect.t + time.delta_seconds() * effect.rate * f32::from(time_scale)).min(1.0);
     }
 }
 
@@ -88,26 +86,33 @@ pub fn fill_y_cutoff_buffers(
     }
 }
 
-pub fn set_fill_cutoffs(
+pub fn precalculate_aabbs(
     mut commands: Commands,
+    effect_query: Query<(Entity, &FillEffect, Option<&ComputeSceneAabb>), Added<FillEffect>>,
+) {
+    for (e_effect, effect, aabb) in effect_query.iter() {
+        if matches!(effect.bounds, HeightBounds::UseAabb) && aabb.is_none() {
+            commands.entity(e_effect).insert(ComputeSceneAabb);
+        }
+    }
+}
+
+pub fn set_fill_cutoffs(
     scene_spawner: Res<SceneSpawner>,
     mut meshes: ResMut<Assets<Mesh>>,
-    effect_query: Query<(Entity, &SceneInstance, &FillEffect, Option<&SceneAabb>)>,
+    effect_query: Query<(&SceneInstance, &FillEffect, Option<&SceneAabb>)>,
     mesh_query: Query<&Handle<Mesh>>,
 ) {
-    for (e_effect, scene_id, effect, aabb) in effect_query.iter() {
+    for (scene_id, effect, aabb) in effect_query.iter() {
         if !scene_spawner.instance_is_ready(**scene_id) {
             continue;
         }
 
         let bounds = match &effect.bounds {
-            FillEffectBounds::Value(bounds) => bounds.clone(),
-            FillEffectBounds::UseAabb => match aabb {
+            HeightBounds::Value(bounds) => bounds.clone(),
+            HeightBounds::UseAabb => match aabb {
                 Some(aabb) => aabb.min.y..aabb.max.y,
-                None => {
-                    commands.entity(e_effect).insert(ComputeSceneAabb);
-                    continue;
-                }
+                None => continue,
             },
         };
 
@@ -137,22 +142,33 @@ pub fn set_fill_cutoffs(
 
             buf.fill(y_cutoff);
         }
-
-        if effect.complete() {
-            commands.entity(e_effect).insert(EffectCompleted);
-            continue;
-        }
     }
+}
+
+#[derive(Event)]
+pub struct FillCompletedEvent(pub Entity);
+
+impl From<Entity> for FillCompletedEvent {
+    fn from(value: Entity) -> Self {
+        Self(value)
+    }
+}
+
+impl TweenCompletedEvent for FillCompletedEvent {
+    const EVENT_ID: u64 = 12379087;
 }
 
 pub fn complete_fills(
     mut commands: Commands,
     scene_spawner: Res<SceneSpawner>,
     mut meshes: ResMut<Assets<Mesh>>,
-    effect_query: Query<(Entity, &SceneInstance, &EffectFlags), With<EffectCompleted>>,
+    effect_query: Query<(Entity, &SceneInstance, Option<&EffectFlags>)>,
     mesh_query: Query<&Handle<Mesh>>,
+    mut finished: EventReader<FillCompletedEvent>,
 ) {
-    for (e_effect, scene_id, &flags) in effect_query.iter() {
+    for (e_effect, scene_id, flags) in finished.read().filter_map(|ev| effect_query.get(ev.0).ok())
+    {
+        let flags = flags.copied().unwrap_or_default();
         if flags.intersects(EffectFlags::REZERO) {
             for e_mesh in scene_spawner.iter_instance_entities(**scene_id) {
                 let Ok(h_mesh) = mesh_query.get(e_mesh) else {

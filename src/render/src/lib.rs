@@ -10,7 +10,7 @@ pub mod sketched;
 use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_hanabi::HanabiPlugin;
 use bevy_mod_outline::{OutlineBundle, OutlineMode, OutlineVolume};
-use bevy_tweening::TweeningPlugin;
+use bevy_tweening::{TweenCompleted, TweeningPlugin};
 use bitflags::bitflags;
 use fill::FillPlugin;
 
@@ -68,9 +68,32 @@ impl PluginGroup for RenderFXPlugins {
     }
 }
 
-#[derive(Component, Copy, Clone, Debug)]
-#[component(storage = "SparseSet")]
-pub struct EffectCompleted;
+pub trait TweenAppExt {
+    fn add_tween_completion_event<E: TweenCompletedEvent>(&mut self) -> &mut Self;
+}
+
+impl TweenAppExt for App {
+    fn add_tween_completion_event<E: TweenCompletedEvent>(&mut self) -> &mut Self {
+        self.add_event::<E>()
+            .add_systems(PreUpdate, map_tween_event_id::<E>)
+    }
+}
+
+pub trait TweenCompletedEvent: Event + From<Entity> {
+    const EVENT_ID: u64;
+}
+
+pub fn map_tween_event_id<E: TweenCompletedEvent>(
+    mut untyped_events: EventReader<TweenCompleted>,
+    mut typed_events: EventWriter<E>,
+) {
+    for TweenCompleted { entity, .. } in untyped_events
+        .read()
+        .filter(|ev| ev.user_data == E::EVENT_ID)
+    {
+        typed_events.send(E::from(*entity));
+    }
+}
 
 bitflags! {
     #[derive(Component, Copy, Clone, Debug)]

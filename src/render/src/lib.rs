@@ -11,6 +11,7 @@ use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_hanabi::HanabiPlugin;
 use bevy_mod_outline::{OutlineBundle, OutlineMode, OutlineVolume};
 use bevy_tweening::TweeningPlugin;
+use bitflags::bitflags;
 use fill::FillPlugin;
 
 use self::{
@@ -64,5 +65,25 @@ impl PluginGroup for RenderFXPlugins {
             .add(DuoQuadPlugin)
             .add(BeamPlugin)
             .add(BlazePlugin)
+    }
+}
+
+#[derive(Component, Copy, Clone, Debug)]
+#[component(storage = "SparseSet")]
+pub struct EffectCompleted;
+
+bitflags! {
+    #[derive(Component, Copy, Clone, Debug)]
+    pub struct EffectFlags: u8 {
+        /// Effect component will despawn on completion.
+        const DESPAWN = 1 << 0;
+        /// If applicable, will "undo" the effect and reset the mesh to its base state.
+        const REZERO = 1 << 1;
+    }
+}
+
+impl Default for EffectFlags {
+    fn default() -> Self {
+        Self::DESPAWN | Self::REZERO
     }
 }

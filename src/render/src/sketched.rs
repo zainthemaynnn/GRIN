@@ -349,14 +349,14 @@ impl SketchMaterialInfo {
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]
 pub struct SketchMaterialKey {
     pub sketch_enabled: bool,
-    pub fill_enabled: bool,
+    pub y_cutoff_enabled: bool,
 }
 
 impl From<&SketchMaterialInfo> for SketchMaterialKey {
     fn from(value: &SketchMaterialInfo) -> Self {
         Self {
             sketch_enabled: value.sketch_enabled,
-            fill_enabled: value.fill_enabled,
+            y_cutoff_enabled: value.fill_enabled,
         }
     }
 }
@@ -401,7 +401,7 @@ impl MaterialExtension for SketchMaterialInfo {
             }
 
             // TODO: this needs a per-mesh flag, see issue #7.
-            if key.bind_group_data.fill_enabled {
+            if key.bind_group_data.y_cutoff_enabled {
                 let attrs = layout.get_layout(&[ATTRIBUTE_Y_CUTOFF.at_shader_location(9)])?;
                 // uh... is this allowed?
                 descriptor.vertex.buffers[0]

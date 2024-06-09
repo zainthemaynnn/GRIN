@@ -982,7 +982,7 @@ dependencies = [
 [[package]]
 name = "bevy_mod_outline"
 version = "0.7.0"
-source = "git+https://github.com/zainthemaynnn/bevy_mod_outline.git#963736a3bf3e933cadb5507258615b6d5f6844b5"
+source = "git+https://github.com/zainthemaynnn/bevy_mod_outline.git#425ef992fc7c90c5f947ca63962d34a6510fe699"
 dependencies = [
  "bevy",
  "bitfield",
@@ -5252,9 +5252,9 @@ checksum = "d4c87d22b6e3f4a18d4d40ef354e97c90fcb14dd91d7dc0aa9d8a1172ebf7202"
 
 [[package]]
 name = "unicode-width"
-version = "0.1.12"
+version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68f5e5f3158ecfd4b8ff6fe086db7c8467a2dfdac97fe420f2b7c4aa97af66d6"
+checksum = "0336d538f7abc86d282a4189614dfaa90810dfc2c6f6427eaf88e16311dd225d"
 
 [[package]]
 name = "unicode-xid"
@@ -5653,9 +5653,9 @@ dependencies = [
 
 [[package]]
 name = "wide"
-version = "0.7.22"
+version = "0.7.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c5cb32c74fe55350a3272ba792f050613e692253ae0d89ad5d83eb0dcea15e1"
+checksum = "1134eff459f1063780b94cc78b704e2212cac12abd554e4268f5b8f9dfcc1883"
 dependencies = [
  "bytemuck",
  "safe_arch",

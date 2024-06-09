@@ -6,6 +6,7 @@ pub mod fill;
 pub mod gopro;
 pub mod particles;
 pub mod sketched;
+pub mod tint;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
 use bevy_hanabi::HanabiPlugin;
@@ -13,11 +14,12 @@ use bevy_mod_outline::{OutlineBundle, OutlineMode, OutlineVolume};
 use bevy_tweening::{TweenCompleted, TweeningPlugin};
 use bitflags::bitflags;
 use fill::FillPlugin;
+use tint::TintPlugin;
 
 use self::{
     beam::BeamPlugin,
     blaze::BlazePlugin,
-    bwstatic::BWStaticPlugin,
+    //bwstatic::BWStaticPlugin,
     duoquad::DuoQuadPlugin,
     gopro::GoProPlugin,
     sketched::{GlobalMeshOutline, SketchEffectPlugin},
@@ -61,6 +63,7 @@ impl PluginGroup for RenderFXPlugins {
             })
             //.add(BWStaticPlugin)
             .add(FillPlugin)
+            .add(TintPlugin)
             .add(GoProPlugin)
             .add(DuoQuadPlugin)
             .add(BeamPlugin)

@@ -30,6 +30,13 @@ pub struct HitboxManager {
     pub colliders: HashMap<Name, Entity>,
 }
 
+#[derive(Bundle, Default)]
+pub struct GltfHitboxBundle {
+    pub hitbox_manager: HitboxManager,
+    pub autogen_target: GltfHitboxAutoGenTarget,
+    pub template: GltfHitboxAutoGenTemplate,
+}
+
 #[derive(Deserialize)]
 #[serde(tag = "Collider", rename_all_fields = "snake_case")]
 pub enum ColliderAttributes {

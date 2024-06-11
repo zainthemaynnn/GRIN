@@ -2,10 +2,7 @@ use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_damage::{
-    health::Dead,
-    hitbox::{GltfHitboxAutoGenTarget, GltfHitboxAutoGenTemplate, HitboxManager},
-};
+use grin_damage::health::Dead;
 use grin_physics::{collider, CollisionGroupExt, CollisionGroupsExt};
 use grin_render::sketched::SketchMaterial;
 use grin_time::{scaling::RawVelocity, CommandsExt};
@@ -201,9 +198,6 @@ pub struct HumanoidBundle {
     pub build: HumanoidBuild,
     pub dominant_hand: HumanoidDominantHand,
     pub spatial: SpatialBundle,
-    pub hitbox_manager: HitboxManager,
-    pub hitbox_gen: GltfHitboxAutoGenTarget,
-    pub hitbox_template: GltfHitboxAutoGenTemplate,
 }
 
 impl Default for HumanoidBundle {
@@ -217,9 +211,6 @@ impl Default for HumanoidBundle {
             build: HumanoidBuild::default(),
             dominant_hand: HumanoidDominantHand::default(),
             spatial: SpatialBundle::default(),
-            hitbox_manager: HitboxManager::default(),
-            hitbox_gen: GltfHitboxAutoGenTarget::default(),
-            hitbox_template: GltfHitboxAutoGenTemplate::Hurtbox,
         }
     }
 }

@@ -421,3 +421,179 @@ impl MaterialExtension for SketchMaterialInfo {
         Ok(())
     }
 }
+
+/// Maps materials under an effect to their standard non-effected versions.
+/// Materials under an effect are drawn independently, but non-effected versions are not.
+/// This resource helps eliminate some of the performance loss by still allowing batching of non-effected meshes.
+///
+/// This resource does NOT help reuse materials with the same effects applied.
+/// You will need to manually clone the handles provided by this resource if you want to reuse them.
+///
+/// [Also see this message.](https://discord.com/channels/691052431525675048/749332104487108618/1219354680732291227)
+#[derive(Resource, Default)]
+pub struct MaterialMutationResource {
+    map: HashMap<AssetId<SketchMaterial>, Handle<SketchMaterial>>,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum MaterialMutationError {
+    EntryNotFound,
+}
+
+impl MaterialMutationResource {
+    /// Modify this material, caching a new base material if necessary and returning the modified handle.
+    ///
+    /// If the provided material is already modded, modifies the existing material like normal.
+    pub fn modify(
+        &mut self,
+        materials: &mut Assets<SketchMaterial>,
+        material_handle: &Handle<SketchMaterial>,
+        mut edit_fn: impl FnMut(&mut SketchMaterial) -> (),
+    ) -> Option<Handle<SketchMaterial>> {
+        match self.map.contains_key(&material_handle.id()) {
+            true => {
+                // nothing extra needs to be done since the base is already cached
+                // and this is just another modification.
+                // we can just edit the referenced material like normal.
+                let mut base_material = materials.get_mut(material_handle).unwrap();
+                edit_fn(&mut base_material);
+                None
+            }
+            false => {
+                // get base material
+                let base_material = materials.get(material_handle).unwrap();
+                // create the new modded material
+                let mut mod_material = base_material.clone();
+                edit_fn(&mut mod_material);
+                let mod_material_handle = materials.add(mod_material);
+                // link the modded material to the base
+                self.map
+                    .insert(mod_material_handle.id(), material_handle.clone());
+                // return new handle
+                Some(mod_material_handle)
+            }
+        }
+    }
+
+    /// Returns the corresponding base material, and removes this entry from the map.
+    pub fn get_base(
+        &mut self,
+        material_id: &AssetId<SketchMaterial>,
+    ) -> Result<&Handle<SketchMaterial>, MaterialMutationError> {
+        self.map
+            .get(material_id)
+            .ok_or(MaterialMutationError::EntryNotFound)
+    }
+
+    /// Returns the corresponding base material, and removes this entry from the map.
+    pub fn pop_base(
+        &mut self,
+        material_id: &AssetId<SketchMaterial>,
+    ) -> Result<Handle<SketchMaterial>, MaterialMutationError> {
+        self.map
+            .remove(material_id)
+            .ok_or(MaterialMutationError::EntryNotFound)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.map.is_empty()
+    }
+
+    /// Removes this modded material from the resource.
+    fn drop(&mut self, material_id: &AssetId<SketchMaterial>) {
+        self.map.remove(material_id);
+    }
+}
+
+pub fn clear_unloaded_modded_materials(
+    mut material_mutation: ResMut<MaterialMutationResource>,
+    mut asset_events: EventReader<AssetEvent<SketchMaterial>>,
+) {
+    for ev in asset_events.read() {
+        if let AssetEvent::Removed { id } | AssetEvent::Unused { id } = ev {
+            material_mutation.drop(id);
+        };
+    }
+}
+
+#[cfg(test)]
+mod material_tests {
+    use super::*;
+
+    #[test]
+    fn add_modded_materials() {
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default())
+            .init_asset::<SketchMaterial>()
+            .init_resource::<MaterialMutationResource>();
+
+        let mut world_cell = app.world.cell();
+        let mut materials = world_cell.resource_mut::<Assets<SketchMaterial>>();
+        let h_base_material = materials.add(SketchMaterial {
+            base: StandardMaterial::from(Color::WHITE),
+            extension: SketchMaterialInfo::default(),
+        });
+
+        let mut material_mutation = world_cell.resource_mut::<MaterialMutationResource>();
+        let h_mod_material = material_mutation
+            .modify(&mut materials, &h_base_material, |mat| {
+                mat.base.base_color = Color::BLACK
+            })
+            .expect("`MaterialMutationResource::modify` did not provide a handle.");
+
+        let entry = material_mutation
+            .get_base(&h_mod_material.id())
+            .expect("`MaterialMutationResource::get_base` did not provide a handle.");
+        assert_eq!(entry, &h_base_material);
+
+        let entry = material_mutation
+            .pop_base(&h_mod_material.id())
+            .expect("`MaterialMutationResource::pop_base` did not provide a handle.");
+        assert_eq!(entry, h_base_material);
+        assert!(material_mutation.get_base(&h_mod_material.id()).is_err());
+
+        assert_eq!(
+            materials.get(&h_base_material).unwrap().base.base_color,
+            Color::WHITE,
+        );
+        assert_eq!(
+            materials.get(&h_mod_material).unwrap().base.base_color,
+            Color::BLACK,
+        );
+    }
+
+    #[test]
+    fn drop_modded_materials() {
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default())
+            .init_asset::<SketchMaterial>()
+            .init_resource::<MaterialMutationResource>()
+            .add_systems(Update, clear_unloaded_modded_materials);
+
+        let h_mod_material = {
+            let mut world_cell = app.world.cell();
+            let mut materials = world_cell.resource_mut::<Assets<SketchMaterial>>();
+            let h_base_material = materials.add(SketchMaterial {
+                base: StandardMaterial::from(Color::WHITE),
+                extension: SketchMaterialInfo::default(),
+            });
+
+            let mut material_mutation = world_cell.resource_mut::<MaterialMutationResource>();
+            material_mutation
+                .modify(&mut materials, &h_base_material, |mat| {
+                    mat.base.base_color = Color::BLACK
+                })
+                .unwrap()
+        };
+
+        drop(h_mod_material);
+
+        // for some reason a single update doesn't drop, but three does? ¯\_(ツ)_/¯
+        app.update();
+        app.update();
+        app.update();
+
+        let mut material_mutation = app.world.resource_mut::<MaterialMutationResource>();
+        assert!(material_mutation.is_empty());
+    }
+}

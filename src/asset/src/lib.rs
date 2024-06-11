@@ -368,9 +368,10 @@ impl DynamicAsset for CustomDynamicAsset {
                             },
                             extension: SketchMaterialInfo {
                                 sketch_enabled: true,
-                                fill_enabled: true,
                                 layer: 0,
                                 base_color_texture: Some(base_color_texture),
+                                fill_enabled: true,
+                                y_cutoff: f32::MAX,
                             },
                         })
                         .untyped(),

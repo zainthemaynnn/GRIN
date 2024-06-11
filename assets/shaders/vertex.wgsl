@@ -34,6 +34,9 @@ struct VertexOutput {
 #endif
 }
 
+@group(2) @binding(104)
+var<uniform> y_cutoff: f32;
+
 #ifdef MORPH_TARGETS
 fn morph_vertex(vertex_in: Vertex) -> Vertex {
     var vertex = vertex_in;
@@ -56,7 +59,7 @@ fn morph_vertex(vertex_in: Vertex) -> Vertex {
 #endif
 
 @vertex
-fn vertex(vertex_no_morph: Vertex, @location(9) y_cutoff: f32) -> VertexOutput {
+fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
 #ifdef MORPH_TARGETS

@@ -1,8 +1,11 @@
-use bevy::{prelude::*, render::mesh::VertexAttributeValues, scene::SceneInstance};
+use bevy::{prelude::*, scene::SceneInstance};
 use bevy_tweening::{component_animator_system, Lens};
 use grin_util::color::ColorExt;
 
-use crate::{EffectFlags, TweenAppExt, TweenCompletedEvent};
+use crate::{
+    sketched::{MaterialMutationResource, SketchMaterial},
+    EffectFlags, TweenAppExt, TweenCompletedEvent,
+};
 
 pub struct TintPlugin;
 
@@ -12,7 +15,7 @@ impl Plugin for TintPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    (component_animator_system::<TintEffect>, set_vertex_colors).chain(),
+                    (component_animator_system::<TintEffect>, set_tint_color).chain(),
                     complete_tints,
                 ),
             );
@@ -40,42 +43,33 @@ impl Lens<TintEffect> for TintParamLens {
     }
 }
 
-pub fn set_vertex_colors(
+pub fn set_tint_color(
     scene_spawner: Res<SceneSpawner>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<SketchMaterial>>,
+    mut material_mutation: ResMut<MaterialMutationResource>,
     effect_query: Query<(&SceneInstance, &TintEffect)>,
-    mesh_query: Query<&Handle<Mesh>>,
+    mut material_query: Query<&mut Handle<SketchMaterial>>,
 ) {
     for (scene_id, effect) in effect_query.iter() {
         if !scene_spawner.instance_is_ready(**scene_id) {
             continue;
         }
 
-        let tint = effect.color.as_rgba_f32();
+        let tint = effect.color.clone();
         trace!(msg = "Setting tint color.", tint = ?tint,);
 
-        for e_mesh in scene_spawner.iter_instance_entities(**scene_id) {
-            let Ok(h_mesh) = mesh_query.get(e_mesh) else {
+        for e_material in scene_spawner.iter_instance_entities(**scene_id) {
+            let Ok(mut h_material) = material_query.get_mut(e_material) else {
                 continue;
             };
 
-            let Some(mesh) = meshes.get_mut(h_mesh) else {
-                continue;
-            };
-
-            let Some(VertexAttributeValues::Float32x4(ref mut buf)) =
-                mesh.attribute_mut(Mesh::ATTRIBUTE_COLOR)
-            else {
-                warn!(
-                    msg="Mesh doesn't support vertex colors.",
-                    mesh_id=?h_mesh.id(),
-                    attr=Mesh::ATTRIBUTE_COLOR.name,
-                    found=?mesh.attribute(Mesh::ATTRIBUTE_COLOR),
-                );
-                continue;
-            };
-
-            buf.fill(tint);
+            if let Some(h_mod_material) =
+                material_mutation.modify(&mut materials, &h_material, |mat| {
+                    mat.base.base_color = effect.color;
+                })
+            {
+                *h_material = h_mod_material;
+            }
         }
     }
 }
@@ -96,31 +90,24 @@ impl TweenCompletedEvent for TintCompletedEvent {
 pub fn complete_tints(
     mut commands: Commands,
     scene_spawner: Res<SceneSpawner>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut material_mutation: ResMut<MaterialMutationResource>,
     effect_query: Query<(Entity, &SceneInstance, Option<&EffectFlags>)>,
-    mesh_query: Query<&Handle<Mesh>>,
+    mut material_query: Query<&mut Handle<SketchMaterial>>,
     mut finished: EventReader<TintCompletedEvent>,
 ) {
     for (e_effect, scene_id, flags) in finished.read().filter_map(|ev| effect_query.get(ev.0).ok())
     {
         let flags = flags.copied().unwrap_or_default();
+
         if flags.intersects(EffectFlags::REZERO) {
-            for e_mesh in scene_spawner.iter_instance_entities(**scene_id) {
-                let Ok(h_mesh) = mesh_query.get(e_mesh) else {
+            for e_material in scene_spawner.iter_instance_entities(**scene_id) {
+                let Ok(mut h_material) = material_query.get_mut(e_material) else {
                     continue;
                 };
 
-                let Some(mesh) = meshes.get_mut(h_mesh) else {
-                    continue;
-                };
-
-                let Some(VertexAttributeValues::Float32x4(ref mut buf)) =
-                    mesh.attribute_mut(Mesh::ATTRIBUTE_COLOR)
-                else {
-                    continue;
-                };
-
-                buf.fill(Color::WHITE.as_rgba_f32());
+                if let Ok(h_base_material) = material_mutation.pop_base(&h_material.id()) {
+                    *h_material = h_base_material;
+                }
             }
         }
 

@@ -1,17 +1,19 @@
 use std::ops::Range;
 
-use bevy::{prelude::*, render::mesh::VertexAttributeValues, scene::SceneInstance};
+use bevy::{prelude::*, scene::SceneInstance};
 use bevy_tweening::{component_animator_system, Lens};
 use grin_util::spatial::{ComputeSceneAabb, SceneAabb};
 
-use crate::{sketched::ATTRIBUTE_Y_CUTOFF, EffectFlags, TweenAppExt, TweenCompletedEvent};
+use crate::{
+    sketched::{MaterialMutationResource, SketchMaterial},
+    EffectFlags, TweenAppExt, TweenCompletedEvent,
+};
 
 pub struct FillPlugin;
 
 impl Plugin for FillPlugin {
     fn build(&self, app: &mut App) {
         app.add_tween_completion_event::<FillCompletedEvent>()
-            .add_systems(First, fill_y_cutoff_buffers)
             .add_systems(Update, precalculate_aabbs)
             .add_systems(
                 PostUpdate,
@@ -65,27 +67,6 @@ impl Default for FillEffect {
     }
 }
 
-pub fn fill_y_cutoff_buffers(
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut asset_events: EventReader<AssetEvent<Mesh>>,
-) {
-    for asset_event in asset_events.read() {
-        let AssetEvent::LoadedWithDependencies { id } = asset_event else {
-            continue;
-        };
-
-        let mesh = meshes.get_mut(*id).unwrap();
-        // idk how to get the actual vert count... this works lol
-        let num_verts = mesh.attributes().next().unwrap().1.len();
-        mesh.insert_attribute(ATTRIBUTE_Y_CUTOFF, vec![f32::MAX; num_verts]);
-
-        trace!(
-            msg="Set y cutoff to `f32::MAX`.",
-            asset_id=?id,
-        );
-    }
-}
-
 pub fn precalculate_aabbs(
     mut commands: Commands,
     effect_query: Query<(Entity, &FillEffect, Option<&ComputeSceneAabb>), Added<FillEffect>>,
@@ -99,9 +80,10 @@ pub fn precalculate_aabbs(
 
 pub fn set_fill_cutoffs(
     scene_spawner: Res<SceneSpawner>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<SketchMaterial>>,
+    mut material_mutation: ResMut<MaterialMutationResource>,
     effect_query: Query<(&SceneInstance, &FillEffect, Option<&SceneAabb>)>,
-    mesh_query: Query<&Handle<Mesh>>,
+    mut material_query: Query<&mut Handle<SketchMaterial>>,
 ) {
     for (scene_id, effect, aabb) in effect_query.iter() {
         if !scene_spawner.instance_is_ready(**scene_id) {
@@ -119,28 +101,18 @@ pub fn set_fill_cutoffs(
         let y_cutoff = bounds.start.lerp(bounds.end, effect.t);
         trace!(msg = "Setting y cutoff.", y_cutoff = y_cutoff,);
 
-        for e_mesh in scene_spawner.iter_instance_entities(**scene_id) {
-            let Ok(h_mesh) = mesh_query.get(e_mesh) else {
+        for e_material in scene_spawner.iter_instance_entities(**scene_id) {
+            let Ok(mut h_material) = material_query.get_mut(e_material) else {
                 continue;
             };
 
-            let Some(mesh) = meshes.get_mut(h_mesh) else {
-                continue;
-            };
-
-            let Some(VertexAttributeValues::Float32(ref mut buf)) =
-                mesh.attribute_mut(ATTRIBUTE_Y_CUTOFF)
-            else {
-                warn!(
-                    msg="Mesh doesn't support `y_cutoff`.",
-                    mesh_id=?h_mesh.id(),
-                    attr=ATTRIBUTE_Y_CUTOFF.name,
-                    found=?mesh.attribute(ATTRIBUTE_Y_CUTOFF),
-                );
-                continue;
-            };
-
-            buf.fill(y_cutoff);
+            if let Some(h_mod_material) =
+                material_mutation.modify(&mut materials, &h_material, |mat| {
+                    mat.extension.y_cutoff = y_cutoff;
+                })
+            {
+                *h_material = h_mod_material;
+            }
         }
     }
 }
@@ -161,31 +133,24 @@ impl TweenCompletedEvent for FillCompletedEvent {
 pub fn complete_fills(
     mut commands: Commands,
     scene_spawner: Res<SceneSpawner>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut material_mutation: ResMut<MaterialMutationResource>,
     effect_query: Query<(Entity, &SceneInstance, Option<&EffectFlags>)>,
-    mesh_query: Query<&Handle<Mesh>>,
+    mut material_query: Query<&mut Handle<SketchMaterial>>,
     mut finished: EventReader<FillCompletedEvent>,
 ) {
     for (e_effect, scene_id, flags) in finished.read().filter_map(|ev| effect_query.get(ev.0).ok())
     {
         let flags = flags.copied().unwrap_or_default();
+
         if flags.intersects(EffectFlags::REZERO) {
-            for e_mesh in scene_spawner.iter_instance_entities(**scene_id) {
-                let Ok(h_mesh) = mesh_query.get(e_mesh) else {
+            for e_material in scene_spawner.iter_instance_entities(**scene_id) {
+                let Ok(mut h_material) = material_query.get_mut(e_material) else {
                     continue;
                 };
 
-                let Some(mesh) = meshes.get_mut(h_mesh) else {
-                    continue;
-                };
-
-                let Some(VertexAttributeValues::Float32(ref mut buf)) =
-                    mesh.attribute_mut(ATTRIBUTE_Y_CUTOFF)
-                else {
-                    continue;
-                };
-
-                buf.fill(f32::MAX);
+                if let Ok(h_base_material) = material_mutation.pop_base(&h_material.id()) {
+                    *h_material = h_base_material;
+                }
             }
         }
 

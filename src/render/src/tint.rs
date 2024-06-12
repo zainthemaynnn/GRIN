@@ -29,6 +29,8 @@ impl Plugin for TintPlugin {
 pub struct TintEffect {
     /// Tint color.
     pub color: Color,
+    /// Effect flags.
+    pub flags: EffectFlags,
 }
 
 #[derive(Component, Default)]
@@ -91,14 +93,13 @@ pub fn complete_tints(
     mut commands: Commands,
     scene_spawner: Res<SceneSpawner>,
     mut material_mutation: ResMut<MaterialMutationResource>,
-    effect_query: Query<(Entity, &SceneInstance, Option<&EffectFlags>)>,
+    effect_query: Query<(Entity, &SceneInstance, &TintEffect)>,
     mut material_query: Query<&mut Handle<SketchMaterial>>,
     mut finished: EventReader<TintCompletedEvent>,
 ) {
-    for (e_effect, scene_id, flags) in finished.read().filter_map(|ev| effect_query.get(ev.0).ok())
+    for (e_effect, scene_id, TintEffect { flags, .. }) in
+        finished.read().filter_map(|ev| effect_query.get(ev.0).ok())
     {
-        let flags = flags.copied().unwrap_or_default();
-
         if flags.intersects(EffectFlags::REZERO) {
             for e_material in scene_spawner.iter_instance_entities(**scene_id) {
                 let Ok(mut h_material) = material_query.get_mut(e_material) else {

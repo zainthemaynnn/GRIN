@@ -28,14 +28,14 @@ impl Plugin for FillPlugin {
 /// It's like a... glass-filling-with-liquid kinda thing.
 ///
 /// This should be placed alongside a `SceneAabb` to work.
-#[derive(Component, Clone, Debug)]
+#[derive(Component, Clone, Debug, Default)]
 pub struct FillEffect {
     /// Proportion of the fill effect that has been completed.
     pub t: f32,
-    /// Rate of change for `t` per second.
-    pub rate: f32,
     /// How the maximum height will be evaluated.
     pub bounds: HeightBounds,
+    /// Effect flags.
+    pub flags: EffectFlags,
 }
 
 #[derive(Component, Default)]
@@ -55,16 +55,6 @@ pub enum HeightBounds {
     Value(Range<f32>),
     #[default]
     UseAabb,
-}
-
-impl Default for FillEffect {
-    fn default() -> Self {
-        Self {
-            t: 0.0,
-            rate: 1.0,
-            bounds: HeightBounds::default(),
-        }
-    }
 }
 
 pub fn precalculate_aabbs(
@@ -134,14 +124,13 @@ pub fn complete_fills(
     mut commands: Commands,
     scene_spawner: Res<SceneSpawner>,
     mut material_mutation: ResMut<MaterialMutationResource>,
-    effect_query: Query<(Entity, &SceneInstance, Option<&EffectFlags>)>,
+    effect_query: Query<(Entity, &SceneInstance, &FillEffect)>,
     mut material_query: Query<&mut Handle<SketchMaterial>>,
     mut finished: EventReader<FillCompletedEvent>,
 ) {
-    for (e_effect, scene_id, flags) in finished.read().filter_map(|ev| effect_query.get(ev.0).ok())
+    for (e_effect, scene_id, FillEffect { flags, .. }) in
+        finished.read().filter_map(|ev| effect_query.get(ev.0).ok())
     {
-        let flags = flags.copied().unwrap_or_default();
-
         if flags.intersects(EffectFlags::REZERO) {
             for e_material in scene_spawner.iter_instance_entities(**scene_id) {
                 let Ok(mut h_material) = material_query.get_mut(e_material) else {

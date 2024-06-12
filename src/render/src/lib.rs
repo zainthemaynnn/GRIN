@@ -99,7 +99,7 @@ pub fn map_tween_event_id<E: TweenCompletedEvent>(
 }
 
 bitflags! {
-    #[derive(Component, Copy, Clone, Debug)]
+    #[derive(Copy, Clone, Debug)]
     pub struct EffectFlags: u8 {
         /// Effect component will despawn on completion.
         const DESPAWN = 1 << 0;

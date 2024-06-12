@@ -20,7 +20,7 @@ use grin_item::{
 use grin_map::{Map, MapLoadState, MapPlugin};
 use grin_physics::GrinPhysicsPlugin;
 use grin_render::RenderFXPlugins;
-use grin_rig::humanoid::HumanoidPlugin;
+use grin_rig::{humanoid::HumanoidPlugin, GrinAnimationPlugin};
 use grin_time::{scaling::TimeScalePlugin, RewindComponentPlugin, RewindPlugin};
 use grin_util::{
     event::{DefaultSpawnable, Spawnable, TweenEventPlugin},
@@ -102,6 +102,7 @@ fn main() -> Result<(), io::Error> {
             RewindPlugin::default(),
             RewindComponentPlugin::<Transform>::default(),
             SpatialPlugin,
+            GrinAnimationPlugin,
         ))
         .add_systems(OnEnter(AssetLoadState::Success), load_scene)
         .add_systems(

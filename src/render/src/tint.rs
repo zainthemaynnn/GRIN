@@ -29,6 +29,10 @@ impl Plugin for TintPlugin {
 pub struct TintEffect {
     /// Tint color.
     pub color: Color,
+    /// Whether to hide the current texture.
+    pub hide_texture: bool,
+    /// Whether to enable material unlit.
+    pub unlit: bool,
     /// Effect flags.
     pub flags: EffectFlags,
 }
@@ -58,6 +62,8 @@ pub fn set_tint_color(
         }
 
         let tint = effect.color.clone();
+        let unlit = effect.unlit;
+        let hide_texture = effect.hide_texture;
         trace!(msg = "Setting tint color.", tint = ?tint,);
 
         for e_material in scene_spawner.iter_instance_entities(**scene_id) {
@@ -68,6 +74,10 @@ pub fn set_tint_color(
             if let Some(h_mod_material) =
                 material_mutation.modify(&mut materials, &h_material, |mat| {
                     mat.base.base_color = effect.color;
+                    if hide_texture {
+                        mat.extension.base_color_texture = None;
+                    }
+                    mat.base.unlit = unlit;
                 })
             {
                 *h_material = h_mod_material;

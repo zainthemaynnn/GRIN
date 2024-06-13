@@ -14,18 +14,22 @@ use grin_derive::Cooldown;
 use grin_map::MapData;
 use grin_rig::humanoid::{Humanoid, HumanoidBundle, HUMANOID_RADIUS};
 use grin_time::Rewind;
-use grin_util::{event::Spawnable, vectors::Vec3Ext};
+use grin_util::vectors::Vec3Ext;
 
 use super::{
     bt::{
         tree::CompositeNode, AiModel, BehaviorIteration, BehaviorSet, Brain, EnumBehaviorPlugin,
         Verdict,
     },
-    configure_humanoid_physics,
     movement::{match_desired_velocity, propagate_attack_target_to_agent_target, AttackTarget},
-    protective_cooldown, set_closest_attack_target, AiSet, EnemyAgentBundle,
+    protective_cooldown, set_closest_attack_target, EnemyAgentBundle,
 };
-use crate::bt;
+use crate::{
+    bt,
+    enemy_identifier_filters::Dummy,
+    spawn::{ai_spawner, enemy_spawner, indicators::SpawnIndicatorEffect, EnemySpawnPlugin},
+    EnemyIdentifier,
+};
 
 #[derive(Component, Cooldown)]
 #[cooldown(duration = 2.0)]
@@ -35,61 +39,73 @@ pub struct DummyPlugin;
 
 impl Plugin for DummyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<DummySpawnEvent>()
-            .configure_loading_state(
-                LoadingStateConfig::new(AssetLoadState::Loading).load_collection::<DummyAssets>(),
-            )
-            .add_plugins(EnumBehaviorPlugin::<DummyAi>::default())
-            .insert_resource(AiModel {
-                bt: bt! {
-                    Composite(CompositeNode::Sequence) {
-                        Leaf(DummyAi::Track),
-                        Leaf(DummyAi::Target),
-                        Composite(CompositeNode::Selector) {
-                            Composite(CompositeNode::Sequence) {
-                                Leaf(DummyAi::FireCheck),
-                                Leaf(DummyAi::Fire),
-                            },
-                            Leaf(DummyAi::Chase),
+        app.configure_loading_state(
+            LoadingStateConfig::new(AssetLoadState::Loading).load_collection::<DummyAssets>(),
+        )
+        .add_plugins((
+            EnemySpawnPlugin::<Dummy>::default(),
+            EnumBehaviorPlugin::<DummyAi>::default(),
+        ))
+        .insert_resource(AiModel {
+            bt: bt! {
+                Composite(CompositeNode::Sequence) {
+                    Leaf(DummyAi::Track),
+                    Leaf(DummyAi::Target),
+                    Composite(CompositeNode::Selector) {
+                        Composite(CompositeNode::Sequence) {
+                            Leaf(DummyAi::FireCheck),
+                            Leaf(DummyAi::Fire),
                         },
+                        Leaf(DummyAi::Chase),
                     },
                 },
-            })
-            .add_systems(Update, spawn.in_set(AiSet::Spawn))
-            .add_systems(
-                PreUpdate,
-                configure_humanoid_physics::<Dummy>.in_set(AiSet::Load),
+            },
+        })
+        .add_systems(
+            PreUpdate,
+            (
+                enemy_spawner::<Dummy, _, _, _>(|assets: Res<DummyAssets>| {
+                    (
+                        EnemyIdentifier::Dummy,
+                        SpawnIndicatorEffect::Neon,
+                        HumanoidBundle {
+                            rig: assets.rig.clone(),
+                            ..Default::default()
+                        },
+                    )
+                }),
+                ai_spawner::<Dummy, _, _, _>(|map_data: Res<MapData>| {
+                    (
+                        EnemyAgentBundle::<DummyAi> {
+                            agent: Agent {
+                                radius: HUMANOID_RADIUS,
+                                max_velocity: 2.0,
+                            },
+                            ..EnemyAgentBundle::from_archipelago(map_data.archipelago)
+                        },
+                        ShotCooldown::default(),
+                    )
+                }),
+            ),
+        )
+        .add_systems(
+            BehaviorIteration,
+            (
+                set_closest_attack_target::<Dummy, Enum!(DummyAi::Track), PlayerCharacter>,
+                propagate_attack_target_to_agent_target::<Dummy, Enum!(DummyAi::Target)>,
+                protective_cooldown::<Dummy, Enum!(DummyAi::FireCheck), ShotCooldown>,
+                match_desired_velocity::<Dummy, Enum!(DummyAi::Chase)>,
+                fire::<Dummy, Enum!(DummyAi::Fire)>,
             )
-            .add_systems(
-                BehaviorIteration,
-                (
-                    set_closest_attack_target::<Dummy, Enum!(DummyAi::Track), PlayerCharacter>,
-                    propagate_attack_target_to_agent_target::<Dummy, Enum!(DummyAi::Target)>,
-                    protective_cooldown::<Dummy, Enum!(DummyAi::FireCheck), ShotCooldown>,
-                    match_desired_velocity::<Dummy, Enum!(DummyAi::Chase)>,
-                    fire::<Dummy, Enum!(DummyAi::Fire)>,
-                )
-                    .in_set(BehaviorSet::Act),
-            );
+                .in_set(BehaviorSet::Act),
+        );
     }
 }
-
-#[derive(Component, Default)]
-pub struct Dummy;
 
 #[derive(Resource, AssetCollection)]
 pub struct DummyAssets {
     #[asset(key = "rig.dummy")]
     pub rig: Handle<Scene>,
-}
-
-#[derive(Event, Clone, Default)]
-pub struct DummySpawnEvent {
-    pub transform: Transform,
-}
-
-impl Spawnable for Dummy {
-    type Event = DummySpawnEvent;
 }
 
 #[derive(Component, EnumFilter, Clone, Copy, Debug, Default)]
@@ -101,33 +117,6 @@ pub enum DummyAi {
     FireCheck,
     Fire,
     Chase,
-}
-
-pub fn spawn(
-    mut commands: Commands,
-    assets: Res<DummyAssets>,
-    map_data: Res<MapData>,
-    mut events: EventReader<DummySpawnEvent>,
-) {
-    for DummySpawnEvent { transform } in events.read() {
-        commands.spawn((
-            Dummy,
-            ShotCooldown::default(),
-            HumanoidBundle {
-                rig: assets.rig.clone(),
-                spatial: SpatialBundle::from_transform(transform.clone()),
-                ..Default::default()
-            },
-            EnemyAgentBundle::<DummyAi> {
-                agent: Agent {
-                    radius: HUMANOID_RADIUS,
-                    max_velocity: 2.0,
-                },
-                ..EnemyAgentBundle::from_archipelago(map_data.archipelago)
-            },
-            grin_character::kit::grin::FreezeTargettable,
-        ));
-    }
 }
 
 pub fn fire<T: Component, A: Component>(

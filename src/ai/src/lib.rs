@@ -6,6 +6,7 @@ pub mod screamer;
 pub mod spawn;
 
 use bevy::{app::PluginGroupBuilder, prelude::*};
+use bevy_enum_filter::prelude::*;
 use bevy_landmass::{
     Agent, AgentDesiredVelocity, AgentTarget, AgentVelocity, ArchipelagoRef, LandmassPlugin,
     LandmassSystemSet,
@@ -13,11 +14,13 @@ use bevy_landmass::{
 use bevy_mod_inverse_kinematics::InverseKinematicsPlugin;
 use bevy_rapier3d::prelude::*;
 use grin_damage::health::{DamageBuffer, Dead, Health, Resist};
+use grin_derive::TypedEvents;
 use grin_map::MapLoadState;
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
 use grin_rig::humanoid::{Humanoid, HumanoidPartType};
 use grin_time::Rewind;
 use grin_util::event::Spawnable;
+use spawn::{MasterSpawnPlugin, EnemySpawnPlugin};
 
 use self::{
     boombox::BoomBoxPlugin,
@@ -26,6 +29,7 @@ use self::{
     movement::{update_biped_procedural_walk_cycle, AttackTarget, PathBehavior},
     screamer::ScreamerPlugin,
 };
+pub use enemy_identifier_filters::*;
 
 #[derive(SystemSet, Hash, Debug, Eq, PartialEq, Copy, Clone)]
 pub enum AiSet {
@@ -246,4 +250,10 @@ pub fn blocking_cooldown<T: Component, A: Component, C: Cooldown>(
     mut agent_query: Query<(&mut Brain, &mut C), (With<T>, With<A>)>,
 ) {
     cooldown_win_lose(&time, &mut agent_query, Verdict::Success, Verdict::Running);
+}
+
+#[derive(Component, Copy, Clone, Debug, EnumFilter, TypedEvents, Default)]
+pub enum EnemyIdentifier {
+    #[default]
+    Dummy,
 }

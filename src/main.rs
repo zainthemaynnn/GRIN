@@ -8,7 +8,7 @@ use bevy::{
     window::CursorGrabMode,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use grin_ai::AiPlugins;
+use grin_ai::{spawn::EnemySpawn, AiPlugins};
 use grin_asset::{texture_array, AssetLoadState, DynamicAssetPlugin};
 use grin_character::{CharacterPlugins, CharacterSet};
 use grin_damage::plugin::DamagePlugins;
@@ -23,7 +23,7 @@ use grin_render::RenderFXPlugins;
 use grin_rig::{humanoid::HumanoidPlugin, GrinAnimationPlugin};
 use grin_time::{scaling::TimeScalePlugin, RewindComponentPlugin, RewindPlugin};
 use grin_util::{
-    event::{DefaultSpawnable, Spawnable, TweenEventPlugin},
+    event::{DefaultSpawnable, TweenEventPlugin},
     spatial::SpatialPlugin,
 };
 
@@ -111,11 +111,12 @@ fn main() -> Result<(), io::Error> {
         )
         .add_systems(
             OnEnter(MapLoadState::Success),
-            (grin_ai::dummy::Dummy::spawn_with(
-                grin_ai::dummy::DummySpawnEvent {
-                    transform: Transform::from_xyz(10.0, 1E-2, 0.0),
-                },
-            ),),
+            |mut events: EventWriter<EnemySpawn<grin_ai::Dummy>>| {
+                events.send(EnemySpawn {
+                    transform: Transform::from_xyz(0.0, 1E-2, -10.0),
+                    ..Default::default()
+                });
+            },
         )
         //.add_systems(OnEnter(DialogueAssetLoadState::Success), test_dialogue)
         .add_systems(

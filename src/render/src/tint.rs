@@ -27,10 +27,12 @@ impl Plugin for TintPlugin {
 /// Just an easy way to change the `Mesh::ATTRIBUTE_COLOR` uniformly.
 ///
 /// Note: Alpha also applies.
-#[derive(Component, Clone, Debug, Default)]
+#[derive(Component, Clone, Debug)]
 pub struct TintEffect {
-    /// Tint color.
-    pub color: Color,
+    /// Tint base color.
+    pub base_color: Option<Color>,
+    /// Tint emissive color.
+    pub emissive: Option<Color>,
     /// Whether to hide the current texture.
     pub hide_texture: bool,
     /// Whether to enable material unlit.
@@ -39,15 +41,39 @@ pub struct TintEffect {
     pub flags: EffectFlags,
 }
 
+impl Default for TintEffect {
+    fn default() -> Self {
+        Self {
+            base_color: None,
+            emissive: None,
+            hide_texture: false,
+            unlit: false,
+            flags: EffectFlags::default(),
+        }
+    }
+}
+
 #[derive(Component, Default)]
-pub struct TintParamLens {
+pub struct TintColorLens {
     pub start: Color,
     pub end: Color,
 }
 
-impl Lens<TintEffect> for TintParamLens {
+impl Lens<TintEffect> for TintColorLens {
     fn lerp(&mut self, target: &mut TintEffect, ratio: f32) {
-        target.color = self.start.lerp(&self.end, ratio);
+        target.base_color = Some(self.start.lerp(&self.end, ratio));
+    }
+}
+
+#[derive(Component, Default)]
+pub struct TintEmissiveLens {
+    pub start: Color,
+    pub end: Color,
+}
+
+impl Lens<TintEffect> for TintEmissiveLens {
+    fn lerp(&mut self, target: &mut TintEffect, ratio: f32) {
+        target.emissive = Some(self.start.lerp(&self.end, ratio));
     }
 }
 
@@ -63,10 +89,7 @@ pub fn set_tint_color(
             continue;
         }
 
-        let tint = effect.color.clone();
-        let unlit = effect.unlit;
-        let hide_texture = effect.hide_texture;
-        trace!(msg = "Setting tint color.", tint = ?tint,);
+        trace!(msg="Setting tint color", tint=?effect);
 
         for e_material in scene_spawner.iter_instance_entities(**scene_id) {
             let Ok(mut h_material) = material_query.get_mut(e_material) else {
@@ -75,11 +98,16 @@ pub fn set_tint_color(
 
             if let Some(h_mod_material) =
                 material_mutation.modify(&mut materials, &h_material, |mat| {
-                    mat.base.base_color = effect.color;
-                    if hide_texture {
+                    if let Some(base_color) = effect.base_color {
+                        mat.base.base_color = base_color;
+                    }
+                    if let Some(emissive) = effect.emissive {
+                        mat.base.emissive = emissive;
+                    }
+                    if effect.hide_texture {
                         mat.extension.base_color_texture = None;
                     }
-                    mat.base.unlit = unlit;
+                    mat.base.unlit = effect.unlit;
                 })
             {
                 *h_material = h_mod_material;
@@ -112,6 +140,7 @@ pub fn complete_tints(
     for (e_effect, scene_id, TintEffect { flags, .. }) in
         finished.read().filter_map(|ev| effect_query.get(ev.0).ok())
     {
+        trace!(msg="Tint completed", e_effect=?e_effect, flags=?flags);
         if flags.intersects(EffectFlags::REZERO) {
             for e_material in scene_spawner.iter_instance_entities(**scene_id) {
                 let Ok(mut h_material) = material_query.get_mut(e_material) else {

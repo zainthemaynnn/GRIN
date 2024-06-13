@@ -2794,6 +2794,7 @@ dependencies = [
  "bevy_landmass",
  "bevy_mod_inverse_kinematics",
  "bevy_rapier3d",
+ "bevy_tweening",
  "grin_asset",
  "grin_character",
  "grin_damage",
@@ -2976,6 +2977,7 @@ dependencies = [
  "grin_physics",
  "grin_render",
  "grin_time",
+ "grin_util",
  "rand",
 ]
 

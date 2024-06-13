@@ -20,7 +20,7 @@ use grin_physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
 use grin_rig::humanoid::{Humanoid, HumanoidPartType};
 use grin_time::Rewind;
 use grin_util::event::Spawnable;
-use spawn::{MasterSpawnPlugin, EnemySpawnPlugin};
+use spawn::MasterSpawnPlugin;
 
 use self::{
     boombox::BoomBoxPlugin,

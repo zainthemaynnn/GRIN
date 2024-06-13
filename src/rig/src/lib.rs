@@ -1,7 +1,6 @@
 pub mod humanoid;
 
-use bevy::{prelude::*, scene::InstanceId};
-use grin_util::query::cloned_scene_initializer;
+use bevy::prelude::*;
 use humanoid::Humanoid;
 
 pub struct GrinAnimationPlugin;

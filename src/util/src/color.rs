@@ -8,19 +8,46 @@ pub trait ColorExt {
 
 impl ColorExt for Color {
     fn lerp(&self, other: &Color, t: f32) -> Color {
-        match self {
-            Self::Rgba {
-                red,
-                green,
-                blue,
-                alpha,
-            } => Self::Rgba {
-                red: red.lerp(&other.r(), &t),
-                green: green.lerp(&other.g(), &t),
-                blue: blue.lerp(&other.b(), &t),
-                alpha: alpha.lerp(&other.a(), &t),
+        match (self, other) {
+            (
+                Color::Rgba {
+                    red,
+                    green,
+                    blue,
+                    alpha,
+                },
+                Color::Rgba {
+                    red: r,
+                    green: g,
+                    blue: b,
+                    alpha: a,
+                },
+            ) => Color::Rgba {
+                red: red.lerp(r, &t),
+                green: green.lerp(g, &t),
+                blue: blue.lerp(b, &t),
+                alpha: alpha.lerp(a, &t),
             },
-            _ => unimplemented!(),
+            (
+                Color::RgbaLinear {
+                    red,
+                    green,
+                    blue,
+                    alpha,
+                },
+                Color::RgbaLinear {
+                    red: r,
+                    green: g,
+                    blue: b,
+                    alpha: a,
+                },
+            ) => Color::RgbaLinear {
+                red: red.lerp(r, &t),
+                green: green.lerp(g, &t),
+                blue: blue.lerp(b, &t),
+                alpha: alpha.lerp(a, &t),
+            },
+            _ => unreachable!(),
         }
     }
 }

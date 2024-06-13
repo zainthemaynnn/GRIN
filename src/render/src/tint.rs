@@ -1,5 +1,5 @@
 use bevy::{prelude::*, scene::SceneInstance};
-use bevy_tweening::{component_animator_system, Lens};
+use bevy_tweening::{component_animator_system, AnimationSystem, Lens};
 use grin_util::color::ColorExt;
 
 use crate::{
@@ -13,10 +13,12 @@ impl Plugin for TintPlugin {
     fn build(&self, app: &mut App) {
         app.add_tween_completion_event::<TintCompletedEvent>()
             .add_systems(
-                PostUpdate,
+                Update,
                 (
-                    (component_animator_system::<TintEffect>, set_tint_color).chain(),
-                    complete_tints,
+                    (component_animator_system::<TintEffect>, set_tint_color)
+                        .chain()
+                        .in_set(AnimationSystem::AnimationUpdate),
+                    complete_tints.after(AnimationSystem::AnimationUpdate),
                 ),
             );
     }

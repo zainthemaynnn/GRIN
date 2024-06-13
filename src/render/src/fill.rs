@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use bevy::{prelude::*, scene::SceneInstance};
-use bevy_tweening::{component_animator_system, Lens};
+use bevy_tweening::{component_animator_system, AnimationSystem, Lens};
 use grin_util::spatial::{ComputeSceneAabb, SceneAabb};
 
 use crate::{
@@ -14,25 +14,25 @@ pub struct FillPlugin;
 impl Plugin for FillPlugin {
     fn build(&self, app: &mut App) {
         app.add_tween_completion_event::<FillCompletedEvent>()
-            .add_systems(Update, precalculate_aabbs)
+            .add_systems(PreUpdate, precalculate_aabbs)
             .add_systems(
-                PostUpdate,
+                Update,
                 (
-                    (component_animator_system::<FillEffect>, set_fill_cutoffs).chain(),
-                    complete_fills,
+                    (component_animator_system::<FillEffect>, set_fill_cutoffs)
+                        .chain()
+                        .in_set(AnimationSystem::AnimationUpdate),
+                    complete_fills.after(AnimationSystem::AnimationUpdate),
                 ),
             );
     }
 }
 
 /// It's like a... glass-filling-with-liquid kinda thing.
-///
-/// This should be placed alongside a `SceneAabb` to work.
 #[derive(Component, Clone, Debug, Default)]
 pub struct FillEffect {
     /// Proportion of the fill effect that has been completed.
     pub t: f32,
-    /// How the maximum height will be evaluated.
+    /// How the effect height-range will be evaluated.
     pub bounds: HeightBounds,
     /// Effect flags.
     pub flags: EffectFlags,
@@ -52,7 +52,10 @@ impl Lens<FillEffect> for FillParamLens {
 
 #[derive(Clone, Debug, Default)]
 pub enum HeightBounds {
+    /// This range is used to vary the y-cutoff.
     Value(Range<f32>),
+    /// The y-cutoff range is based on a `ComputedSceneAabb`. If one doesn't exist,
+    /// it will be automatically added in `PreUpdate`.
     #[default]
     UseAabb,
 }
@@ -131,6 +134,7 @@ pub fn complete_fills(
     for (e_effect, scene_id, FillEffect { flags, .. }) in
         finished.read().filter_map(|ev| effect_query.get(ev.0).ok())
     {
+        trace!(msg="Fill completed", e_effect=?e_effect, flags=?flags);
         if flags.intersects(EffectFlags::REZERO) {
             for e_material in scene_spawner.iter_instance_entities(**scene_id) {
                 let Ok(mut h_material) = material_query.get_mut(e_material) else {

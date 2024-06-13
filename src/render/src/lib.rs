@@ -83,6 +83,7 @@ impl TweenAppExt for App {
 }
 
 pub trait TweenCompletedEvent: Event + From<Entity> {
+    /// This can be anything; just make it statically unique or face the consequences.
     const EVENT_ID: u64;
 }
 
@@ -103,7 +104,7 @@ bitflags! {
     pub struct EffectFlags: u8 {
         /// Effect component will despawn on completion.
         const DESPAWN = 1 << 0;
-        /// If applicable, will "undo" the effect and reset the mesh to its base state.
+        /// If applicable, will "undo" the effect and reset the entity to its base state.
         const REZERO = 1 << 1;
     }
 }

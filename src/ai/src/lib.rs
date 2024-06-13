@@ -75,6 +75,7 @@ impl PluginGroup for AiPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(MasterAiPlugin)
+            .add(MasterSpawnPlugin)
             .add(BoomBoxPlugin)
             .add(DummyPlugin)
             .add(ScreamerPlugin)

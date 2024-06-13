@@ -175,6 +175,11 @@ CustomDynamicAssetCollection({
           source: "humanoid.glb",
           item: "punch.spin",
      ),
+     "anim.rock": GltfSubAsset (
+          ty: Animation,
+          source: "humanoid.glb",
+          item: "rock",
+     ),
 
      "rig.screamer": File (
           path: "meshes/screamer.glb#Scene0",

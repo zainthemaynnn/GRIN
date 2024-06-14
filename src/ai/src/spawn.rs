@@ -233,7 +233,7 @@ pub mod indicators {
     use bevy::{ecs::system::EntityCommands, prelude::*};
     use bevy_asset_loader::prelude::*;
     use bevy_tweening::{Animator, EaseFunction, EaseMethod, Tween};
-    use grin_damage::hitbox::{GltfHitboxAutoGenTemplate, GltfHitboxBundle};
+    use grin_damage::hitbox::{GltfHitboxBundle, Hurtboxes};
     use grin_render::{
         fill::{FillCompletedEvent, FillEffect, FillParamLens},
         tint::{TintCompletedEvent, TintEffect, TintEmissiveLens},
@@ -303,10 +303,7 @@ pub mod indicators {
             SpawnStage::Materialize => {
                 commands.insert((
                     // hitbox gen
-                    GltfHitboxBundle {
-                        template: GltfHitboxAutoGenTemplate::Hurtbox,
-                        ..Default::default()
-                    },
+                    GltfHitboxBundle::<Hurtboxes>::default(),
                     // de-tint
                     TintEffect {
                         flags: EffectFlags::DESPAWN | EffectFlags::REZERO,

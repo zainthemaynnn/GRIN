@@ -13,7 +13,7 @@ use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::{
     hit::{Damage, DamageVariant, MacroCollisionFilter},
-    hitbox::HitboxManager,
+    hitbox::{HitboxManager, Hitboxes},
     impact::Impact,
 };
 use grin_rig::humanoid::{Humanoid, HumanoidDominantHand};
@@ -144,7 +144,7 @@ pub fn punch(
     mut animator_params: AnimatorSystemParams,
     mut item_query: Query<(
         &mut ComboStack<FistCombo>,
-        &HitboxManager,
+        &HitboxManager<Hitboxes>,
         &Models,
         &EquippedTo,
         &SlotAlignment,
@@ -220,7 +220,7 @@ pub fn punch(
 
 pub fn deactivate_colliders(
     mut commands: Commands,
-    item_query: Query<(Entity, &HitboxManager), With<Fist>>,
+    item_query: Query<(Entity, &HitboxManager<Hitboxes>), With<Fist>>,
     deactivated_query: Query<&ColliderDisabled>,
     mut filter_query: Query<&mut MacroCollisionFilter>,
     animator_params: ReadOnlyAnimatorSystemParams,

@@ -6,7 +6,7 @@ use bevy_rapier3d::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::{
     hit::ContactDamage,
-    hitbox::{GltfHitboxAutoGenTemplate, HitboxManager},
+    hitbox::{HitboxManager, Hitboxes},
 };
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt};
 
@@ -97,14 +97,12 @@ pub struct WeaponBundle<C: Send + Sync + 'static> {
     pub handedness: Handedness,
     /// Hitbox auto-generation setting (default: `Enabled`).
     pub hitbox_gen: GltfHitboxAutoGen,
-    /// Hitbox auto-generation template.
-    pub hitbox_template: GltfHitboxAutoGenTemplate,
     /// Weapon combo sequence.
     pub combo_stack: ComboStack<C>,
     /// Associated models.
     pub models: Models,
     /// Associated hitboxes.
-    pub hitboxes: HitboxManager,
+    pub hitboxes: HitboxManager<Hitboxes>,
     /// Contact damage (default: `FollowThrough`).
     pub contact_damage: ContactDamage,
     /// Weapon fire rate.
@@ -126,7 +124,6 @@ impl<C: Send + Sync + 'static> Default for WeaponBundle<C> {
             collision_groups: CollisionGroups::from_group_default(Group::PLAYER_PROJECTILE),
             handedness: Handedness::default(),
             hitbox_gen: GltfHitboxAutoGen::default(),
-            hitbox_template: GltfHitboxAutoGenTemplate::Hitbox,
             combo_stack: ComboStack::<C>::default(),
             models: Models::default(),
             hitboxes: HitboxManager::default(),

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use grin_asset::AssetLoadState;
+use grin_damage::hitbox::{GltfHitboxBundle, Hurtboxes};
 use grin_render::sketched::SketchMaterial;
 use grin_rig::humanoid::{HumanoidBuild, HumanoidBundle, HumanoidDominantHand};
 use grin_util::event::Spawnable;
@@ -56,6 +57,7 @@ pub fn spawn(
 ) {
     for _ in events.read() {
         commands.spawn((
+            SmirkUninit,
             PlayerCharacter,
             HumanoidBundle {
                 rig: assets.rig.clone(),
@@ -65,7 +67,7 @@ pub fn spawn(
                 spatial: SpatialBundle::from_transform(Transform::from_xyz(0.0, 1E-2, 0.0)),
                 ..Default::default()
             },
-            SmirkUninit,
+            GltfHitboxBundle::<Hurtboxes>::default(),
         ));
     }
 }

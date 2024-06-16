@@ -17,7 +17,7 @@ impl Plugin for TintPlugin {
                 (
                     (component_animator_system::<TintEffect>, set_tint_color)
                         .chain()
-                        .in_set(AnimationSystem::AnimationUpdate),
+                        .before(AnimationSystem::AnimationUpdate),
                     complete_tints.after(AnimationSystem::AnimationUpdate),
                 ),
             );

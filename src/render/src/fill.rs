@@ -20,7 +20,7 @@ impl Plugin for FillPlugin {
                 (
                     (component_animator_system::<FillEffect>, set_fill_cutoffs)
                         .chain()
-                        .in_set(AnimationSystem::AnimationUpdate),
+                        .before(AnimationSystem::AnimationUpdate),
                     complete_fills.after(AnimationSystem::AnimationUpdate),
                 ),
             );

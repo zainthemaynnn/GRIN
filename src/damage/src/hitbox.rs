@@ -33,6 +33,7 @@ impl Plugin for GltfHitboxGenerationPlugin {
                         .pipe(init_hitboxes)
                         .in_set(HitboxSet::Generate),
                     (
+                        rezero_colliders,
                         sync_hitbox_collision_groups::<Hitboxes>,
                         sync_hitbox_collision_groups::<Hurtboxes>,
                         sync_hitbox_activation::<Hitboxes>,
@@ -329,6 +330,13 @@ pub fn sync_hitbox_deactivation<T: HitboxCategory>(
         for &e_hitbox in hitboxes.colliders.values() {
             commands.entity(e_hitbox).remove::<ContactDamage>();
         }
+    }
+}
+
+// JANK ALERT
+pub fn rezero_colliders(mut hitbox_query: Query<&mut Transform, With<Hitbox>>) {
+    for mut transform in hitbox_query.iter_mut() {
+        *transform = Transform::IDENTITY;
     }
 }
 

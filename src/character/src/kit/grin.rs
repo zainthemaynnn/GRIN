@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_asset_loader::prelude::*;
 use grin_asset::AssetLoadState;
-use grin_damage::hitbox::{GltfHitboxBundle, Hurtboxes};
+use grin_damage::hitbox::{GltfHitboxAutoGenTarget, HitboxManager, Hurtboxes};
 use grin_render::sketched::SketchMaterial;
 use grin_rig::humanoid::{Humanoid, HumanoidBuild, HumanoidBundle, HumanoidDominantHand};
 use grin_util::event::Spawnable;
@@ -68,6 +68,8 @@ pub fn spawn(
                 ..Default::default()
             },
             GltfHitboxBundle::<Hurtboxes>::default(),
+            HitboxManager::<Hurtboxes>::default(),
+            GltfHitboxAutoGenTarget::Here,
         ));
     }
 }

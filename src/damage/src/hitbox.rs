@@ -113,12 +113,6 @@ pub struct HitboxManager<T: HitboxCategory> {
     pub phantom_data: PhantomData<T>,
 }
 
-#[derive(Bundle, Default)]
-pub struct GltfHitboxBundle<T: HitboxCategory> {
-    pub hitbox_manager: HitboxManager<T>,
-    pub autogen_target: GltfHitboxAutoGenTarget,
-}
-
 #[derive(Deserialize, Debug)]
 #[serde(tag = "Collider", rename_all_fields = "snake_case")]
 pub enum ColliderAttributes {

@@ -127,12 +127,21 @@ pub enum ColliderAttributes {
         radius: f32,
         ty: HitboxCategoryIdentifier,
     },
+    /// Ues `Collider::cuboid`.
+    Cuboid {
+        hx: f32,
+        hy: f32,
+        hz: f32,
+        ty: HitboxCategoryIdentifier,
+    },
 }
 
 impl ColliderAttributes {
     pub fn hitbox_category(&self) -> &HitboxCategoryIdentifier {
         match self {
-            ColliderAttributes::Ball { ty, .. } | ColliderAttributes::CapsuleY { ty, .. } => ty,
+            ColliderAttributes::Ball { ty, .. }
+            | ColliderAttributes::CapsuleY { ty, .. }
+            | ColliderAttributes::Cuboid { ty, .. } => ty,
         }
     }
 }
@@ -146,6 +155,7 @@ impl From<ColliderAttributes> for Collider {
                 radius,
                 ..
             } => Collider::capsule_y(half_height, radius),
+            ColliderAttributes::Cuboid { hx, hy, hz, .. } => Collider::cuboid(hx, hy, hz),
         }
     }
 }

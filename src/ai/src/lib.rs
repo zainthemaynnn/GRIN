@@ -45,31 +45,32 @@ pub struct MasterAiPlugin;
 
 impl Plugin for MasterAiPlugin {
     fn build(&self, app: &mut App) {
-        app.configure_sets(
-            Update,
-            (
-                LandmassSystemSet::SyncExistence,
-                AiSet::RunTrees,
-                LandmassSystemSet::SyncValues,
+        app.add_enum_filter::<EnemyIdentifier>()
+            .configure_sets(
+                Update,
+                (
+                    LandmassSystemSet::SyncExistence,
+                    AiSet::RunTrees,
+                    LandmassSystemSet::SyncValues,
+                )
+                    .chain(),
             )
-                .chain(),
-        )
-        .configure_sets(
-            PreUpdate,
-            AiSet::Load.run_if(in_state(MapLoadState::Success)),
-        )
-        .configure_sets(
-            Update,
-            AiSet::Spawn
-                .after(AiSet::RunTrees)
-                .run_if(in_state(MapLoadState::Success)),
-        )
-        .add_plugins((
-            MasterBehaviorPlugin,
-            LandmassPlugin,
-            InverseKinematicsPlugin,
-        ))
-        .add_systems(Update, (update_biped_procedural_walk_cycle,));
+            .configure_sets(
+                PreUpdate,
+                AiSet::Load.run_if(in_state(MapLoadState::Success)),
+            )
+            .configure_sets(
+                Update,
+                AiSet::Spawn
+                    .after(AiSet::RunTrees)
+                    .run_if(in_state(MapLoadState::Success)),
+            )
+            .add_plugins((
+                MasterBehaviorPlugin,
+                LandmassPlugin,
+                InverseKinematicsPlugin,
+            ))
+            .add_systems(Update, (update_biped_procedural_walk_cycle,));
     }
 }
 

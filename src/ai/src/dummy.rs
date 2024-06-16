@@ -12,7 +12,10 @@ use grin_damage::{
 };
 use grin_derive::Cooldown;
 use grin_map::MapData;
-use grin_rig::humanoid::{Humanoid, HumanoidBundle, HUMANOID_RADIUS};
+use grin_rig::{
+    humanoid::{Humanoid, HumanoidBundle, HUMANOID_RADIUS},
+    Idle,
+};
 use grin_time::Rewind;
 use grin_util::vectors::Vec3Ext;
 
@@ -28,7 +31,7 @@ use crate::{
     bt,
     enemy_identifier_filters::Dummy,
     spawn::{ai_spawner, enemy_spawner, indicators::SpawnIndicatorEffect, EnemySpawnPlugin},
-    EnemyIdentifier,
+    AiSet, EnemyIdentifier,
 };
 
 #[derive(Component, Cooldown)]
@@ -73,8 +76,9 @@ impl Plugin for DummyPlugin {
                             ..Default::default()
                         },
                     )
-                }),
-                ai_spawner::<Dummy, _, _, _>(|map_data: Res<MapData>| {
+                })
+                .in_set(AiSet::Spawn),
+                ai_spawner::<Dummy, _, _, _>(|assets: Res<DummyAssets>, map_data: Res<MapData>| {
                     (
                         EnemyAgentBundle::<DummyAi> {
                             agent: Agent {
@@ -84,8 +88,12 @@ impl Plugin for DummyPlugin {
                             ..EnemyAgentBundle::from_archipelago(map_data.archipelago)
                         },
                         ShotCooldown::default(),
+                        Idle {
+                            clip: assets.idle.clone(),
+                        },
                     )
-                }),
+                })
+                .in_set(AiSet::Spawn),
             ),
         )
         .add_systems(
@@ -106,6 +114,8 @@ impl Plugin for DummyPlugin {
 pub struct DummyAssets {
     #[asset(key = "rig.dummy")]
     pub rig: Handle<Scene>,
+    #[asset(key = "anim.idle")]
+    pub idle: Handle<AnimationClip>,
 }
 
 #[derive(Component, EnumFilter, Clone, Copy, Debug, Default)]

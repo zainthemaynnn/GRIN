@@ -236,7 +236,7 @@ pub mod indicators {
         tint::{TintCompletedEvent, TintEffect, TintEmissiveLens},
         EffectFlags, TweenCompletedEvent,
     };
-    use grin_rig::InstaPose;
+    use grin_rig::Idle;
 
     use super::{SpawnStage, SpawnStageReached};
 
@@ -263,7 +263,7 @@ pub mod indicators {
             SpawnStage::Indicate => {
                 commands.insert((
                     // pose
-                    InstaPose {
+                    Idle {
                         clip: assets.rock_animation.clone(),
                     },
                     // fill
@@ -389,7 +389,7 @@ where
                 phantom_data: PhantomData,
             });
 
-            debug!("Spawning agent {:?}", e_agent);
+            info!("Spawning agent {:?}", e_agent);
         }
     }
 }

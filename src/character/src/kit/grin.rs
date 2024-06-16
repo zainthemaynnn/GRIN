@@ -3,7 +3,10 @@ use bevy_asset_loader::prelude::*;
 use grin_asset::AssetLoadState;
 use grin_damage::hitbox::{GltfHitboxAutoGenTarget, HitboxManager, Hurtboxes};
 use grin_render::sketched::SketchMaterial;
-use grin_rig::humanoid::{Humanoid, HumanoidBuild, HumanoidBundle, HumanoidDominantHand};
+use grin_rig::{
+    humanoid::{Humanoid, HumanoidBuild, HumanoidBundle, HumanoidDominantHand},
+    Idle,
+};
 use grin_util::event::Spawnable;
 
 use crate::{Character, CharacterSet, GenericHumanoidCharacterPlugin, PlayerCharacter};
@@ -31,6 +34,8 @@ pub struct GrinAssets {
     pub face: Handle<SketchMaterial>,
     #[asset(key = "rig.grin")]
     pub rig: Handle<Scene>,
+    #[asset(key = "anim.idle")]
+    pub idle: Handle<AnimationClip>,
 }
 
 #[derive(Event, Clone, Default)]
@@ -67,7 +72,9 @@ pub fn spawn(
                 spatial: SpatialBundle::from_transform(Transform::from_xyz(0.0, 1E-2, 0.0)),
                 ..Default::default()
             },
-            GltfHitboxBundle::<Hurtboxes>::default(),
+            Idle {
+                clip: assets.idle.clone(),
+            },
             HitboxManager::<Hurtboxes>::default(),
             GltfHitboxAutoGenTarget::Here,
         ));

@@ -18,7 +18,7 @@ use grin_derive::TypedEvents;
 use grin_map::MapLoadState;
 use grin_physics::{CollisionGroupExt, CollisionGroupsExt, PhysicsTime};
 use grin_rig::humanoid::{Humanoid, HumanoidPartType};
-use grin_time::Rewind;
+use grin_time::{scaling::RawVelocity, Rewind};
 use grin_util::event::Spawnable;
 use spawn::MasterSpawnPlugin;
 
@@ -186,6 +186,7 @@ pub struct EnemyAgentBundle<A: Action> {
     pub desired_velocity: AgentDesiredVelocity,
     pub agent_target: AgentTarget,
     pub rapier_velocity: Velocity,
+    pub raw_velocity: RawVelocity,
     pub rapier_body: RigidBody,
 }
 
@@ -208,6 +209,7 @@ impl<A: Action> EnemyAgentBundle<A> {
             desired_velocity: AgentDesiredVelocity::default(),
             agent_target: AgentTarget::default(),
             rapier_velocity: Velocity::default(),
+            raw_velocity: RawVelocity::default(),
             rapier_body: RigidBody::KinematicVelocityBased,
         }
     }

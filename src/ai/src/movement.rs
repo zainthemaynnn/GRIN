@@ -64,7 +64,6 @@ pub fn propagate_attack_target_to_agent_target<T: Component, A: Component>(
             &mut Agent,
             &mut AgentTarget,
             &mut RawVelocity,
-            &Velocity,
             &Transform,
             &AttackTarget,
             &PathBehavior,
@@ -79,7 +78,6 @@ pub fn propagate_attack_target_to_agent_target<T: Component, A: Component>(
         mut agent,
         mut agent_target,
         mut raw_velocity,
-        velocity,
         transform,
         AttackTarget(e_target),
         path_behavior,
@@ -138,7 +136,7 @@ pub fn match_desired_velocity<T: Component, A: Component>(
     mut agent_query: Query<
         (
             &mut Brain,
-            &mut Velocity,
+            &mut RawVelocity,
             &mut AgentVelocity,
             &AgentDesiredVelocity,
         ),
@@ -146,21 +144,21 @@ pub fn match_desired_velocity<T: Component, A: Component>(
     >,
 ) {
     for (mut brain, mut velocity, mut agent_velocity, desired_velocity) in agent_query.iter_mut() {
-        velocity.linvel = desired_velocity.velocity();
-        agent_velocity.0 = velocity.linvel;
+        velocity.0.linvel = desired_velocity.velocity();
+        agent_velocity.0 = velocity.0.linvel;
         brain.write_verdict(Verdict::Success);
     }
 }
 
 pub fn zero_velocity<T: Component, A: Component>(
     mut agent_query: Query<
-        (&mut Brain, &mut Velocity, &mut AgentVelocity),
+        (&mut Brain, &mut RawVelocity, &mut AgentVelocity),
         (With<T>, With<A>, Without<Rewind>, Without<Dead>),
     >,
 ) {
     for (mut brain, mut velocity, mut agent_velocity) in agent_query.iter_mut() {
-        velocity.linvel = Vec3::ZERO;
-        agent_velocity.0 = velocity.linvel;
+        velocity.0.linvel = Vec3::ZERO;
+        agent_velocity.0 = velocity.0.linvel;
         brain.write_verdict(Verdict::Success);
     }
 }

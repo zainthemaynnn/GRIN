@@ -12,7 +12,7 @@ use grin_physics::PhysicsTime;
 #[derive(SystemSet, Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub enum SpawnSet {
     /// Enemy spawn events are consumed, within the `PreUpdate` schedule.
-    SpawnDeferred,
+    Spawn,
     /// Enemy spawner timers are initialized.
     TimerSet,
     /// Enemy spawner timers are ticked.
@@ -64,10 +64,7 @@ impl<T: Component> Plugin for EnemySpawnPlugin<T> {
                 LoadingStateConfig::new(AssetLoadState::Loading)
                     .load_collection::<indicators::SpawnIndicatorAssets>(),
             )
-            .add_systems(
-                PreUpdate,
-                init_spawn_events::<T>.in_set(SpawnSet::SpawnDeferred),
-            )
+            .add_systems(PreUpdate, init_spawn_events::<T>.in_set(SpawnSet::Spawn))
             .add_systems(
                 Update,
                 (
@@ -182,7 +179,7 @@ pub fn tick_spawn_indicators(time: Res<PhysicsTime>, mut spawn_query: Query<&mut
 
 pub fn transition_spawn_states<T: Component>(
     mut commands: Commands,
-    spawn_query: Query<(Entity, &Spawning, &SpawnStage)>,
+    spawn_query: Query<(Entity, &Spawning, &SpawnStage), With<T>>,
     mut state_events: EventWriter<SpawnStageReached<T>>,
     mut completed_events: EventWriter<SpawnCompleted<T>>,
 ) {
@@ -209,7 +206,7 @@ pub fn transition_spawn_states<T: Component>(
 
 pub fn reinitialize_spawn_timers<T: Component>(
     mut state_events: EventReader<SpawnStageReached<T>>,
-    mut spawn_query: Query<(&mut Spawning, &mut SpawnStage)>,
+    mut spawn_query: Query<(&mut Spawning, &mut SpawnStage), With<T>>,
 ) {
     for SpawnStageReached { entity, stage, .. } in state_events.read() {
         let Ok((mut spawning, mut stage_ref)) = spawn_query.get_mut(*entity) else {

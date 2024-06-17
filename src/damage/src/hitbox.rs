@@ -89,11 +89,7 @@ pub struct Hitbox {
 }
 
 #[derive(Debug)]
-pub enum HitboxGenerationError<'a> {
-    DupedNodeId {
-        e_master: Entity,
-        err: OccupiedError<'a, Name, Entity, BuildHasherDefault<AHasher>>,
-    },
+pub enum HitboxGenerationError {
     ColliderParseError {
         e_master: Entity,
         node_id: String,
@@ -223,18 +219,17 @@ pub fn init_hitboxes(
                         continue;
                     };
 
-                    if let Err(err) = hitbox_manager.colliders.try_insert(node_id, e_hitbox) {
-                        error!(error = ?HitboxGenerationError::DupedNodeId {
-                            e_master,
-                            err,
-                        });
-                        continue;
-                    }
+                    let e_collider = commands
+                        .spawn((
+                            Hitbox { target: e_master },
+                            Collider::from(collider_attrs),
+                            Hitboxes::template(),
+                            TransformBundle::default(),
+                        ))
+                        .set_parent(e_hitbox)
+                        .id();
 
-                    commands
-                        .entity(e_hitbox)
-                        .insert((Hitbox { target: e_master }, Collider::from(collider_attrs)))
-                        .insert(Hitboxes::template());
+                    hitbox_manager.colliders.insert(node_id, e_collider);
                 }
                 HitboxCategoryIdentifier::Hurtbox => {
                     let Ok(ref mut hitbox_manager) = hurtbox_manager else {
@@ -246,18 +241,17 @@ pub fn init_hitboxes(
                         continue;
                     };
 
-                    if let Err(err) = hitbox_manager.colliders.try_insert(node_id, e_hitbox) {
-                        error!(error = ?HitboxGenerationError::DupedNodeId {
-                            e_master,
-                            err,
-                        });
-                        continue;
-                    }
+                    let e_collider = commands
+                        .spawn((
+                            Hitbox { target: e_master },
+                            Collider::from(collider_attrs),
+                            Hurtboxes::template(),
+                            TransformBundle::default(),
+                        ))
+                        .set_parent(e_hitbox)
+                        .id();
 
-                    commands
-                        .entity(e_hitbox)
-                        .insert((Hitbox { target: e_master }, Collider::from(collider_attrs)))
-                        .insert(Hurtboxes::template());
+                    hitbox_manager.colliders.insert(node_id, e_collider);
                 }
             }
         }
